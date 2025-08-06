@@ -1,14 +1,41 @@
+// ./fronted/src/pages/Login.jsx
+
 import React, { useState } from 'react';
 import './Login.css';
 
 function Login() {
-  const [username, setUsername] = useState('');
+  const [userLoginId, setUserLoginId] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     // 로그인 로직 구현
-    console.log('Login attempt:', { username, password });
+    setError('');
+
+    try {
+      const response = await fetch('/api/accounts/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_login_id: userLoginId,
+          password: password,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('로그인 실패');
+      }
+
+      const data = await response.json();
+      // 토큰 키 이름이 명세서에 없으니 백엔드 응답 구조 확인 필요
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      alert('로그인 성공!');
+    } catch (err) {
+      setError('아이디 또는 비밀번호가 올바르지 않습니다.');
+    }
   };
 
   return (
@@ -20,8 +47,8 @@ function Login() {
             <input
               type="text"
               placeholder="사용자명"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={userLoginID}
+              onChange={(e) => setUserLoginId(e.target.value)}
               required
             />
           </div>
@@ -34,6 +61,7 @@ function Login() {
               required
             />
           </div>
+          {error && <p style={{ color: 'red', textAlign: 'center'}}>{error}</p>}
           <button type="submit">로그인</button>
         </form>
       </div>
