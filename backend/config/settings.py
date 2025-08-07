@@ -67,8 +67,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'postgre'),
-        'USER': os.environ.get('DB_USER', 'growing'),
+        'NAME': os.environ.get('DB_NAME', 'postgres'),
+        'USER': os.environ.get('DB_USER', 'superuser'),
         'PASSWORD': os.environ.get('DB_PASSWORD', '1111'),
         'HOST': os.environ.get('DB_HOST', 'db'),
         'PORT': '5432',
@@ -102,6 +102,7 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
+    BASE_DIR.parent / 'frontend' / 'build' / 'static',  # React build files
 ]
 
 # Media files

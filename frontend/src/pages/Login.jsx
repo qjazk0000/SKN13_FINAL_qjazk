@@ -47,7 +47,7 @@ function Login() {
             <input
               type="text"
               placeholder="사용자명"
-              value={userLoginID}
+              value={userLoginId}
               onChange={(e) => setUserLoginId(e.target.value)}
               required
             />
