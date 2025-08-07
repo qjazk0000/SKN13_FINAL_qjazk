@@ -6,9 +6,10 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
     ports:
-      - "80:80"
+      - "8000:80"  # 8000 포트로 Nginx 접근
     depends_on:
       - backend
+      - frontend
 
   backend:
     build: ./backend
@@ -16,13 +17,24 @@ services:
       - ./backend:/app
       - ./frontend/build:/app/frontend/build  # React 빌드 파일을 Django에 마운트
     ports:
-      - "8000:8000"
+      - "8001:8000"  # 백엔드는 8001 포트로 접근
     env_file:
       - ./.env
     depends_on:
       - db
 
-  # frontend 서비스는 제거 - Django에서 React 앱을 직접 서빙
+
+  frontend:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"  # 프론트엔드는 3000 포트 유지
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost/api
+    depends_on:
+      - backend
 
   db:
     image: postgres:16.9
