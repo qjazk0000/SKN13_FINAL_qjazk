@@ -1,13 +1,11 @@
 import React from 'react';
 import './App.css';
+import Login from './pages/Login';
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>SKN13-FINAL-6Team</h1>
-        <p>AI Chatbot Application</p>
-      </header>
+      <Login />
     </div>
   );
 }
