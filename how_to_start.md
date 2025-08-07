@@ -62,13 +62,15 @@ docker-compose logs -f
 
 ## 접속 방법
 
-### 개별 실행 시
+### 개별 실행 시 (Django에서 React 서빙)
 - **메인 웹사이트 (React + Django)**: http://localhost:8000
 - **Django 관리자**: http://localhost:8000/admin
 - **API 엔드포인트**: http://localhost:8000/api
 
-### Docker 실행 시
-- **메인 웹사이트 (React + Django)**: http://localhost:8000
+### Docker 실행 시 (nginx + frontend + backend)
+- **메인 웹사이트 (React)**: http://localhost
+- **React 개발 서버**: http://localhost:3000
+- **Django 백엔드**: http://localhost:8000
 - **Django 관리자**: http://localhost:8000/admin
 - **API 엔드포인트**: http://localhost:8000/api
 
