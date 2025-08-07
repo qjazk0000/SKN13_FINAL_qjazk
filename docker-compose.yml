@@ -22,7 +22,17 @@ services:
     depends_on:
       - db
 
-  # frontend 서비스는 제거 - Django에서 React 앱을 직접 서빙
+  frontend:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_BASE_URL=http://localhost/api
+    depends_on:
+      - backend
 
   db:
     image: postgres:16.9
