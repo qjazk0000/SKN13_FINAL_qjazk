@@ -6,10 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = load_dotenv(BASE_DIR, "SECRET_KEY")
+load_dotenv(BASE_DIR / ".env")
+SECRET_KEY = os.getenv("SECRET_KEY")
 # SECRET_KEY = os.environ.get('SECRET_KEY', 'your-django-secret-key-here')
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -27,6 +28,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'chatbot',
+    'receipt',
+    'authapp'
 ]
 
 MIDDLEWARE = [
@@ -116,3 +119,5 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ],
 }
+
+LOGIN_URL = '/login/'  # 또는 적절한 로그인 경로
