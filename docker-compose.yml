@@ -14,6 +14,7 @@ services:
     build: ./backend
     volumes:
       - ./backend:/app
+      - ./frontend/build:/app/frontend/build  # React 빌드 파일을 Django에 마운트
     ports:
       - "8000:8000"
     env_file:
@@ -21,17 +22,7 @@ services:
     depends_on:
       - db
 
-  frontend:
-    build: ./frontend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_BASE_URL=http://localhost/api
-    depends_on:
-      - backend
+  # frontend 서비스는 제거 - Django에서 React 앱을 직접 서빙
 
   db:
     image: postgres:16.9
