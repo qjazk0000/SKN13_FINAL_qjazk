@@ -15,12 +15,14 @@ services:
     build: ./backend
     volumes:
       - ./backend:/app
+      - ./frontend/build:/app/frontend/build  # React 빌드 파일을 Django에 마운트
     ports:
       - "8001:8000"  # 백엔드는 8001 포트로 접근
     env_file:
       - ./.env
     depends_on:
       - db
+
 
   frontend:
     build: ./frontend
