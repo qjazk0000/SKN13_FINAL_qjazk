@@ -12,6 +12,7 @@ def serve_react(request, path=''):
     try:
         # React build 디렉토리에서 index.html 파일을 찾습니다
         react_build_path = os.path.join(settings.BASE_DIR.parent, 'frontend', 'build', 'index.html')
+        print(f"React build path: {react_build_path}")  # 디버깅용 출력
         
         if os.path.exists(react_build_path):
             with open(react_build_path, 'r', encoding='utf-8') as f:

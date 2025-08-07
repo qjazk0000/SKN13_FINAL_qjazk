@@ -1,5 +1,7 @@
 Django>=4.2,<5.0
 djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
 python-dotenv
 uvicorn
 psycopg2-binary
