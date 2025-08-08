@@ -7,9 +7,6 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . /app
 
-# Static 파일 수집
-RUN python manage.py collectstatic --noinput
-
 EXPOSE 8000
 
 CMD ["uvicorn", "config.asgi:application", "--host", "0.0.0.0", "--port", "8000"]
