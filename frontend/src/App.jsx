@@ -13,7 +13,6 @@ function App() {
         <Route path="/mypage" element={<MyPage />} />
       </Routes>
     </Router>
-
   );
 }
 
