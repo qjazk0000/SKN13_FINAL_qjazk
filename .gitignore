@@ -54,4 +54,7 @@ docker-compose.override.yml
 coverage/
 dist/
 *.tgz
-*.zip 
+*.zip
+
+# AWS keypair
+*.pem
