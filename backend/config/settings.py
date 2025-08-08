@@ -1,12 +1,12 @@
+# config/settings.py
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-load_dotenv(BASE_DIR / '.env')
+# BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'your-django-secret-key-here')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,7 +31,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'chatbot',
     'receipt',
-    'authapp'
+    'authapp',
     'accounts',
 ]
 
