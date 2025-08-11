@@ -1,8 +1,8 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Login from './pages/Login';
-import Chat from './pages/Chat';
-import MyPage from './pages/MyPage';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login/Login";
+import Chat from "./pages/Chat/Chat";
+import "./App.css";
 
 function App() {
   return (
@@ -10,10 +10,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/chat" element={<Chat />} />
-        <Route path="/mypage" element={<MyPage />} />
       </Routes>
     </Router>
-
   );
 }
 
