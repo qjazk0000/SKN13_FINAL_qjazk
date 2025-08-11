@@ -25,14 +25,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_celery_results',  # Celery 작업 결과 저장(DB)
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'chatbot',
     'receipt',
-    'authapp',
-    'accounts',
+    'authapp',  # 인증 관련 앱 (accounts와 중복되지 않도록 주의)
     'qdrant',
 ]
 
@@ -189,9 +187,3 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Celery 설정
-CELERY_BROKER_URL = 'redis://localhost:6379/0'   # Redis 브로커
-CELERY_RESULT_BACKEND = 'django-db'              # 결과 DB에 저장
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
