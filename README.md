@@ -1,15 +1,18 @@
 # NAVI
 
-## 팀 명 : Team Healtics💊
+## 팀 명 : 💊💊Dopamine
 ## 👥 팀원소개
-| 팀장 | 팀원 | 팀원 | 팀원 |
-|------|------|------|------|
+| 팀장 | 팀원 | 팀원 | 팀원 | 팀원 |
+|------|------|------|------|------|
 | <img src="./images/1.png" width="100" height="100"> <br> 최성장 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/GrowingChoi) | <img src="./images/2.png" width="100" height="100"> <br> 고범석 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/qqqppma) | <img src="./images/3.png" width="100" height="100"> <br> 지형우 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/subin0821) | <img src="./images/4.png" width="100" height="100"> <br> 김동욱 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/oowwixxj819) | <img src="./images/5.png" width="100" height="100"> <br> 안수민 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/oowwixxj819) | 
 
 
 # 프로젝트 개요
 
 ## 📖 소개
+<img width="444" height="312" alt="image" src="https://github.com/user-attachments/assets/6b6ea757-34b7-46e3-91b7-1476c9d2b9ae" />
+
+
 **NAVI**는 사내 임직원들을 위한 **문서 기반 업무 지원 LLM 챗봇 서비스**입니다.  
 회의록 요약, 업무 가이드 제공, 이미지·문서 처리 등 반복적인 사무 업무를 자동화하여  
 **편의성과 조직 전체의 생산성**을 높이는 것을 목표로 합니다.  
@@ -21,6 +24,8 @@ LLM 기반 자연어 처리 기술과 벡터 데이터베이스를 활용하여
 ---
 
 ## 💡 주제 선정 배경
+<img width="513" height="313" alt="image" src="https://github.com/user-attachments/assets/e5162ca5-9959-432d-b43f-30cc288d01ca" />
+
 사내 구성원들은 업무 매뉴얼 확인, 회의 요약, 문서 작성 등을 위해  
 반복적인 질의응답과 수작업을 수행하고 있습니다.  
 특히 신입 직원이나 부서 간 협업 시에는 필요한 업무 가이드라인을 파악하기 어려워,  
@@ -45,12 +50,16 @@ LLM 기반 자연어 처리 기술과 벡터 데이터베이스를 활용하여
 
 ---
 
+## 기술 스택 구성
+<img width="844" height="406" alt="image" src="https://github.com/user-attachments/assets/2e8209d2-226a-40dd-8474-d5bc21bd6e23" />
+
 ## 🛠 시스템 구성
 ### **인터페이스 (Frontend)**
 - 단일 채팅창 기반 UI
 - 텍스트 입력 및 파일 업로드 (이미지, 문서 등)
 - 응답 텍스트 및 파일(PDF 등) 제공
-- **기술 스택**: Django Template
+- **기술 스택**: React
+
 
 ### **서버 (Backend)**
 - 입력 분기 및 체인 라우팅 (텍스트 / 이미지 / 문서)
@@ -76,7 +85,7 @@ LLM 기반 자연어 처리 기술과 벡터 데이터베이스를 활용하여
 - **기술 스택**: PostgreSQL
 
 ### **배포 환경**
-- **기술 스택**: AWS EC2, Docker
+- **기술 스택**: AWS EC2, Vercel, Docker
 
 ---
 
