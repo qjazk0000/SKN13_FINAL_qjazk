@@ -4,6 +4,12 @@ export default function DateSelectBar() {
   const [start_date, setStartDate] = useState("");
   const [end_date, setEndDate] = useState("");
 
+  const today = new Date().toISOString().split("T")[0];
+
+  const startMax = end_date
+    ? (end_date < today ? end_date : today)
+    : today;
+
   return (
     <div className="flex space-x-2 items-center">
       <label>기간 선택:</label>
@@ -13,6 +19,7 @@ export default function DateSelectBar() {
         value={start_date}
         onChange={(e) => setStartDate(e.target.value)}
         className="border border-gray-300 rounded p-2"
+        max={startMax}
       />
 
       <span>~</span>
@@ -22,7 +29,8 @@ export default function DateSelectBar() {
         value={end_date}
         onChange={(e) => setEndDate(e.target.value)}
         className="border border-gray-300 rounded p-2"
-        min={start_date} // 시작 날짜보다 이전 날짜 선택 방지
+        min={start_date} 
+        max={today}
       />
     </div>
   );
