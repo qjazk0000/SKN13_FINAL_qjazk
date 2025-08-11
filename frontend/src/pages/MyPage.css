@@ -5,7 +5,7 @@
 }
 
 .mypage-content {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
   background: white;
   border-radius: 8px;
@@ -17,74 +17,198 @@
   text-align: center;
   color: #333;
   margin-bottom: 2rem;
+  font-size: 1.8rem;
 }
 
-.profile-section,
-.usage-section,
-.actions-section {
-  margin-bottom: 2rem;
-}
-
-.profile-section h3,
-.usage-section h3,
-.actions-section h3 {
-  color: #007bff;
-  margin-bottom: 1rem;
-}
-
-.profile-info p {
-  margin: 0.5rem 0;
-  color: #666;
-}
-
-.stats-grid {
+.mypage-sections {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  margin-top: 2rem;
 }
 
-.stat-item {
-  text-align: center;
-  padding: 1rem;
-  background-color: #f8f9fa;
+/* 사용자 정보 섹션 */
+.user-info-section {
+  padding: 1.5rem;
+  background-color: #fafafa;
   border-radius: 8px;
+  border: 1px solid #e0e0e0;
 }
 
-.stat-number {
-  display: block;
-  font-size: 2rem;
-  font-weight: bold;
-  color: #007bff;
+.profile-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.stat-label {
-  display: block;
-  font-size: 0.9rem;
-  color: #666;
-  margin-top: 0.5rem;
+.profile-avatar {
+  margin-right: 1.5rem;
 }
 
-.action-button {
-  display: block;
-  width: 100%;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-  background-color: #007bff;
+.avatar-icon {
+  width: 60px;
+  height: 60px;
+  background-color: #333;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  font-size: 2rem;
+}
+
+.profile-details {
+  flex: 1;
+}
+
+.user-name {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.user-email {
+  margin: 0;
+  color: #666;
   font-size: 1rem;
 }
 
-.action-button:hover {
-  background-color: #0056b3;
+.user-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-.action-button.logout {
-  background-color: #dc3545;
+.field-group {
+  display: flex;
+  flex-direction: column;
 }
 
-.action-button.logout:hover {
-  background-color: #c82333;
+.field-group label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.info-input {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: white;
+}
+
+.info-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* 비밀번호 관리 섹션 */
+.password-section {
+  padding: 1.5rem;
+  background-color: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.password-section h3 {
+  margin: 0 0 1.5rem 0;
+  color: #333;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.password-section form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.password-input {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: white;
+}
+
+.password-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.password-input::placeholder {
+  color: #999;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 0.9rem;
+  margin: 0;
+  text-align: center;
+}
+
+.success-message {
+  color: #28a745;
+  font-size: 0.9rem;
+  margin: 0;
+  text-align: center;
+}
+
+.submit-button {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  align-self: flex-end;
+  margin-top: 1rem;
+}
+
+.submit-button:hover {
+  background-color: #357abd;
+}
+
+.submit-button:active {
+  transform: translateY(1px);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .mypage-sections {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  .mypage-container {
+    padding: 1rem;
+  }
+  
+  .mypage-content {
+    padding: 1.5rem;
+  }
+  
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .profile-avatar {
+    margin-right: 0;
+    margin-bottom: 1rem;
+  }
+  
+  .submit-button {
+    align-self: stretch;
+  }
 } 
