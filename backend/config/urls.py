@@ -8,6 +8,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/chatbot/', include('chatbot.urls')),
     path('api/accounts/', include('accounts.urls')),
+    path('api/qdrant/', include('qdrant.urls')),
 ]
 
 # DEBUG 모드에서 정적 파일과 미디어 파일을 서빙 (admin 페이지를 위함)
