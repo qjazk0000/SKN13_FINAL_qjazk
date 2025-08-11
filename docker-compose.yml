@@ -49,3 +49,4 @@ volumes:
   static_volume:
   media_volume:
   qdrant_storage:
+
