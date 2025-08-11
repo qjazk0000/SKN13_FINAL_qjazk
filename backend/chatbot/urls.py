@@ -1,14 +1,15 @@
+# chatbot/urls.py
 from django.urls import path
-from django.http import JsonResponse
-from . import views
-
-app_name = 'chatbot'
+from .views import (
+    ConversationListView,
+    ConversationCreateView,
+    ChatQueryView,
+    ChatStatusView,
+)
 
 urlpatterns = [
-    path('chat/history/', views.chat_history, name='chat_history'),
-    path('chat/create/', views.create_chat, name='create_chat'),
-    path('chat/<str:session_id>/messages/', views.get_chat_messages, name='get_chat_messages'),
-    path('chat/send/', views.send_message, name='send_message'),
-    path('chat/<str:session_id>/title/', views.update_chat_title, name='update_chat_title'),
-    path('chat/<str:session_id>/delete/', views.delete_chat, name='delete_chat'),
+    path('list/', ConversationListView.as_view(), name='conversation-list'),
+    path('new/', ConversationCreateView.as_view(), name='conversation-create'),
+    path('<uuid:session_id>/query/', ChatQueryView.as_view(), name='chat-query'),
+    path('<uuid:session_id>/status/', ChatStatusView.as_view(), name='chat-status'),
 ]
