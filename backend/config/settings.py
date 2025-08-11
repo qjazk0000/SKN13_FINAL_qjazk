@@ -1,3 +1,4 @@
+# config/settings.py
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -6,10 +7,10 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR.parent / '.env')
 
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'your-django-secret-key-here')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
+# SECRET_KEY = os.environ.get('SECRET_KEY', 'your-django-secret-key-here')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
@@ -24,10 +25,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_celery_results',  # Celery 작업 결과 저장(DB)
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'chatbot',
+    'receipt',
+    'authapp',
     'accounts',
 ]
 
@@ -114,11 +118,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        # 'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication', # 세션 인증
+        'rest_framework_simplejwt.authentication.JWTAuthentication', # JWT 인증
     ],
 }
 
@@ -130,3 +135,22 @@ CORS_ALLOWED_ORIGINS =  [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# JWT 설정
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# Celery 설정
+CELERY_BROKER_URL = 'redis://localhost:6379/0'   # Redis 브로커
+CELERY_RESULT_BACKEND = 'django-db'              # 결과 DB에 저장
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'

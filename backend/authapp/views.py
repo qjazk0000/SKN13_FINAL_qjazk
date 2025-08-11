@@ -1,28 +1,32 @@
+# authapp/views.py
+
+from django.contrib.auth import authenticate, login, logout, get_user, update_session_auth_hash
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import check_password
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework_simplejwt.tokens import RefreshToken
 import json
-from django.contrib.auth import authenticate, login, logout, get_user, update_session_auth_hash
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.hashers import check_password
+
 
 @csrf_exempt
-def login(request):
-    if request.method == "POST":
+def login_view(request):
+    if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            user_login_id = data.get("user_login_id")
-            password = data.get("password")
+            user_login_id = data.get('user_login_id')
+            password = data.get('passwd')
 
             if not user_login_id or not password:
                 return JsonResponse({"error": "아이디와 비밀번호를 입력하세요"}, status=400)
             
             user = authenticate(username=user_login_id, password=password)
             if user is not None:
+                login(request, user)  # 세션 로그인도 적용
                 refresh = RefreshToken.for_user(user)
                 return JsonResponse({
                     "token": str(refresh.access_token),
-                    "regresh": str(refresh),
+                    "refresh": str(refresh),
                     "user": user.username
                 }, status=200)
             else:
@@ -30,6 +34,7 @@ def login(request):
         except json.JSONDecodeError:
             return JsonResponse({"error": "잘못된 요청 형식입니다."}, status=400)
     return JsonResponse({"error": "허용되지 않은 메서드입니다."}, status=405)
+
 
 @csrf_exempt
 @login_required
