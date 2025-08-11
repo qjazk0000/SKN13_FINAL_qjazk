@@ -10,24 +10,25 @@ function Login() {
     setError("");
 
     try {
-      const response = await fetch("/api/accounts/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_login_id: userLoginId,
-          password: password,
-        }),
-      });
+      // const response = await fetch("/api/accounts/login", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({
+      //     user_login_id: userLoginId,
+      //     password: password,
+      //   }),
+      // });
 
-      if (!response.ok) {
-        throw new Error("로그인 실패");
-      }
+      // if (!response.ok) {
+      //   throw new Error("로그인 실패");
+      // }
 
-      const data = await response.json();
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-      }
+      // const data = await response.json();
+      // if (data.token) {
+      //   localStorage.setItem("token", data.token);
+      // }
       alert("로그인 성공!");
+      window.location.href = "/chat"; // 로그인 성공 후 채팅 페이지로 이동
     } catch (err) {
       setError("아이디 또는 비밀번호가 올바르지 않습니다.");
     }
