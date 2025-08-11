@@ -5,3 +5,13 @@ django-cors-headers
 python-dotenv
 uvicorn
 psycopg2-binary
+qdrant-client
+sentence-transformers
+PyPDF2
+langchain
+langchain-community
+langchain-huggingface
+langchain-openai
+transformers
+torch
+tqdm
