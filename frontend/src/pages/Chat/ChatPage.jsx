@@ -4,6 +4,7 @@
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Chat from "./Chat";
+import Receipt from "./Receipt";
 import Sidebar from "./Sidebar";
 
 function ChatPage() {
@@ -15,6 +16,7 @@ function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("업무 가이드");
 
   const selectedChat = useMemo(
     () => chats.find((chat) => chat.id === selectedChatId) || null,
@@ -174,6 +176,12 @@ function ChatPage() {
     }
   }, []);
 
+  // 카테고리 선택 핸들러 (업무 가이드, 영수증 처리)
+  const handleSelectCategory = useCallback((category) => {
+    setSelectedCategory(category);
+    setSelectedChatId(null);
+  }, []);
+
   return (
     <div className="flex w-full min-h-screen bg-gray-100">
       <Sidebar
@@ -181,15 +189,22 @@ function ChatPage() {
         chats={chats}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
+        onSelectCategory={handleSelectCategory}
+        selectedCategory={selectedCategory}
         onLogout={handleLogout}
         isLoading={isSidebarLoading}
       />
       <div className="flex-grow flex justify-center items-center">
-        <Chat
-          chat={selectedChat}
-          onSendMessage={handleSendMessage}
-          isLoading={isLoading}
-        />
+        {selectedCategory === "채팅방" || selectedCategory === "업무 가이드" ? (
+          <Chat
+            chat={selectedChat}
+            onSendMessage={handleSendMessage}
+            isLoading={isLoading}
+            selectedCategory={selectedCategory}
+          />
+        ) : (
+          <Receipt selectedCategory={selectedCategory} />
+        )}
       </div>
     </div>
   );
