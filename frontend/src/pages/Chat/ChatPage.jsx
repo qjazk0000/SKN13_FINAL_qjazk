@@ -1,8 +1,8 @@
 // ChatPage.jsx
 
-import { useCallback, useState, useMemo } from "react";
-import Sidebar from "./Sidebar";
+import { useCallback, useMemo, useState } from "react";
 import Chat from "./Chat";
+import Sidebar from "./Sidebar";
 
 function ChatPage() {
   const [chats, setChats] = useState([
