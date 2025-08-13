@@ -4,9 +4,8 @@ import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
 import TypingEffect from "./TypingEffect";
 
-function Chat({ chat, onSendMessage }) {
+function Chat({ chat, onSendMessage, isLoading }) {
   const [text, setText] = useState("");
-  //   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const messageEndRef = useRef(null);
 
   // 메시지 전송 후 스크롤을 맨 아래로 이동
@@ -17,7 +16,6 @@ function Chat({ chat, onSendMessage }) {
   }, [chat?.messages]);
 
   const handleSend = () => {
-    // console.log("메시지 전송:", text);
     if (text.trim() === "") return;
     onSendMessage(text);
     setText("");
@@ -47,7 +45,7 @@ function Chat({ chat, onSendMessage }) {
   }
 
   return (
-    <div className="flex flex-col w-full h-[100dvh] px-60 rounded-lg">
+    <div className="flex flex-col w-full h-[100dvh] sm:px-8 md:px-16 lg:px-32 xl:px-60 rounded-lg">
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {chat.messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
@@ -77,7 +75,17 @@ function Chat({ chat, onSendMessage }) {
                 } whitespace-pre-wrap`}
               >
                 {message.sender === "assistant" ? (
-                  <TypingEffect text={message.text} />
+                  message.isLoading ? (
+                    <span className="flex items-center space-x-2">
+                      <span>답변 생성 중...</span>
+                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100"></span>
+                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200"></span>
+                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-300"></span>
+                    </span>
+                  ) : (
+                    // 로딩 완료 시
+                    <TypingEffect text={message.text} />
+                  )
                 ) : (
                   message.text
                 )}
@@ -97,11 +105,12 @@ function Chat({ chat, onSendMessage }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
+            disabled={isLoading}
           />
           <button
             className="absolute right-2 top-4 bg-gray-400 text-white rounded-full p-2 h-10 w-10 flex items-center justify-center cursor-pointer transition-colors"
             onClick={handleSend}
-            disabled={text.trim() === ""}
+            disabled={text.trim() === "" || isLoading}
           >
             <PaperAirplaneIcon className="h-5 w-5" />
           </button>
