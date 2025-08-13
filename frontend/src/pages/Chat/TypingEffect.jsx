@@ -1,6 +1,6 @@
 // TypingEffect.jsx
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function TypingEffect({ text }) {
   const [displayedText, setDisplayedText] = useState("");
