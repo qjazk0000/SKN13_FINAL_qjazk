@@ -1,12 +1,20 @@
 // Chat.jsx
-import { useState } from "react";
-import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
+import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
+import { useEffect, useRef, useState } from "react";
 import TypingEffect from "./TypingEffect";
 
 function Chat({ chat, onSendMessage }) {
   const [text, setText] = useState("");
   //   const [isFirstMessage, setIsFirstMessage] = useState(true);
+  const messageEndRef = useRef(null);
+
+  // 메시지 전송 후 스크롤을 맨 아래로 이동
+  useEffect(() => {
+    if (messageEndRef.current) {
+      messageEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chat?.messages]);
 
   const handleSend = () => {
     // console.log("메시지 전송:", text);
@@ -39,8 +47,8 @@ function Chat({ chat, onSendMessage }) {
   }
 
   return (
-    <div className="flex flex-col w-full h-full px-60 rounded-lg">
-      <div className="flex-grow overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col w-full h-[100dvh] px-60 rounded-lg">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {chat.messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-500">
             <img
@@ -77,9 +85,10 @@ function Chat({ chat, onSendMessage }) {
             </div>
           ))
         )}
+        <div ref={messageEndRef} />
       </div>
 
-      <div className="p-4 border-t flex items-start space-x-2">
+      <div className="p-4 border-t flex items-start space-x-2 flex-shrink-0">
         <div className="relative flex-grow">
           <textarea
             rows="2"
