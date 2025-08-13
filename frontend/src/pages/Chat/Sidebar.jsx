@@ -7,8 +7,16 @@ function Sidebar({
   onSelectChat,
   onLogout,
   isLoading,
+  onSelectCategory,
+  selectedCategory,
 }) {
   const initials = userName?.[0] || "U";
+
+  const getCategoryClass = (categoryName) => {
+    return selectedCategory === categoryName
+      ? "bg-gray-700 text-white"
+      : "text-gray-300 hover:bg-gray-700 hover:text-white";
+  };
 
   return (
     <div className="flex flex-col w-64 h-screen bg-gray-800 text-white">
@@ -19,10 +27,20 @@ function Sidebar({
 
       {/* 카테고리 메뉴 */}
       <div className="flex flex-col px-2 py-4 gap-2">
-        <div className="flex items-center px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white cursor-pointer">
+        <div
+          className={`flex items-center px-4 py-2 rounded-md cursor-pointer ${getCategoryClass(
+            "업무 가이드"
+          )}`}
+          onClick={() => onSelectCategory("업무 가이드")}
+        >
           업무 가이드
         </div>
-        <div className="flex items-center px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white cursor-pointer">
+        <div
+          className={`flex items-center px-4 py-2 rounded-md cursor-pointer ${getCategoryClass(
+            "영수증 처리"
+          )}`}
+          onClick={() => onSelectCategory("영수증 처리")}
+        >
           영수증 처리
         </div>
       </div>
