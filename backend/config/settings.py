@@ -172,13 +172,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',  # 기본 권한을 AllowAny로 변경
-        # 'rest_framework.permissions.IsAuthenticated',
     ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication', # 세션 인증
-        'rest_framework_simplejwt.authentication.JWTAuthentication', # JWT 인증
-    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [],  # Django 인증 시스템 비활성화
 }
+
+# JWT 설정 제거 (더 이상 필요하지 않음)
+# SIMPLE_JWT = { ... }  # 이 부분을 주석 처리하거나 제거
 
 # INSTALLED_APPS += ['corsheaders']
 # MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
@@ -193,31 +192,3 @@ CORS_ALLOW_CREDENTIALS = True
 
 # 개발 환경에서 CORS 설정 완화
 CORS_ALLOW_ALL_ORIGINS = True  # 개발 중에만 사용 (프로덕션에서는 제거)
-
-# JWT 설정
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
-
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUDIENCE': None,
-    'ISSUER': None,
-
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM': 'token_type',
-
-    'JTI_CLAIM': 'jti',
-    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
-    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=60),
-    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
-}

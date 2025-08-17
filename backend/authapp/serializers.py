@@ -57,6 +57,7 @@ class LoginSerializer(serializers.Serializer):
                     class CustomUser:
                         def __init__(self, user_data):
                             self.id = user_data[0]           # user_id (1번째) - JWT 토큰 생성에 필요
+                            
                             self.username = user_data[1]      # user_login_id (2번째)
                             self.email = user_data[6]         # email (7번째)
                             self.first_name = user_data[3]    # name (4번째)
