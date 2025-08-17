@@ -1,103 +1,165 @@
 # authapp/views.py
-
-from django.contrib.auth import authenticate, login, logout, get_user, update_session_auth_hash
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.hashers import check_password
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-import json
+from rest_framework_simplejwt.exceptions import InvalidToken
+from django.contrib.auth.hashers import check_password
+from .serializers import (
+    LoginSerializer,
+    RefreshTokenSerializer,
+    UserProfileSerializer,
+    PasswordChangeSerializer
+)
 
+class LoginView(APIView):
+    def post(self, request):  # POST 요청 처리 메소드
+        serializer = LoginSerializer(data=request.data)
+        if serializer.is_valid():  # 유효성 검사 통과 시 사용자 정보 추출
+            user = serializer.validated_data['user']
 
-@csrf_exempt
-def login_view(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            user_login_id = data.get('user_login_id')
-            password = data.get('passwd')
+            # JWT 토큰 생성
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
 
-            if not user_login_id or not password:
-                return JsonResponse({"error": "아이디와 비밀번호를 입력하세요"}, status=400)
+            return Response({  # 성공 응답 반환
+                'success': True,
+                'message': '로그인 성공',
+                'data': {
+                    'access_token': access_token,
+                    'refresh_token': refresh_token,
+                    'user': {
+                        'username': user.username,
+                        'email': user.email
+                    }
+                }
+            }, status=status.HTTP_200_OK)
+        
+        return Response({  # 유효성 검사 실패 시 에러 응답 반환환
+            'success': False,
+            'message': '회원 정보가 올바르지 않습니다.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):  # GET 요청 처리 메소드
+        # 로그인 상태 확인 - GET 요청은 허용하지 않음
+        return Response({
+            'success': False,
+            'message': 'GET 요청은 지원하지 않습니다. POST 요청을 사용해주세요.',
+            'method': 'GET',
+            'allowed_methods': ['POST']
+        }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+class RefreshTokenView(APIView):
+    def post(self, request):
+        serializer = RefreshTokenSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                refresh_token = serializer.validated_data['refresh']
+                refresh = RefreshToken(refresh_token)
+                new_access_token = str(refresh.access_token)
+
+                return Response({
+                    'success': True,
+                    'message': '토큰 갱신 성공',
+                    'data': {
+                        'access_token': new_access_token
+                    }
+                }, status=status.HTTP_200_OK)
             
-            user = authenticate(username=user_login_id, password=password)
-            if user is not None:
-                login(request, user)  # 세션 로그인도 적용
-                refresh = RefreshToken.for_user(user)
-                return JsonResponse({
-                    "token": str(refresh.access_token),
-                    "refresh": str(refresh),
-                    "user": user.username
-                }, status=200)
-            else:
-                return JsonResponse({"error": "아이디 또는 비밀번호가 잘못되었습니다."}, status=401)
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "잘못된 요청 형식입니다."}, status=400)
-    return JsonResponse({"error": "허용되지 않은 메서드입니다."}, status=405)
+            except InvalidToken:
+                return Response({
+                    'success': False,
+                    'message': '유효하지 않은 리프레시 토큰입니다.',
+                    'errors': {'refresh': ['토큰이 만료되었거나 유효하지 않습니다.']}
+                }, status=status.HTTP_401_UNAUTHORIZED)
 
+        return Response({
+            'success': False,
+            'mesage': '입력 데이터가 올바르지 않습니다.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-@csrf_exempt
-@login_required
-def logout_view(request):
-    if request.method == 'POST':
-        logout(request)
-        return JsonResponse({'message': '로그아웃 성공'}, status=200)
-    return JsonResponse({'error': 'POST 요청만 허용됩니다.'}, status=405)
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
 
-
-@csrf_exempt
-@login_required
-def password_change_view(request):
-    if request.method == 'POST':
+    def post(self, request):
         try:
-            data = json.loads(request.body)
-            current_password = data.get("current_password")
-            new_password = data.get("new_password")
-            confirm_password = data.get("confirm_password")
+            # JWT 토큰 블랙리스트 처리 (선택사항) 이게 뭐야???
+            # 현재는 단순히 성공 응답만 반환
+            return Response({
+                'success': True,
+                'message': '로그아웃 성공'
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': '로그아웃 처리 중 오류가 발생했습니다.',
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-            user = request.user
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]  # 인증된 사용자만 접근 가능하도록 설정 (JWT 토큰 검증)
+                                            # 비로그인 사용자(AnonymousUser)는 401 Unauthorized 응답 반환환
 
-            if not check_password(current_password, user.password):
-                return JsonResponse({"error": "현재 비밀번호가 일치하지 않습니다."}, status=401)
+    def get(self, request):  # 프로필 조회 메소드
+        # 현재 로그인 사용자 정보 반환
+        serializer = UserProfileSerializer(request.user)
+        return Response({
+            'success': True,
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
 
-            if new_password != confirm_password:
-                return JsonResponse({"error": "새 비밀번호가 서로 일치하지 않습니다."}, status=400)
+    def put(self, request):  # 프로필 업데이트 메소드
+        # 현재 로그인 사용자 정보 업데이트
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': '프로필이 업데이트 되었습니다.',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
 
-            user.set_password(new_password)
-            user.save()
-            update_session_auth_hash(request, user)
+        return Response({
+            'success': False,
+            'message': '입력 데이터가 올바르지 않습니다.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-            return JsonResponse({"message": "비밀번호가 성공적으로 변경되었습니다."}, status=200)
+class PasswordChangeView(APIView):
+    permission_classes = [IsAuthenticated]  # JWT 토큰 검증
 
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "JSON 파싱 실패"}, status=400)
+    def post(self, request):
+        serializer = PasswordChangeSerializer(
+            data=request.data,
+            context={'request': request}
+        )
 
-    return JsonResponse({"error": "POST 요청만 허용됩니다."}, status=405)
+        if serializer.is_valid():
+            try:
+                user = request.user
+                new_password = serializer.validated_data['new_password']
 
+                # 비밀번호 변경
+                user.set_password(new_password)
+                user.save()
 
-@csrf_exempt
-@login_required
-def auto_login_view(request):
-    if request.method == 'POST':
-        return JsonResponse({'message': '자동 로그인 성공'}, status=200)
-    return JsonResponse({'error': 'POST 요청만 허용됩니다'}, status=405)
+                return Response({
+                    'success': True,
+                    'message': '비밀번호가 성공적으로 변경되었습니다.'
+                }, status=status.HTTP_200_OK)
 
+            except Exception as e:
+                return Response({
+                    'success': False,
+                    'message': '비밀번호 변경 중 오류가 발생했습니다.',
+                    'error': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@csrf_exempt
-def auth_status_view(request):
-    user = get_user(request)
-    if user.is_authenticated:
-        return JsonResponse({'status': 'authenticated', 'user': user.username}, status=200)
-    else:
-        return JsonResponse({'status': 'unauthenticated'}, status=401)
-
-
-@login_required
-def user_profile_view(request):
-    user = request.user
-    return JsonResponse({
-        "이름": user.username,
-        "메일": user.email,
-        "부서": getattr(user, 'dept', 'N/A'),
-        "직급": getattr(user, 'rank', 'N/A')
-    }, status=200)
+        return Response({
+            'success': False,
+            'message': '입력 데이터가 올바르지 않습니다.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
