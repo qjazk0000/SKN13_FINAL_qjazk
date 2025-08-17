@@ -11,6 +11,7 @@ function Sidebar({
   selectedCategory,
 }) {
   const initials = userName?.[0] || "U";
+  const displayName = userName || "사용자";
 
   const getCategoryClass = (categoryName) => {
     return selectedCategory === categoryName
@@ -96,7 +97,7 @@ function Sidebar({
               {initials}
             </div>
             <div className="min-w-0">
-              <div className="text-m font-bold truncate">{userName}</div>
+              <div className="text-m font-bold truncate">{displayName}</div>
             </div>
           </div>
 
