@@ -23,7 +23,11 @@ export const authService = {
 
     async logout(){
         try {
-            await api.post('/auth/logout/');
+            const response = await api.post('/auth/logout/');
+            return response.data;  // 응답 데이터 반환
+        } catch (error) {
+            console.error('로그아웃 API 오류:', error);
+            throw error;  // 에러를 다시 던져서 상위에서 처리
         } finally {
             localStorage.clear();
         }
