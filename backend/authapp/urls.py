@@ -2,19 +2,24 @@
 
 from django.urls import path
 from .views import (
-    login_view,
-    logout_view,
-    password_change_view,
-    auto_login_view,
-    auth_status_view,
-    user_profile_view,
+    LoginView,
+    LogoutView,
+    RefreshTokenView,
+    UserProfileView,
+    PasswordChangeView,
+    # password_change_view,
+    # auto_login_view,
+    # auth_status_view,
+    # user_profile_view,
 )
 
 urlpatterns = [
-    path('login/', login_view),
-    path('logout/', logout_view),
-    path('user/password-change/', password_change_view),
-    path('auto-login/', auto_login_view),
-    path('auth/status/', auth_status_view),
-    path('user/profile/', user_profile_view),
+    path('login/', LoginView.as_view(), name='login'),
+    path('logout/', LogoutView.as_view(), name='logout'),
+    # path('user/password-change/', password_change_view),
+    # path('auto-login/', auto_login_view),
+    # path('auth/status/', auth_status_view),
+    path('refresh/', RefreshTokenView.as_view(), name='refresh'),
+    path('profile/', UserProfileView.as_view(), name='profile'),
+    path('password-change/', PasswordChangeView.as_view(), name='password-change'),
 ]

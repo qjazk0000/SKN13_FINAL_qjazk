@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR.parent / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-your-secret-key-here-change-in-production')
+SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
@@ -25,12 +26,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 'django_celery_results',  # Celery 작업 결과 저장(DB)
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
     'chatbot',
     'receipt',
-    'authapp',  # 인증 관련 앱 (accounts와 중복되지 않도록 주의)
+    'authapp',
+    'accounts',
     'qdrant',
 ]
 
@@ -67,9 +70,20 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Databasee
 DATABASES = {
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.sqlite3',
+    #     'NAME': BASE_DIR / 'db.sqlite3',
+    # }
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT', 5432),
+        'OPTIONS': {
+            'sslmode': 'require',  # RDS SSL 연결결
+        }
     }
 }
 
@@ -157,8 +171,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        # 'rest_framework.permissions.AllowAny',
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # 기본 권한을 AllowAny로 변경
+        # 'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication', # 세션 인증
@@ -168,22 +182,42 @@ REST_FRAMEWORK = {
 
 # INSTALLED_APPS += ['corsheaders']
 # MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
-CORS_ALLOWED_ORIGINS =  [
-    'http://localhost:3000', # 개발 중 React 앱의 주소
-    # 'https://your-frontend-domain.com' # 배포 시 실제 프론트엔드 도메인
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',  # React 개발 서버
+    'http://127.0.0.1:3000',  # React 개발 서버 (IP)
+    'http://localhost:8000',  # Django 개발 서버
+    'http://127.0.0.1:8000',  # Django 개발 서버 (IP)
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
+# 개발 환경에서 CORS 설정 완화
+CORS_ALLOW_ALL_ORIGINS = True  # 개발 중에만 사용 (프로덕션에서는 제거)
+
 # JWT 설정
-from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-}
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
 
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+
+    'JTI_CLAIM': 'jti',
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=60),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
