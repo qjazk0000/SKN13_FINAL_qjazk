@@ -111,12 +111,21 @@ class RefreshTokenView(APIView):
 class LogoutView(APIView):
     @require_auth
     def post(self, request):
-        # 토큰 블랙리스트 처리는 필요시 구현
-        # 현재는 단순히 성공 응답만 반환
-        return Response({
-            'success': True,
-            'message': '로그아웃 성공'
-        }, status=status.HTTP_200_OK)
+        try:
+            # 토큰 블랙리스트 처리는 필요시 구현
+            # 현재는 단순히 성공 응답만 반환
+            return Response({
+                'success': True,
+                'message': '로그아웃 성공',
+                'redirect_url': '/'  # 프론트엔드에서 사용할 리다이렉트 URL
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"로그아웃 처리 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '로그아웃 처리 중 오류가 발생했습니다.',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserProfileView(APIView):
     @require_auth
