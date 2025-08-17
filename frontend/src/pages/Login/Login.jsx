@@ -1,36 +1,25 @@
 import React, { useState } from "react";
+import { authService } from "../../services/authService";
 
 function Login() {
   const [userLoginId, setUserLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     try {
-      // const response = await fetch("/api/accounts/login", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({
-      //     user_login_id: userLoginId,
-      //     password: password,
-      //   }),
-      // });
-
-      // if (!response.ok) {
-      //   throw new Error("로그인 실패");
-      // }
-
-      // const data = await response.json();
-      // if (data.token) {
-      //   localStorage.setItem("token", data.token);
-      // }
+      const data = await authService.login(userLoginId, password);
       alert("로그인 되었습니다.");
       window.location.href = "/chat"; // 로그인 성공 후 채팅 페이지로 이동
     } catch (err) {
-      setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+      setError(err.message || "아이디 또는 비밀번호가 올바르지 않습니다.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -72,9 +61,14 @@ function Login() {
           )}
           <button
             type="submit"
-            className="w-full p-4 mt-2 bg-orange-300 text-white font-bold text-lg rounded-lg shadow-lg hover:bg-orange-400 transition-colors duration-200"
+            disabled={isLoading}
+            className={`w-full p-4 mt-2 bg-orange-300 text-white font-bold text-lg rounded-lg shadow-lg transition-colors duration-200 ${
+              isLoading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "hover:bg-orange-400"
+            }`}
           >
-            로그인
+            {isLoading ? "로그인 중..." : "로그인"}
           </button>
         </form>
       </div>
