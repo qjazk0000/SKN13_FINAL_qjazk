@@ -1,6 +1,5 @@
 Django>=4.2,<5.0
 djangorestframework
-djangorestframework-simplejwt
 django-cors-headers
 python-dotenv
 uvicorn
@@ -16,3 +15,4 @@ transformers
 torch
 tqdm
 requests
+PyJWT
