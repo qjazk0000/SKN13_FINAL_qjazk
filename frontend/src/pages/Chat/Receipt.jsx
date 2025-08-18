@@ -40,7 +40,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
           className="w-24 h-auto mb-4"
         />
         <div className="text-xl font-bold text-gray-700">
-          "영수증 처리 도우미"
+          영수증 처리 도우미
         </div>
         <p className="mt-4">영수증을 선택하거나 새 영수증을 생성하세요.</p>
       </div>

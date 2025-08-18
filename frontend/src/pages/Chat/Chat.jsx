@@ -36,9 +36,7 @@ function Chat({ chat, onSendMessage, isLoading }) {
           alt="NAVI Logo"
           className="w-24 h-auto mb-4"
         />
-        <div className="text-xl font-bold text-gray-700">
-          "업무 가이드 챗봇"
-        </div>
+        <div className="text-xl font-bold text-gray-700">업무 가이드 챗봇</div>
         <p className="mt-4">채팅을 선택하거나 새 채팅을 시작하세요.</p>
       </div>
     );
@@ -55,7 +53,7 @@ function Chat({ chat, onSendMessage, isLoading }) {
               className="w-24 h-auto mb-4"
             />
             <div className="text-xl font-bold text-gray-700">
-              "업무 가이드 챗봇"
+              업무 가이드 챗봇
             </div>
             <p className="mt-4">메시지를 입력하여 대화를 시작하세요.</p>
           </div>
