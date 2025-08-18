@@ -3,11 +3,14 @@
 
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { authService } from "../../services/authService";
 import Chat from "./Chat";
 import Receipt from "./Receipt";
 import Sidebar from "./Sidebar";
 
 function ChatPage() {
+  const navigate = useNavigate();
   const [chats, setChats] = useState([
     // 채팅 데이터 예시
     // { id: 1, title: "채팅방 1", messages: [] },
@@ -17,11 +20,27 @@ function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("업무 가이드");
+  const [userName, setUserName] = useState("");
 
   const selectedChat = useMemo(
     () => chats.find((chat) => chat.id === selectedChatId) || null,
     [chats, selectedChatId]
   );
+
+  // 사용자 정보 로드
+  useEffect(() => {
+    const loadUserInfo = () => {
+      const currentUser = authService.getCurrentUser();
+      if (currentUser && currentUser.name) {
+        setUserName(currentUser.name);
+      } else {
+        // 사용자 정보가 없으면 루트 페이지로 이동
+        navigate('/');
+      }
+    };
+
+    loadUserInfo();
+  }, [navigate]);
 
   // 초기 채팅 데이터 로드
   useEffect(() => {
@@ -167,12 +186,23 @@ function ChatPage() {
   // 로그아웃 핸들러
   const handleLogout = useCallback(async () => {
     try {
-      await axios.post("/api/logout");
-      alert("로그아웃 되었습니다.");
-      window.location.href = "/";
+      // 백엔드에 로그아웃 요청 (토큰 무효화)
+      const response = await authService.logout();
+      
+      // 백엔드 응답 확인
+      if (response && response.success) {
+        console.log('백엔드 로그아웃 성공:', response.message);
+      }
     } catch (error) {
-      console.error("로그아웃 실패:", error);
-      alert("로그아웃 중 오류가 발생했습니다.");
+      console.error("백엔드 로그아웃 실패:", error);
+      // 백엔드 실패해도 계속 진행
+    } finally {
+      // 성공/실패와 관계없이 로컬 로그아웃 처리
+      localStorage.clear();
+      
+      // 명시적으로 루트 페이지로만 이동 (로그인 화면)
+      console.log('로그아웃 완료, 루트 페이지(/)로 이동');
+      window.location.href = '/';  // 강제로 루트 페이지로 이동
     }
   }, []);
 
@@ -185,7 +215,7 @@ function ChatPage() {
   return (
     <div className="flex w-full min-h-screen bg-gray-100">
       <Sidebar
-        userName="홍길동"
+        userName={userName}
         chats={chats}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
