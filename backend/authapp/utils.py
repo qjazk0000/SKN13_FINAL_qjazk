@@ -58,37 +58,43 @@ def verify_token(token):
 
 def get_user_from_token(token):
     """토큰에서 사용자 정보 추출"""
-    payload = verify_token(token)
-    if not payload:
-        logger.warning("토큰 검증 실패 - payload가 None")
-        return None
-    
     try:
+        payload = verify_token(token)
+        if not payload:
+            logger.warning("토큰 검증 실패 - payload가 None")
+            return None
+        
+        logger.info(f"토큰 payload: {payload}")
+        user_id = payload.get('user_id')
+        logger.info(f"추출된 user_id: {user_id}")
+        
         with connection.cursor() as cursor:
+            logger.info(f"데이터베이스 쿼리 실행: SELECT * FROM user_info WHERE user_id = {user_id}")
             cursor.execute("""
                 SELECT * FROM user_info 
                 WHERE user_id = %s
-            """, [payload['user_id']])
+            """, [user_id])
             
             user_data = cursor.fetchone()
             if not user_data:
-                logger.warning(f"사용자 정보를 찾을 수 없음: {payload['user_id']}")
+                logger.warning(f"사용자 정보를 찾을 수 없음: {user_id}")
                 return None
+            
+            logger.info(f"사용자 데이터 조회됨: {user_data}")
             
             # 사용자 상태 확인
             if user_data[9] != 'Y':  # use_yn
-                logger.warning(f"비활성화된 계정: {payload['username']}")
+                logger.warning(f"비활성화된 계정: {user_data[1] if len(user_data) > 1 else 'unknown'}")
                 return None
             
-            # if user_data[8] != 'Y':  # auth
-            #     logger.warning(f"인증되지 않은 계정: {payload['username']}")
-            #     return None
-            
-            logger.info(f"사용자 정보 조회 성공: {payload['username']}")
+            logger.info(f"사용자 정보 조회 성공: {user_data[1] if len(user_data) > 1 else 'unknown'}")
             return user_data
             
     except Exception as e:
         logger.error(f"사용자 정보 조회 중 오류: {e}")
+        logger.error(f"오류 타입: {type(e)}")
+        import traceback
+        logger.error(f"스택 트레이스: {traceback.format_exc()}")
         return None
 
 def extract_token_from_header(request):
