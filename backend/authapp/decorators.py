@@ -11,21 +11,31 @@ def require_auth(view_func):
     """인증이 필요한 API에 사용하는 데코레이터"""
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        logger.info(f"인증 요청: {request.method} {request.path}")
+        
+        # Authorization 헤더 확인
+        auth_header = request.headers.get('Authorization')
+        logger.info(f"Authorization 헤더: {auth_header}")
+        
         # 토큰 추출
         token = extract_token_from_header(request)
         if not token:
+            logger.warning("토큰이 헤더에 없음")
             return Response({
                 'success': False,
                 'message': '인증 토큰이 필요합니다.',
                 'error': 'MISSING_TOKEN'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
+        logger.info(f"토큰 추출됨: {token[:20]}...")
+        
         # 토큰 검증 및 사용자 정보 조회
         user_data = get_user_from_token(token)
         if not user_data:
+            logger.warning(f"토큰 검증 실패: {token[:20]}...")
             return Response({
                 'success': False,
-                'message': '유효하지 않은 토큰입니다.',
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
                 'error': 'INVALID_TOKEN'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
@@ -54,9 +64,10 @@ def require_admin(view_func):
         # 토큰 검증 및 사용자 정보 조회
         user_data = get_user_from_token(token)
         if not user_data:
+            logger.warning(f"토큰 검증 실패: {token[:20]}...")
             return Response({
                 'success': False,
-                'message': '유효하지 않은 토큰입니다.',
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
                 'error': 'INVALID_TOKEN'
             }, status=status.HTTP_401_UNAUTHORIZED)
         

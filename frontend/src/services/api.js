@@ -15,53 +15,34 @@ const api = axios.create({
 // 요청 인터셉터
 api.interceptors.request.use(
     (config) => {
+        console.log('API 요청 인터셉터 실행:', config.method?.toUpperCase(), config.url);
         const token = localStorage.getItem('access_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('토큰이 헤더에 추가됨');
+        } else {
+            console.log('토큰이 없음');
         }
+        console.log('최종 요청 설정:', config);
         return config;
     },
     (error) => {
+        console.error('요청 인터셉터 에러:', error);
         return Promise.reject(error);
     }
 );
 
-// 응답 인터셉터
+// 응답 인터셉터 - 단순화
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.log('API 응답 성공:', response.config.method?.toUpperCase(), response.config.url, response.status);
+        return response;
+    },
     async (error) => {
+        console.error('API 응답 에러:', error.config?.method?.toUpperCase(), error.config?.url, error.response?.status);
         if (error.response?.status === 401) {
-            // 토큰 만료 시 리프레시 토큰으로 갱신 시도
-            const refreshToken = localStorage.getItem('refresh_token');
-            if (refreshToken) {
-                try {
-                    const response = await api.post('/auth/refresh/', {
-                        refresh: refreshToken
-                    });
-                    
-                    // 새로운 API 응답 구조에 맞게 수정
-                    if (response.data.success && response.data.data) {
-                        const newAccessToken = response.data.data.access_token;
-                        localStorage.setItem('access_token', newAccessToken);
-                        
-                        // 원래 요청의 Authorization 헤더 업데이트
-                        error.config.headers.Authorization = `Bearer ${newAccessToken}`;
-                        
-                        // 원래 요청 재시도
-                        return api.request(error.config);
-                    } else {
-                        throw new Error('토큰 갱신 응답이 올바르지 않습니다.');
-                    }
-                } catch (refreshError) {
-                    // 리프레시 실패 시 로그인 페이지로 이동
-                    localStorage.clear();
-                    window.location.href = '/login';
-                }
-            } else {
-                // 리프레시 토큰이 없으면 로그인 페이지로 이동
-                localStorage.clear();
-                window.location.href = '/login';
-            }
+            // 401 에러는 authService에서 처리하도록 그대로 전달
+            console.log('401 에러 발생, authService에서 처리');
         }
         return Promise.reject(error);
     }
