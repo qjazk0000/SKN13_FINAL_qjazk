@@ -14,7 +14,6 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/chat/', include('chatbot.urls')),
-    path('api/accounts/', include('accounts.urls')),
     path('api/qdrant/', include('qdrant.urls')),
     path('api/auth/', include('authapp.urls')),
     path('api/receipt/', include('receipt.urls')),

@@ -30,7 +30,6 @@ services:
       - QDRANT_PORT=${QDRANT_PORT}
     depends_on:
       - qdrant
-    # EC2가 RDS에 접근하므로 db 서비스는 필요 없음
 
   qdrant:
     image: qdrant/qdrant:latest
