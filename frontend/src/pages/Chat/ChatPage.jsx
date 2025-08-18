@@ -41,8 +41,7 @@ function ChatPage() {
         setUserName(currentUser.name);
       } else {
         // 사용자 정보가 없으면 루트 페이지로 이동
-        // navigate('/');
-        setUserName("사용자"); // 기본 사용자 이름 설정
+        navigate('/chat');
       }
     };
 
@@ -113,38 +112,10 @@ function ChatPage() {
     }
   }, []);
 
-  // 새 영수증 채팅 생성 핸들러
-  const handleNewReceipt = useCallback(async () => {
-    setIsLoading(true);
-
-    try {
-      // const response = await axios.post("/api/receipts");
-      // const newReceipt = response.data;
-
-      // setReceipts((prevReceipts) => [newReceipt, ...prevReceipts]);
-      // setSelectedReceiptId(newReceipt.id);
-      // setSelectedCategory("영수증 처리");
-
-      // Mock API 응답 (실제 API 연동 시 제거 필요)
-      const mockResponse = {
-        data: {
-          id: Date.now(), // 고유한 ID 생성
-          title: "새 영수증",
-          data: {}, // 영수증 데이터 초기화
-        },
-      };
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const newReceipt = mockResponse.data;
-      setReceipts((prevReceipts) => [newReceipt, ...prevReceipts]);
-      setSelectedReceiptId(newReceipt.id);
-      setSelectedCategory("영수증 처리");
-    } catch (error) {
-      console.error("새 영수증 생성 실패:", error);
-      alert("새 영수증을 생성하는 데 실패했습니다.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // 사용자 이름 클릭 핸들러 (MyPage로 이동)
+  const handleUserNameClick = useCallback(() => {
+    navigate('/mypage');
+  }, [navigate]);
 
   // 채팅 선택 핸들러
   const handleSelectChat = useCallback(
@@ -320,6 +291,7 @@ function ChatPage() {
         onSelectCategory={handleSelectCategory}
         selectedCategory={selectedCategory}
         onLogout={handleLogout}
+        onUserNameClick={handleUserNameClick}
         isLoading={isSidebarLoading}
       />
       <div className="flex-grow flex justify-center items-center">
