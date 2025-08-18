@@ -23,7 +23,7 @@ def create_access_token(user_data):
         'name': user_data.first_name,             # name
         'dept': user_data.dept,                   # dept
         'rank': user_data.rank,                   # rank
-        'auth': user_data.auth,                   # auth
+        # 'auth': user_data.auth,                   # auth
         'iat': datetime.now(timezone.utc),        # 토큰 발급 시간
         'exp': datetime.now(timezone.utc) + ACCESS_TOKEN_LIFETIME,  # 만료 시간
     }
@@ -60,6 +60,7 @@ def get_user_from_token(token):
     """토큰에서 사용자 정보 추출"""
     payload = verify_token(token)
     if not payload:
+        logger.warning("토큰 검증 실패 - payload가 None")
         return None
     
     try:
@@ -71,6 +72,7 @@ def get_user_from_token(token):
             
             user_data = cursor.fetchone()
             if not user_data:
+                logger.warning(f"사용자 정보를 찾을 수 없음: {payload['user_id']}")
                 return None
             
             # 사용자 상태 확인
@@ -78,10 +80,11 @@ def get_user_from_token(token):
                 logger.warning(f"비활성화된 계정: {payload['username']}")
                 return None
             
-            if user_data[8] != 'Y':  # auth
-                logger.warning(f"인증되지 않은 계정: {payload['username']}")
-                return None
+            # if user_data[8] != 'Y':  # auth
+            #     logger.warning(f"인증되지 않은 계정: {payload['username']}")
+            #     return None
             
+            logger.info(f"사용자 정보 조회 성공: {payload['username']}")
             return user_data
             
     except Exception as e:

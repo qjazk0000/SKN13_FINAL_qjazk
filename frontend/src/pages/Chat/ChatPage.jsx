@@ -35,7 +35,7 @@ function ChatPage() {
         setUserName(currentUser.name);
       } else {
         // 사용자 정보가 없으면 루트 페이지로 이동
-        navigate('/');
+        navigate('/chat');
       }
     };
 
@@ -79,6 +79,11 @@ function ChatPage() {
       setIsLoading(false);
     }
   }, []);
+
+  // 사용자 이름 클릭 핸들러 (MyPage로 이동)
+  const handleUserNameClick = useCallback(() => {
+    navigate('/mypage');
+  }, [navigate]);
 
   // 채팅 선택 핸들러
   const handleSelectChat = useCallback(
@@ -222,6 +227,7 @@ function ChatPage() {
         onSelectCategory={handleSelectCategory}
         selectedCategory={selectedCategory}
         onLogout={handleLogout}
+        onUserNameClick={handleUserNameClick}
         isLoading={isSidebarLoading}
       />
       <div className="flex-grow flex justify-center items-center">
