@@ -50,22 +50,25 @@ class LoginSerializer(serializers.Serializer):
                     if user_data[9] != 'Y':  # use_yn 컬럼 (10번째)
                         raise serializers.ValidationError('비활성화된 계정입니다.')
                     
-                    if user_data[8] != 'Y':  # auth 컬럼 (9번째)
-                        raise serializers.ValidationError('인증되지 않은 계정입니다.')
+                    # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+                    # if user_data[8] != 'Y':  # auth 컬럼 (9번째)
+                    #     raise serializers.ValidationError('인증되지 않은 계정입니다.')
                     
-                    # Django User 객체와 호환되는 형태로 변환 (간단하게)
+                    # 사용자 정보를 CustomUser 객체로 변환
+                    # CustomUser 클래스는 사용자 정보를 담는 객체로 정의
                     class CustomUser:
                         def __init__(self, user_data):
                             self.id = user_data[0]           # user_id (1번째) - JWT 토큰 생성에 필요
+                            
                             self.username = user_data[1]      # user_login_id (2번째)
                             self.email = user_data[6]         # email (7번째)
                             self.first_name = user_data[3]    # name (4번째)
-                            self.last_name = ''               # last_name은 없음
                             self.dept = user_data[4]          # dept (5번째)
                             self.rank = user_data[5]          # rank (6번째)
                             self.user_id = user_data[0]       # user_id (1번째)
                             self.created_dt = user_data[7]    # created_dt (8번째)
-                            self.auth = user_data[8]          # auth (9번째)
+                            # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+                            # self.auth = user_data[8]          # auth (9번째)
                             self.is_active = user_data[9] == 'Y'  # use_yn (10번째)
                             self.is_authenticated = True
                             self.is_anonymous = False
@@ -90,12 +93,12 @@ class UserProfileSerializer(serializers.Serializer):
     username = serializers.CharField()
     email = serializers.EmailField()
     first_name = serializers.CharField(required=False, allow_blank=True)
-    last_name = serializers.CharField(required=False, allow_blank=True)
     dept = serializers.CharField(required=False, allow_blank=True)
     rank = serializers.CharField(required=False, allow_blank=True)
     user_id = serializers.CharField(required=False, allow_blank=True)
     created_dt = serializers.DateTimeField(required=False)
-    auth = serializers.CharField(required=False, allow_blank=True)
+    # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+    # auth = serializers.CharField(required=False, allow_blank=True)
     
     def to_representation(self, instance):
         # CustomUser 객체에서 데이터 추출
@@ -103,12 +106,12 @@ class UserProfileSerializer(serializers.Serializer):
             'username': getattr(instance, 'username', ''),
             'email': getattr(instance, 'email', ''),
             'first_name': getattr(instance, 'first_name', ''),
-            'last_name': getattr(instance, 'last_name', ''),
             'dept': getattr(instance, 'dept', ''),
             'rank': getattr(instance, 'rank', ''),
             'user_id': getattr(instance, 'user_id', ''),
             'created_dt': getattr(instance, 'created_dt', ''),
-            'auth': getattr(instance, 'auth', '')
+            # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+            # 'auth': getattr(instance, 'auth', '')
         }
 
 class PasswordChangeSerializer(serializers.Serializer):

@@ -2,49 +2,56 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import InvalidToken
 from django.contrib.auth.hashers import check_password
+from django.db import connection
 from .serializers import (
     LoginSerializer,
     RefreshTokenSerializer,
     UserProfileSerializer,
     PasswordChangeSerializer
 )
+from .utils import create_access_token, create_refresh_token, verify_token, get_user_from_token
+from .decorators import require_auth
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LoginView(APIView):
-    def post(self, request):  # POST 요청 처리 메소드
+    def post(self, request):
         serializer = LoginSerializer(data=request.data)
-        if serializer.is_valid():  # 유효성 검사 통과 시 사용자 정보 추출
+        if serializer.is_valid():
             user = serializer.validated_data['user']
-
-            # JWT 토큰 생성
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
-
-            return Response({  # 성공 응답 반환
+            
+            # 독립적인 JWT 토큰 생성
+            access_token = create_access_token(user)
+            refresh_token = create_refresh_token(user)
+            
+            return Response({
                 'success': True,
                 'message': '로그인 성공',
                 'data': {
                     'access_token': access_token,
                     'refresh_token': refresh_token,
                     'user': {
-                        'username': user.username,
-                        'email': user.email
+                        'user_id': user.user_id,           # UUID
+                        'username': user.username,          # user_login_id
+                        'email': user.email,                # email
+                        'name': user.first_name,            # name
+                        'dept': user.dept,                  # dept
+                        'rank': user.rank,                  # rank
+                        # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+                        # 'auth': user.auth,                  # auth
                     }
                 }
             }, status=status.HTTP_200_OK)
         
-        return Response({  # 유효성 검사 실패 시 에러 응답 반환환
+        return Response({
             'success': False,
             'message': '회원 정보가 올바르지 않습니다.',
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request):  # GET 요청 처리 메소드
-        # 로그인 상태 확인 - GET 요청은 허용하지 않음
+    def get(self, request):
         return Response({
             'success': False,
             'message': 'GET 요청은 지원하지 않습니다. POST 요청을 사용해주세요.',
@@ -58,9 +65,28 @@ class RefreshTokenView(APIView):
         if serializer.is_valid():
             try:
                 refresh_token = serializer.validated_data['refresh']
-                refresh = RefreshToken(refresh_token)
-                new_access_token = str(refresh.access_token)
-
+                
+                # 토큰 검증
+                payload = verify_token(refresh_token)
+                if not payload or payload.get('token_type') != 'refresh':
+                    return Response({
+                        'success': False,
+                        'message': '유효하지 않은 리프레시 토큰입니다.',
+                        'error': 'INVALID_REFRESH_TOKEN'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+                
+                # 사용자 정보 조회
+                user_data = get_user_from_token(refresh_token)
+                if not user_data:
+                    return Response({
+                        'success': False,
+                        'message': '토큰에 해당하는 사용자를 찾을 수 없습니다.',
+                        'error': 'USER_NOT_FOUND'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+                
+                # 새로운 액세스 토큰 생성
+                new_access_token = create_access_token(user_data)
+                
                 return Response({
                     'success': True,
                     'message': '토큰 갱신 성공',
@@ -69,58 +95,13 @@ class RefreshTokenView(APIView):
                     }
                 }, status=status.HTTP_200_OK)
             
-            except InvalidToken:
+            except Exception as e:
+                logger.error(f"토큰 갱신 중 오류: {e}")
                 return Response({
                     'success': False,
-                    'message': '유효하지 않은 리프레시 토큰입니다.',
-                    'errors': {'refresh': ['토큰이 만료되었거나 유효하지 않습니다.']}
-                }, status=status.HTTP_401_UNAUTHORIZED)
-
-        return Response({
-            'success': False,
-            'mesage': '입력 데이터가 올바르지 않습니다.',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
-
-class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        try:
-            # JWT 토큰 블랙리스트 처리 (선택사항) 이게 뭐야???
-            # 현재는 단순히 성공 응답만 반환
-            return Response({
-                'success': True,
-                'message': '로그아웃 성공'
-            }, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response({
-                'success': False,
-                'message': '로그아웃 처리 중 오류가 발생했습니다.',
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class UserProfileView(APIView):
-    permission_classes = [IsAuthenticated]  # 인증된 사용자만 접근 가능하도록 설정 (JWT 토큰 검증)
-                                            # 비로그인 사용자(AnonymousUser)는 401 Unauthorized 응답 반환환
-
-    def get(self, request):  # 프로필 조회 메소드
-        # 현재 로그인 사용자 정보 반환
-        serializer = UserProfileSerializer(request.user)
-        return Response({
-            'success': True,
-            'data': serializer.data
-        }, status=status.HTTP_200_OK)
-
-    def put(self, request):  # 프로필 업데이트 메소드
-        # 현재 로그인 사용자 정보 업데이트
-        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({
-                'success': True,
-                'message': '프로필이 업데이트 되었습니다.',
-                'data': serializer.data
-            }, status=status.HTTP_200_OK)
+                    'message': '토큰 갱신 중 오류가 발생했습니다.',
+                    'error': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({
             'success': False,
@@ -128,9 +109,56 @@ class UserProfileView(APIView):
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-class PasswordChangeView(APIView):
-    permission_classes = [IsAuthenticated]  # JWT 토큰 검증
+class LogoutView(APIView):
+    @require_auth
+    def post(self, request):
+        try:
+            # 토큰 블랙리스트 처리는 필요시 구현
+            # 현재는 단순히 성공 응답만 반환
+            return Response({
+                'success': True,
+                'message': '로그아웃 성공',
+                'redirect_url': '/'  # 프론트엔드에서 사용할 리다이렉트 URL
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"로그아웃 처리 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '로그아웃 처리 중 오류가 발생했습니다.',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class UserProfileView(APIView):
+    @require_auth
+    def get(self, request):
+        # request.user_data에는 이미 사용자 정보가 들어있음
+        user_data = request.user_data
+        
+        return Response({
+            'success': True,
+            'data': {
+                'user_id': user_data[0],           # UUID (배열 인덱스 유지)
+                'username': user_data[1],          # user_login_id
+                'email': user_data[6],             # email
+                'name': user_data[3],              # name
+                'dept': user_data[4],              # dept
+                'rank': user_data[5],              # rank
+                # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+                # 'auth': user_data[8],              # auth
+                'created_dt': user_data[7],        # created_dt
+            }
+        }, status=status.HTTP_200_OK)
+
+    @require_auth
+    def put(self, request):
+        # 프로필 업데이트 로직 (필요시 구현)
+        return Response({
+            'success': True,
+            'message': '프로필 업데이트 기능은 아직 구현되지 않았습니다.'
+        }, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+class PasswordChangeView(APIView):
+    @require_auth
     def post(self, request):
         serializer = PasswordChangeSerializer(
             data=request.data,
@@ -139,12 +167,23 @@ class PasswordChangeView(APIView):
 
         if serializer.is_valid():
             try:
-                user = request.user
+                # 현재 비밀번호 확인
+                current_password = serializer.validated_data['current_password']
                 new_password = serializer.validated_data['new_password']
-
-                # 비밀번호 변경
-                user.set_password(new_password)
-                user.save()
+                
+                # user_info 테이블에서 비밀번호 변경
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE user_info 
+                        SET passwd = %s 
+                        WHERE user_id = %s
+                    """, [new_password, request.user_id])
+                    
+                    if cursor.rowcount == 0:
+                        return Response({
+                            'success': False,
+                            'message': '사용자를 찾을 수 없습니다.'
+                        }, status=status.HTTP_404_NOT_FOUND)
 
                 return Response({
                     'success': True,
@@ -152,6 +191,7 @@ class PasswordChangeView(APIView):
                 }, status=status.HTTP_200_OK)
 
             except Exception as e:
+                logger.error(f"비밀번호 변경 중 오류: {e}")
                 return Response({
                     'success': False,
                     'message': '비밀번호 변경 중 오류가 발생했습니다.',
