@@ -25,7 +25,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_celery_results',  # Celery 작업 결과 저장(DB)
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',

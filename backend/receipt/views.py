@@ -6,7 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from .models import FileInfo, ReceiptInfo
 from .serializers import FileInfoSerializer, ReceiptInfoSerializer
-from .tasks import process_receipt_file
+# from .tasks import process_receipt_file
 
 class FileUploadView(generics.CreateAPIView):
     serializer_class = FileInfoSerializer
