@@ -39,7 +39,8 @@ class LoginView(APIView):
                         'name': user.first_name,            # name
                         'dept': user.dept,                  # dept
                         'rank': user.rank,                  # rank
-                        'auth': user.auth,                  # auth
+                        # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+                        # 'auth': user.auth,                  # auth
                     }
                 }
             }, status=status.HTTP_200_OK)
@@ -142,7 +143,8 @@ class UserProfileView(APIView):
                 'name': user_data[3],              # name
                 'dept': user_data[4],              # dept
                 'rank': user_data[5],              # rank
-                'auth': user_data[8],              # auth
+                # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+                # 'auth': user_data[8],              # auth
                 'created_dt': user_data[7],        # created_dt
             }
         }, status=status.HTTP_200_OK)
