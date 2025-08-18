@@ -8,21 +8,26 @@ export const authService = {
                 passwd: password,
             });
 
-            if (response.data.token) {
-                localStorage.setItem('access_token', response.data.token);
-                localStorage.setItem('refresh_token', response.data.refresh);
-                localStorage.setItem('user', response.data.user);
+            if (response.data.success && response.data.data) {
+                // 새로운 API 응답 구조에 맞게 수정
+                localStorage.setItem('access_token', response.data.data.access_token);
+                localStorage.setItem('refresh_token', response.data.data.refresh_token);
+                localStorage.setItem('user', JSON.stringify(response.data.data.user));
             }
 
             return response.data;
         } catch (error) {
-            throw new Error(error.response?.data?.error || '로그인에 실패했습니다.');
+            throw new Error(error.response?.data?.message || '로그인에 실패했습니다.');
         }
     },
 
     async logout(){
         try {
-            await api.post('/auth/logout/');
+            const response = await api.post('/auth/logout/');
+            return response.data;  // 응답 데이터 반환
+        } catch (error) {
+            console.error('로그아웃 API 오류:', error);
+            throw error;  // 에러를 다시 던져서 상위에서 처리
         } finally {
             localStorage.clear();
         }
@@ -38,7 +43,11 @@ export const authService = {
             
             // 토큰 유효성 검증을 위해 사용자 프로필 요청
             const response = await api.get('/auth/profile/');
-            return { status: 'authenticated', user: response.data };
+            if (response.data.success) {
+                return { status: 'authenticated', user: response.data.data };
+            } else {
+                return { status: 'unauthenticated' };
+            }
         } catch (error) {
             if (error.response?.status === 401) {
                 // 토큰이 만료되었거나 유효하지 않음
@@ -60,9 +69,12 @@ export const authService = {
                 refresh: refreshToken
             });
 
-            if (response.data.access) {
-                localStorage.setItem('access_token', response.data.access);
-                return response.data.access;
+            if (response.data.success && response.data.data) {
+                const newAccessToken = response.data.data.access_token;
+                localStorage.setItem('access_token', newAccessToken);
+                return newAccessToken;
+            } else {
+                throw new Error('토큰 갱신 응답이 올바르지 않습니다.');
             }
         } catch (error) {
             localStorage.clear();
@@ -116,6 +128,26 @@ export const authService = {
             }
         } catch (error) {
             throw new Error('비밀번호 변경에 실패했습니다: ' + error.message);
+        }
+    },
+
+    // 현재 로그인한 사용자 정보 가져오기
+    getCurrentUser() {
+        try {
+            const userStr = localStorage.getItem('user');
+            return userStr ? JSON.parse(userStr) : null;
+        } catch (error) {
+            console.error('사용자 정보 파싱 오류:', error);
+            return null;
+        }
+    },
+
+    // 사용자 정보 업데이트 (로컬 스토리지)
+    updateCurrentUser(userData) {
+        try {
+            localStorage.setItem('user', JSON.stringify(userData));
+        } catch (error) {
+            console.error('사용자 정보 저장 오류:', error);
         }
     }
 };
