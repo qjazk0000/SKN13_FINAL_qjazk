@@ -4,7 +4,9 @@ function Sidebar({
   userName,
   chats,
   onNewChat,
+  onNewReceipt,
   onSelectChat,
+  onSelectReceipt,
   onLogout,
   isLoading,
   onSelectCategory,
@@ -18,10 +20,23 @@ function Sidebar({
       : "text-gray-300 hover:bg-gray-700 hover:text-white";
   };
 
+  const isChatCategory = selectedCategory === "업무 가이드";
+
+  const handleAddNewItem = () => {
+    if (isChatCategory) {
+      onNewChat();
+    } else {
+      onNewReceipt();
+    }
+  };
+
   return (
     <div className="flex flex-col w-64 h-screen bg-gray-800 text-white">
       {/* 상단 로고 */}
-      <div className="flex items-center justify-center h-16 border-b border-gray-700">
+      <div
+        className="flex items-center justify-center h-16 border-b border-gray-700 cursor-pointer"
+        onClick={() => window.location.reload()}
+      >
         <h1 className="text-xl font-bold">NAVI</h1>
       </div>
 
@@ -45,18 +60,18 @@ function Sidebar({
         </div>
       </div>
 
-      {/* 새 채팅 + 채팅 리스트 */}
+      {/* 새 채팅 + 목록 */}
       <div className="p-4 border-t border-gray-700 flex-1 flex flex-col min-h-0">
         <button
           type="button"
-          onClick={onNewChat}
+          onClick={handleAddNewItem}
           className="w-full mb-2 py-2 px-4 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-left flex items-center gap-2 transition"
           disabled={isLoading}
         >
           <span>
             <PlusIcon className="w-5 h-5" />
           </span>
-          새 채팅
+          <span>{isChatCategory ? "새 채팅" : "새 영수증"}</span>
         </button>
 
         {isLoading ? (
@@ -71,7 +86,9 @@ function Sidebar({
               <li key={chat.id}>
                 <button
                   type="button"
-                  onClick={() => onSelectChat?.(chat)}
+                  onClick={() =>
+                    isChatCategory ? onSelectChat(chat) : onSelectReceipt(chat)
+                  }
                   className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
                   title={chat.title}
                 >
@@ -81,7 +98,9 @@ function Sidebar({
             ))}
             {chats.length === 0 && (
               <li className="px-2 py-2 text-sm text-gray-400">
-                채팅 내역이 없습니다.
+                {isChatCategory
+                  ? "채팅 내역이 없습니다."
+                  : "영수증 내역이 없습니다."}
               </li>
             )}
           </ul>
