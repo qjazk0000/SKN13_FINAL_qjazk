@@ -68,9 +68,21 @@ function ChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("/api/chats");
-      const newChat = response.data;
+      // const response = await axios.post("/api/chats");
+      // const newChat = response.data;
+      // setChats((prevChats) => [newChat, ...prevChats]);
+      // setSelectedChatId(newChat.id);
 
+      // Mock API 응답 (실제 API 연동 시 제거 필요)
+      const mockResponse = {
+        data: {
+          id: Date.now(), // 고유한 ID 생성
+          title: "새 채팅",
+          messages: [],
+        },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const newChat = mockResponse.data;
       setChats((prevChats) => [newChat, ...prevChats]);
       setSelectedChatId(newChat.id);
     } catch (error) {
@@ -86,9 +98,23 @@ function ChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("/api/receipts");
-      const newReceipt = response.data;
+      // const response = await axios.post("/api/receipts");
+      // const newReceipt = response.data;
 
+      // setReceipts((prevReceipts) => [newReceipt, ...prevReceipts]);
+      // setSelectedReceiptId(newReceipt.id);
+      // setSelectedCategory("영수증 처리");
+
+      // Mock API 응답 (실제 API 연동 시 제거 필요)
+      const mockResponse = {
+        data: {
+          id: Date.now(), // 고유한 ID 생성
+          title: "새 영수증",
+          data: {}, // 영수증 데이터 초기화
+        },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const newReceipt = mockResponse.data;
       setReceipts((prevReceipts) => [newReceipt, ...prevReceipts]);
       setSelectedReceiptId(newReceipt.id);
       setSelectedCategory("영수증 처리");
