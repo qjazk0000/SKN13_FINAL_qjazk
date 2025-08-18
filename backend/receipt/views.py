@@ -6,7 +6,6 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from .models import FileInfo, ReceiptInfo
 from .serializers import FileInfoSerializer, ReceiptInfoSerializer
-# from .tasks import process_receipt_file
 
 class FileUploadView(generics.CreateAPIView):
     serializer_class = FileInfoSerializer
@@ -26,8 +25,8 @@ class FileUploadView(generics.CreateAPIView):
         )
         ReceiptInfo.objects.create(file=file_obj, user=request.user, status='pending')
 
-        # Celery OCR 태스크 실행
-        process_receipt_file.delay(str(file_obj.file_id))
+        # TODO: Celery OCR 태스크 실행 (tasks.py 구현 후 활성화)
+        # process_receipt_file.delay(str(file_obj.file_id))
 
         return Response(FileInfoSerializer(file_obj).data, status=status.HTTP_201_CREATED)
 

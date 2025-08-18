@@ -1,7 +1,7 @@
 # chatbot/views.py
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from .models import Conversation, ChatMessage
 from .serializers import ConversationSerializer, ChatMessageSerializer, ChatQuerySerializer
 
@@ -15,7 +15,7 @@ class ConversationListView(generics.ListAPIView):
     def get_queryset(self):
         return Conversation.objects.filter(user=self.request.user).order_by('-updated_at')
 
-class ConversationCreateView(generics.CreateAPIView):
+class ConversationCreateView(generics.ListAPIView):
     """
     새 대화방 생성
     """
