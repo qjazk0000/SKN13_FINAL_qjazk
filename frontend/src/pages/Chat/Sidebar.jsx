@@ -8,6 +8,7 @@ function Sidebar({
   onSelectChat,
   onSelectReceipt,
   onLogout,
+  onUserNameClick,
   isLoading,
   onSelectCategory,
   selectedCategory,
@@ -116,7 +117,14 @@ function Sidebar({
               {initials}
             </div>
             <div className="min-w-0">
-              <div className="text-m font-bold truncate">{displayName}</div>
+              <button
+                type="button"
+                onClick={onUserNameClick}
+                className="text-m font-bold truncate hover:text-blue-300 transition cursor-pointer"
+                title="마이페이지로 이동"
+              >
+                {displayName}
+              </button>
             </div>
           </div>
 
