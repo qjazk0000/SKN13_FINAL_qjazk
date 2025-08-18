@@ -1,8 +1,23 @@
-import React from "react";
-import { PlusIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/solid";
 
-function Sidebar({ userName, chats, onNewChat, onSelectChat, onLogout }) {
+function Sidebar({
+  userName,
+  chats,
+  onNewChat,
+  onSelectChat,
+  onLogout,
+  isLoading,
+  onSelectCategory,
+  selectedCategory,
+}) {
   const initials = userName?.[0] || "U";
+  const displayName = userName || "사용자";
+
+  const getCategoryClass = (categoryName) => {
+    return selectedCategory === categoryName
+      ? "bg-gray-700 text-white"
+      : "text-gray-300 hover:bg-gray-700 hover:text-white";
+  };
 
   return (
     <div className="flex flex-col w-64 h-screen bg-gray-800 text-white">
@@ -13,20 +28,31 @@ function Sidebar({ userName, chats, onNewChat, onSelectChat, onLogout }) {
 
       {/* 카테고리 메뉴 */}
       <div className="flex flex-col px-2 py-4 gap-2">
-        <div className="flex items-center px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white cursor-pointer">
+        <div
+          className={`flex items-center px-4 py-2 rounded-md cursor-pointer ${getCategoryClass(
+            "업무 가이드"
+          )}`}
+          onClick={() => onSelectCategory("업무 가이드")}
+        >
           업무 가이드
         </div>
-        <div className="flex items-center px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white cursor-pointer">
+        <div
+          className={`flex items-center px-4 py-2 rounded-md cursor-pointer ${getCategoryClass(
+            "영수증 처리"
+          )}`}
+          onClick={() => onSelectCategory("영수증 처리")}
+        >
           영수증 처리
         </div>
       </div>
 
       {/* 새 채팅 + 채팅 리스트 */}
-      <div className="p-4 border-t border-gray-700 h-">
+      <div className="p-4 border-t border-gray-700 flex-1 flex flex-col min-h-0">
         <button
           type="button"
           onClick={onNewChat}
           className="w-full mb-2 py-2 px-4 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-left flex items-center gap-2 transition"
+          disabled={isLoading}
         >
           <span>
             <PlusIcon className="w-5 h-5" />
@@ -34,25 +60,33 @@ function Sidebar({ userName, chats, onNewChat, onSelectChat, onLogout }) {
           새 채팅
         </button>
 
-        <ul className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-          {chats.map((chat) => (
-            <li key={chat.id}>
-              <button
-                type="button"
-                onClick={() => onSelectChat?.(chat)}
-                className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition"
-                title={chat.title}
-              >
-                {chat.title}
-              </button>
-            </li>
-          ))}
-          {chats.length === 0 && (
-            <li className="px-2 py-2 text-sm text-gray-400">
-              채팅 내역이 없습니다.
-            </li>
-          )}
-        </ul>
+        {isLoading ? (
+          // 로딩 중일 때
+          <div className="flex justify-center items-center h-full text-gray-400">
+            <ArrowPathIcon className="h-6 w-6 animate-spin" />
+          </div>
+        ) : (
+          // 로딩이 끝났을 때
+          <ul className="flex flex-col gap-2 flex-1 overflow-y-auto">
+            {chats.map((chat) => (
+              <li key={chat.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelectChat?.(chat)}
+                  className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
+                  title={chat.title}
+                >
+                  {chat.title}
+                </button>
+              </li>
+            ))}
+            {chats.length === 0 && (
+              <li className="px-2 py-2 text-sm text-gray-400">
+                채팅 내역이 없습니다.
+              </li>
+            )}
+          </ul>
+        )}
       </div>
 
       {/* 하단 사용자명 + 로그아웃 */}
@@ -63,7 +97,7 @@ function Sidebar({ userName, chats, onNewChat, onSelectChat, onLogout }) {
               {initials}
             </div>
             <div className="min-w-0">
-              <div className="text-m font-bold truncate">{userName}</div>
+              <div className="text-m font-bold truncate">{displayName}</div>
             </div>
           </div>
 
