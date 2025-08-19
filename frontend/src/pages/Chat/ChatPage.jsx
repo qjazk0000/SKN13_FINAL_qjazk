@@ -21,6 +21,7 @@ function ChatPage() {
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("업무 가이드");
   const [userName, setUserName] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const selectedChat = useMemo(
     () => chats.find((chat) => chat.id === selectedChatId) || null,
@@ -31,11 +32,18 @@ function ChatPage() {
   useEffect(() => {
     const loadUserInfo = () => {
       const currentUser = authService.getCurrentUser();
+      console.log('현재 사용자 정보:', currentUser); // 디버깅용 로그
+      
       if (currentUser && currentUser.name) {
         setUserName(currentUser.name);
+        // 관리자 여부 확인 (authService의 isAdmin 함수 사용)
+        const adminStatus = authService.isAdmin();
+        console.log('관리자 여부:', adminStatus); // 디버깅용 로그
+        setIsAdmin(adminStatus);
       } else {
         // 사용자 정보가 없으면 루트 페이지로 이동
         //navigate('/');
+        console.log('사용자 정보가 없습니다.'); // 디버깅용 로그
       }
     };
 
@@ -83,6 +91,11 @@ function ChatPage() {
   // 사용자 이름 클릭 핸들러 (MyPage로 이동)
   const handleUserNameClick = useCallback(() => {
     navigate('/mypage');
+  }, [navigate]);
+
+  // 관리자 페이지로 이동 핸들러
+  const handleAdminPageClick = useCallback(() => {
+    navigate('/admin/members');
   }, [navigate]);
 
   // 채팅 선택 핸들러
@@ -229,6 +242,8 @@ function ChatPage() {
         onLogout={handleLogout}
         onUserNameClick={handleUserNameClick}
         isLoading={isSidebarLoading}
+        isAdmin={isAdmin}
+        onAdminPageClick={handleAdminPageClick}
       />
       <div className="flex-grow flex justify-center items-center">
         {selectedCategory === "채팅방" || selectedCategory === "업무 가이드" ? (

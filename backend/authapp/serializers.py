@@ -67,8 +67,7 @@ class LoginSerializer(serializers.Serializer):
                             self.rank = user_data[5]          # rank (6번째)
                             self.user_id = user_data[0]       # user_id (1번째)
                             self.created_dt = user_data[7]    # created_dt (8번째)
-                            # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
-                            # self.auth = user_data[8]          # auth (9번째)
+                            self.auth = user_data[8]          # auth (9번째) - 관리자 권한 확인용
                             self.is_active = user_data[9] == 'Y'  # use_yn (10번째)
                             self.is_authenticated = True
                             self.is_anonymous = False
@@ -97,8 +96,7 @@ class UserProfileSerializer(serializers.Serializer):
     rank = serializers.CharField(required=False, allow_blank=True)
     user_id = serializers.CharField(required=False, allow_blank=True)
     created_dt = serializers.DateTimeField(required=False)
-    # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
-    # auth = serializers.CharField(required=False, allow_blank=True)
+    auth = serializers.CharField(required=False, allow_blank=True)  # 관리자 권한 확인용
     
     def to_representation(self, instance):
         # CustomUser 객체에서 데이터 추출
@@ -110,8 +108,7 @@ class UserProfileSerializer(serializers.Serializer):
             'rank': getattr(instance, 'rank', ''),
             'user_id': getattr(instance, 'user_id', ''),
             'created_dt': getattr(instance, 'created_dt', ''),
-            # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
-            # 'auth': getattr(instance, 'auth', '')
+            'auth': getattr(instance, 'auth', 'N')  # 관리자 권한 확인용
         }
 
 class PasswordChangeSerializer(serializers.Serializer):
