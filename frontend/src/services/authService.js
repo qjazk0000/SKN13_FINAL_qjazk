@@ -33,7 +33,7 @@ export const authService = {
         }
     },
 
-    async checkAuthStatus() {
+    async checkAuthStatus() {  // 로그인 상태 확인인
         try {
             // JWT 토큰이 있는지 확인
             const token = localStorage.getItem('access_token');
@@ -58,7 +58,7 @@ export const authService = {
         }
     },
 
-    async refreshToken() {
+    async refreshToken() {  // 토큰 갱신
         try {
             const refreshToken = localStorage.getItem('refresh_token');
             if (!refreshToken) {
@@ -83,20 +83,9 @@ export const authService = {
     },
 
     // 사용자 프로필 조회
-    async getUserProfile() {
+    async getUserProfile() {  // 사용자 프로필 조회
         try {
-            console.log('프로필 조회 시작...');
-            console.log('API Base URL:', process.env.REACT_APP_API_URL || 'http://localhost:8000/api');
-            console.log('요청 URL:', '/auth/profile');
-            
-            const token = localStorage.getItem('access_token');
-            console.log('저장된 토큰:', token ? '있음' : '없음');
-            if (token) {
-                console.log('토큰 내용 (처음 20자):', token.substring(0, 20) + '...');
-            }
-            
-            const response = await api.get('/auth/profile');
-            console.log('프로필 조회 응답:', response);
+            const response = await api.get('/auth/profile/');
             
             if (response.data.success) {
                 return response.data.data;  // 사용자 정보 반환
@@ -104,35 +93,12 @@ export const authService = {
                 throw new Error(response.data.message);
             }
         } catch (error) {
-            console.error('프로필 조회 에러 상세:', error);
-            console.error('에러 응답:', error.response);
-            console.error('에러 요청:', error.request);
-            console.error('에러 메시지:', error.message);
-            
-            // 401 에러인 경우 토큰 갱신 시도
-            if (error.response?.status === 401) {
-                console.log('401 에러 발생, 토큰 갱신 시도...');
-                try {
-                    const newToken = await this.refreshToken();
-                    
-                    // 새로운 토큰으로 프로필 재조회
-                    const retryResponse = await api.get('/auth/profile');
-                    if (retryResponse.data.success) {
-                        return retryResponse.data.data;
-                    } else {
-                        throw new Error('토큰 갱신 후에도 프로필 조회 실패');
-                    }
-                } catch (refreshError) {
-                    throw new Error('토큰 갱신에 실패했습니다: ' + refreshError.message);
-                }
-            }
-            
             throw new Error('프로필 조회에 실패했습니다: ' + error.message);
         }
     },
 
     // 사용자 프로필 수정
-    async updateUserProfile(userData) {
+    async updateUserProfile(userData) {  // 사용자 프로필 수정
         try {
             const response = await api.put('/auth/profile/', userData);
             
@@ -147,7 +113,7 @@ export const authService = {
     },
 
     // 비밀번호 변경
-    async changePassword(passwordData) {
+    async changePassword(passwordData) {  // 비밀번호 변경
         try {
             const response = await api.post('/auth/password-change/', {
                 current_password: passwordData.currentPassword,
@@ -165,8 +131,8 @@ export const authService = {
         }
     },
 
-    // 현재 로그인한 사용자 정보 가져오기
-    getCurrentUser() {
+    // 로그인 후 유저 정보 표시시
+    getCurrentUser() {  // 현재 로그인한 사용자 정보 가져오기
         try {
             const userStr = localStorage.getItem('user');
             return userStr ? JSON.parse(userStr) : null;
@@ -176,8 +142,24 @@ export const authService = {
         }
     },
 
-    // 사용자 정보 업데이트 (로컬 스토리지)
-    updateCurrentUser(userData) {
+    // 관리자 여부 확인
+    isAdmin() {
+        try {
+            const user = this.getCurrentUser();
+            return user && user.auth === 'Y';
+        } catch (error) {
+            console.error('관리자 여부 확인 오류:', error);
+            return false;
+        }
+    },
+
+    // JWT 토큰 가져오기
+    getToken() {
+        return localStorage.getItem('access_token');
+    },
+
+
+    updateCurrentUser(userData) {  // 사용자 정보 업데이트 (로컬 스토리지)
         try {
             localStorage.setItem('user', JSON.stringify(userData));
         } catch (error) {

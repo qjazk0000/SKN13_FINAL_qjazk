@@ -39,8 +39,7 @@ class LoginView(APIView):
                         'name': user.first_name,            # name
                         'dept': user.dept,                  # dept
                         'rank': user.rank,                  # rank
-                        # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
-                        # 'auth': user.auth,                  # auth
+                        'auth': user.auth,                  # auth - 관리자 권한 확인용
                     }
                 }
             }, status=status.HTTP_200_OK)
@@ -123,9 +122,36 @@ class RefreshTokenView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 class LogoutView(APIView):
-    @require_auth
     def post(self, request):
         try:
+            # Authorization 헤더 확인
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return Response({
+                    'success': False,
+                    'message': '인증 토큰이 필요합니다.',
+                    'error': 'MISSING_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 토큰 추출 및 검증
+            from .utils import extract_token_from_header, get_user_from_token
+            token = extract_token_from_header(request)
+            if not token:
+                return Response({
+                    'success': False,
+                    'message': '인증 토큰이 필요합니다.',
+                    'error': 'MISSING_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 토큰 검증
+            user_data = get_user_from_token(token)
+            if not user_data:
+                return Response({
+                    'success': False,
+                    'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                    'error': 'INVALID_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
             # 토큰 블랙리스트 처리는 필요시 구현
             # 현재는 단순히 성공 응답만 반환
             return Response({
@@ -222,8 +248,35 @@ class UserProfileView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @require_auth
     def put(self, request):
+        # Authorization 헤더 확인
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 추출 및 검증
+        from .utils import extract_token_from_header, get_user_from_token
+        token = extract_token_from_header(request)
+        if not token:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 검증
+        user_data = get_user_from_token(token)
+        if not user_data:
+            return Response({
+                'success': False,
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                'error': 'INVALID_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
         # 프로필 업데이트 로직 (필요시 구현)
         return Response({
             'success': True,
@@ -231,8 +284,35 @@ class UserProfileView(APIView):
         }, status=status.HTTP_501_NOT_IMPLEMENTED)
 
 class PasswordChangeView(APIView):
-    @require_auth
     def post(self, request):
+        # Authorization 헤더 확인
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 추출 및 검증
+        from .utils import extract_token_from_header, get_user_from_token
+        token = extract_token_from_header(request)
+        if not token:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 검증
+        user_data = get_user_from_token(token)
+        if not user_data:
+            return Response({
+                'success': False,
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                'error': 'INVALID_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
         serializer = PasswordChangeSerializer(
             data=request.data,
             context={'request': request}
@@ -250,7 +330,7 @@ class PasswordChangeView(APIView):
                         UPDATE user_info 
                         SET passwd = %s 
                         WHERE user_id = %s
-                    """, [new_password, request.user_id])
+                    """, [new_password, user_data[0]])  # user_data[0]은 user_id
                     
                     if cursor.rowcount == 0:
                         return Response({
@@ -276,3 +356,6 @@ class PasswordChangeView(APIView):
             'message': '입력 데이터가 올바르지 않습니다.',
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+
