@@ -4,15 +4,20 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,
+)
 
 # API 엔드포인트 정의
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/chat/', include('chatbot.urls')),
-    path('api/accounts/', include('accounts.urls')),
     path('api/qdrant/', include('qdrant.urls')),
     path('api/auth/', include('authapp.urls')),
     path('api/receipt/', include('receipt.urls')),
+    path('api/admin/', include('adminapp.urls')),  # 관리자용 API
 
 ]
 
