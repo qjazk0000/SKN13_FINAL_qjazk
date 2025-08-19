@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import AdminSidebar from "./components/AdminSidebar.jsx";
 import SearchBar from "./components/SearchBar";
@@ -7,6 +8,7 @@ import Pagination from "./components/Pagination";
 import DateSelectBar from "./components/DateSelectBar";
 
 function ChatReportsPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchType, setSearchType] = useState("chat_id");
   const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
@@ -30,6 +32,10 @@ function ChatReportsPage() {
     },
   ]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedTab, setSelectedTab] = useState("chat-reports");
+  
+  // 사용자 정보 상태 (실제로는 API에서 가져와야 함)
+  const [userName, setUserName] = useState("관리자");
 
   const columns = [
     { header: "채팅 ID", accessor: "chat_id" },
@@ -58,9 +64,53 @@ function ChatReportsPage() {
     // TODO: API 호출로 페이지 데이터 불러오기
   };
 
+  // 사용자명 클릭 핸들러
+  const handleUserNameClick = () => {
+    console.log("마이페이지로 이동");
+    // TODO: 마이페이지로 이동하는 로직 구현
+  };
+
+  // 로그아웃 핸들러
+  const handleLogout = () => {
+    console.log("로그아웃");
+    // TODO: 로그아웃 로직 구현
+  };
+
+  // 탭 선택 핸들러
+  const handleTabSelect = (tabName) => {
+    setSelectedTab(tabName);
+    
+    // 선택된 탭에 따라 해당 페이지로 이동
+    switch (tabName) {
+      case "members":
+        navigate("/admin/members");
+        break;
+      case "manage-receipt":
+        navigate("/admin/manage-receipts");
+        break;
+      case "chat-reports":
+        // 현재 페이지이므로 이동하지 않음
+        break;
+      default:
+        console.log(`알 수 없는 탭: ${tabName}`);
+    }
+  };
+
+  // 채팅 화면으로 이동 핸들러
+  const handleChatPageClick = () => {
+    navigate("/chat");
+  };
+
   return (
     <div className="flex">
-      <AdminSidebar />
+      <AdminSidebar 
+        userName={userName}
+        onUserNameClick={handleUserNameClick}
+        onLogout={handleLogout}
+        selectedTab={selectedTab}
+        onTabSelect={handleTabSelect}
+        onChatPageClick={handleChatPageClick}
+      />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-bold mb-4">대화 신고 내역</h1>
         <DateSelectBar />

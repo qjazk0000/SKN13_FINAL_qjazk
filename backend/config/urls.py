@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/qdrant/', include('qdrant.urls')),
     path('api/auth/', include('authapp.urls')),
     path('api/receipt/', include('receipt.urls')),
+    path('api/admin/', include('adminapp.urls')),  # 관리자용 API
 
 ]
 
