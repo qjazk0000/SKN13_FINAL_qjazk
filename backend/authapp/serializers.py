@@ -1,6 +1,7 @@
 # authapp/serializers.py
 from rest_framework import serializers
 from django.db import connection
+from django.contrib.auth.hashers import check_password
 import logging
 
 # 로거 설정
@@ -67,8 +68,7 @@ class LoginSerializer(serializers.Serializer):
                             self.rank = user_data[5]          # rank (6번째)
                             self.user_id = user_data[0]       # user_id (1번째)
                             self.created_dt = user_data[7]    # created_dt (8번째)
-                            # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
-                            # self.auth = user_data[8]          # auth (9번째)
+                            self.auth = user_data[8]          # auth (9번째) - 관리자 권한 확인용
                             self.is_active = user_data[9] == 'Y'  # use_yn (10번째)
                             self.is_authenticated = True
                             self.is_anonymous = False
@@ -97,8 +97,7 @@ class UserProfileSerializer(serializers.Serializer):
     rank = serializers.CharField(required=False, allow_blank=True)
     user_id = serializers.CharField(required=False, allow_blank=True)
     created_dt = serializers.DateTimeField(required=False)
-    # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
-    # auth = serializers.CharField(required=False, allow_blank=True)
+    auth = serializers.CharField(required=False, allow_blank=True)  # 관리자 권한 확인용
     
     def to_representation(self, instance):
         # CustomUser 객체에서 데이터 추출
@@ -110,8 +109,7 @@ class UserProfileSerializer(serializers.Serializer):
             'rank': getattr(instance, 'rank', ''),
             'user_id': getattr(instance, 'user_id', ''),
             'created_dt': getattr(instance, 'created_dt', ''),
-            # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
-            # 'auth': getattr(instance, 'auth', '')
+            'auth': getattr(instance, 'auth', 'N')  # 관리자 권한 확인용
         }
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -131,30 +129,15 @@ class PasswordChangeSerializer(serializers.Serializer):
             'min_length': '새 비밀번호는 최소 8자 이상이어야 합니다.'
         }
     )
-    confirm_password = serializers.CharField(
-        max_length=128,
-        error_messages={
-            'required': '비밀번호 확인을 입력해주세요.',
-            'blank': '비밀번호 확인을 입력해주세요.'
-        }
-    )
 
     def validate(self, attrs):
         current_password = attrs.get('current_password')
         new_password = attrs.get('new_password')
-        confirm_password = attrs.get('confirm_password')
 
-        # 새 비밀번호와 확인 비밀번호 일치 검증
-        if new_password != confirm_password:
+        # 새 비밀번호가 현재 비밀번호와 다른지 확인
+        if current_password == new_password:
             raise serializers.ValidationError({
-                'confirm_password': '새 비밀번호와 확인 비밀번호가 일치하지 않습니다.'
-            })
-        
-        # 현재 비밀번호 검증
-        user = self.context['request'].user
-        if not user.check_password(current_password):
-            raise serializers.ValidationError({
-                'current_password': '현재 비밀번호가 올바르지 않습니다.'
+                'new_password': '새 비밀번호는 현재 비밀번호와 달라야 합니다.'
             })
         
         return attrs
