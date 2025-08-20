@@ -96,5 +96,31 @@ LLM 기반 자연어 처리 기술과 벡터 데이터베이스를 활용하여
 
 ---
 
+=======
+## 🚨 데이터 보존 주의사항
+
+**절대 `docker compose down -v` 사용하지 말 것!** 이 옵션은 볼륨을 삭제하여 Qdrant 데이터가 영구 손실됩니다.
+
+데이터는 `./qdrant_storage`(스토리지) / `./qdrant_snapshots`(스냅샷)에 보관됩니다.
+
+## 🚀 기동/중단
+
+**기동**: `make up`  
+**중단(데이터 보존)**: `make down`
+
+## 📊 상태 확인
+
+**Qdrant**: `curl -s http://localhost:6333/collections | jq .`
+
+## 💾 스냅샷/복구
+
+**스냅샷**: `make snap`  
+**복구**: `make restore location=/qdrant/snapshots/<your-snapshot>.snapshot`
+
+## 🔧 컬렉션 초기화
+
+백엔드가 자동 보장(`python manage.py qdrant_init`), 필요 시 수동 실행 가능
+---
+
 ## 📞 Q&A
 - **문의**: LLM과 RAG 기반 NAVI에 대한 궁금증은 GitHub Issues로 남겨주세요.

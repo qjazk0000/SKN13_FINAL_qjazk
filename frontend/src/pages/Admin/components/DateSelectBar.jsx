@@ -4,11 +4,13 @@ export default function DateSelectBar({ onDateChange, startDate, endDate }) {
   const [start_date, setStartDate] = useState(startDate || "");
   const [end_date, setEndDate] = useState(endDate || "");
 
+
   const today = new Date().toISOString().split("T")[0];
 
   const startMax = end_date
     ? (end_date < today ? end_date : today)
     : today;
+
 
   // props가 변경될 때 내부 상태 업데이트
   useEffect(() => {
@@ -36,7 +38,6 @@ export default function DateSelectBar({ onDateChange, startDate, endDate }) {
   return (
     <div className="flex space-x-2 items-center">
       <label className="font-medium text-gray-700">기간 선택:</label>
-
       <input
         type="date"
         value={start_date}
@@ -44,9 +45,7 @@ export default function DateSelectBar({ onDateChange, startDate, endDate }) {
         className="border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         max={startMax}
       />
-
       <span className="text-gray-500">~</span>
-
       <input
         type="date"
         value={end_date}

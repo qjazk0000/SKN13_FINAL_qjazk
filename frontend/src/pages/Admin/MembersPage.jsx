@@ -114,7 +114,7 @@ function MembersPage() {
 
    const handleSearch = () => {
     console.log(`검색 유형: ${searchType}, 검색어: ${searchTerm}`);
-    
+   
     // 검색 필터 구성
     let filter = "";
     if (searchTerm.trim()) {
@@ -124,6 +124,7 @@ function MembersPage() {
     // API 호출로 회원 목록 조회 (페이지 1로 리셋)
     setCurrentPage(1);
     fetchMembers(filter, 1);
+
   };
 
   const handlePageChange = (page) => {
@@ -171,6 +172,7 @@ function MembersPage() {
   // 채팅 화면으로 이동 핸들러
   const handleChatPageClick = () => {
     navigate("/chat");
+
   };
 
   return (
@@ -192,7 +194,6 @@ function MembersPage() {
             {error}
           </div>
         )}
-        
         <SearchBar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -201,7 +202,6 @@ function MembersPage() {
           setSearchType={setSearchType}
           searchOptions={searchOptions}
         />
-        
         {/* 로딩 상태 */}
         {isLoading ? (
           <div className="flex justify-center items-center py-8">

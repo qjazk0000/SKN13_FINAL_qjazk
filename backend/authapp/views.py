@@ -17,6 +17,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class LoginView(APIView):
+    authentication_classes = []  # 인증 클래스 제외
+    permission_classes = []      # 권한 클래스 제외
+    
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -40,6 +43,9 @@ class LoginView(APIView):
                         'dept': user.dept,                  # dept
                         'rank': user.rank,                  # rank
                         'auth': user.auth,                  # auth - 관리자 권한 확인용
+
+                        # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+                        # 'auth': user.auth,                  # auth
                     }
                 }
             }, status=status.HTTP_200_OK)
@@ -122,6 +128,7 @@ class RefreshTokenView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 class LogoutView(APIView):
+
     def post(self, request):
         try:
             # Authorization 헤더 확인
@@ -358,4 +365,140 @@ class PasswordChangeView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
+class UserProfileView(APIView):
+    def get(self, request):
+        try:
+            logger.info(f"UserProfileView GET 요청 시작")
+            logger.info(f"요청 메서드: {request.method}")
+            logger.info(f"요청 경로: {request.path}")
+            
+            # Authorization 헤더 확인
+            auth_header = request.headers.get('Authorization')
+            logger.info(f"Authorization 헤더: {auth_header}")
+            
+            if not auth_header:
+                return Response({
+                    'success': False,
+                    'message': '인증 토큰이 필요합니다.',
+                    'error': 'MISSING_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 토큰 추출
+            try:
+                token_type, token = auth_header.split(' ')
+                if token_type.lower() != 'bearer':
+                    return Response({
+                        'success': False,
+                        'message': '잘못된 토큰 형식입니다.',
+                        'error': 'INVALID_TOKEN_FORMAT'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+            except ValueError:
+                return Response({
+                    'success': False,
+                    'message': '잘못된 토큰 형식입니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            logger.info(f"토큰 추출됨: {token[:20]}...")
+            
+            # 토큰 검증 및 사용자 정보 조회
+            from .utils import get_user_from_token
+            user_data = get_user_from_token(token)
+            
+            if not user_data:
+                return Response({
+                    'success': False,
+                    'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                    'error': 'INVALID_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            logger.info(f"사용자 데이터 조회 성공: {user_data}")
+            
+            # 배열 인덱스 범위 확인
+            if len(user_data) < 8:
+                logger.error(f"user_data 배열 길이 부족: {len(user_data)}")
+                return Response({
+                    'success': False,
+                    'message': '사용자 데이터 형식이 올바르지 않습니다.',
+                    'error': 'INVALID_USER_DATA_FORMAT'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            return Response({
+                'success': True,
+                'data': {
+                    'user_id': user_data[0],           # UUID (배열 인덱스 유지)
+                    'username': user_data[1],          # user_login_id
+                    'email': user_data[6],             # email
+                    'name': user_data[3],              # name
+                    'dept': user_data[4],              # dept
+                    'rank': user_data[5],              # rank
+                    'created_dt': user_data[7],        # created_dt
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            logger.error(f"UserProfileView 에러: {e}")
+            import traceback
+            logger.error(f"스택 트레이스: {traceback.format_exc()}")
+            return Response({
+                'success': False,
+                'message': '프로필 조회 중 오류가 발생했습니다.',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @require_auth
+    def put(self, request):
+        # 프로필 업데이트 로직 (필요시 구현)
+        return Response({
+            'success': True,
+            'message': '프로필 업데이트 기능은 아직 구현되지 않았습니다.'
+        }, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+class PasswordChangeView(APIView):
+    @require_auth
+    def post(self, request):
+        serializer = PasswordChangeSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            try:
+                # 현재 비밀번호 확인
+                current_password = serializer.validated_data['current_password']
+                new_password = serializer.validated_data['new_password']
+                
+                # user_info 테이블에서 비밀번호 변경
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE user_info 
+                        SET passwd = %s 
+                        WHERE user_id = %s
+                    """, [new_password, request.user_id])
+                    
+                    if cursor.rowcount == 0:
+                        return Response({
+                            'success': False,
+                            'message': '사용자를 찾을 수 없습니다.'
+                        }, status=status.HTTP_404_NOT_FOUND)
+
+                return Response({
+                    'success': True,
+                    'message': '비밀번호가 성공적으로 변경되었습니다.'
+                }, status=status.HTTP_200_OK)
+
+
+            except Exception as e:
+                logger.error(f"비밀번호 변경 중 오류: {e}")
+                return Response({
+                    'success': False,
+                    'message': '비밀번호 변경 중 오류가 발생했습니다.',
+                    'error': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({
+            'success': False,
+            'message': '입력 데이터가 올바르지 않습니다.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
