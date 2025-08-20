@@ -12,6 +12,7 @@ function Sidebar({
   isLoading,
   onSelectCategory,
   selectedCategory,
+
   isAdmin,
   onAdminPageClick,
 }) {
@@ -115,6 +116,7 @@ function Sidebar({
         )}
       </div>
 
+
       {/* 관리자 페이지 버튼 */}
       {isAdmin && (
         <div className="px-4 py-2 border-t border-gray-700">
@@ -128,6 +130,7 @@ function Sidebar({
           </button>
         </div>
       )}
+
 
       {/* 하단 사용자명 + 로그아웃 */}
       <div className="mt-auto px-4 py-3 border-t border-gray-700">

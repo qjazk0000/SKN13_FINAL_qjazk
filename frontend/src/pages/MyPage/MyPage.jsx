@@ -186,6 +186,39 @@ function MyPage() {
                   disabled={isProfileLoading}
                 />
               </div>
+              
+              <div className="field-group">
+                <label>사용자 ID (User ID)</label>
+                <input
+                  type="text"
+                  value={userInfo.user_id || ''}
+                  className="info-input"
+                  disabled={true}
+                  readOnly
+                />
+              </div>
+              
+              <div className="field-group">
+                <label>가입일시 (Created Date)</label>
+                <input
+                  type="text"
+                  value={userInfo.created_dt ? new Date(userInfo.created_dt).toLocaleString('ko-KR') : ''}
+                  className="info-input"
+                  disabled={true}
+                  readOnly
+                />
+              </div>
+              
+              <div className="field-group">
+                <label>인증상태 (Auth Status)</label>
+                <input
+                  type="text"
+                  value={userInfo.auth === 'Y' ? '인증됨' : '미인증'}
+                  className="info-input"
+                  disabled={true}
+                  readOnly
+                />
+              </div>
             </div>
 
             {/* 프로필 수정 버튼 */}

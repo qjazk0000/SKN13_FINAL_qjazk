@@ -1,15 +1,27 @@
 import axios from "axios";
 import { authService } from './authService';
-
 // EC2 backend 서버 URL 설정
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-
+//const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 // Axios 인스턴스 생성
+// const api = axios.create({
+//     baseURL: API_BASE_URL,
+//     headers: {
+//         'Content-Type': 'application/json',
+//     },
+/**
+ * 프론트는 3000에서 돌더라도, API는 Nginx(80)로 고정 라우팅
+ * - dev/localhost: http://localhost/api
+ * - prod/vercel 등: 환경변수 REACT_APP_API_BASE_URL 사용 가능
+ */
+const baseURL =
+  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") ||
+  "http://localhost"; // 끝 슬래시 제거된 형태
+
 const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
+  baseURL: `${baseURL}/api`,
+  withCredentials: true,
+  timeout: 20000,
+
 });
 
 // 요청 인터셉터

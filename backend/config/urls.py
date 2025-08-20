@@ -18,7 +18,6 @@ urlpatterns = [
     path('api/auth/', include('authapp.urls')),
     path('api/receipt/', include('receipt.urls')),
     path('api/admin/', include('adminapp.urls')),  # 관리자용 API
-
 ]
 
 # DEBUG 모드에서 정적 파일과 미디어 파일을 서빙 (admin 페이지를 위함)
