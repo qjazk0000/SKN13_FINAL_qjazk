@@ -29,7 +29,7 @@ function AdminSidebar({
           </li>
         </ul>
       </div>
-
+        
       {/* 하단 사용자명 + 채팅 화면 버튼 + 로그아웃 */}
       <div className="mt-auto px-4 py-3 border-t border-gray-700 flex flex-col gap-2">
         {/* 채팅 화면으로 돌아가기 버튼 */}
@@ -40,7 +40,7 @@ function AdminSidebar({
         >
           채팅 화면으로 이동
         </button>
-        
+
         {/* 사용자 정보 + 로그아웃 */}
         <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-4 min-w-0">

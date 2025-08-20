@@ -44,10 +44,25 @@ function MembersPage() {
     fetchMembers();
   }, []);
 
-   const handleSearch = () => {
+  //  const handleSearch = () => {
+  //   try {
+  //     const response = await axios.post("/api/adminapp/users/",{
+  //       search_type: searchType,
+  //       search_keyword: searchTerm,
+  //     });
+
+  //     setMembers(response.data.results || response.data);
+  //     setCurrentPage(1);
+  //   } catch (error) {
+  //     console.error("")
+  //   }
+  // };
+
+  const handleSearch = () => {
     console.log(`검색 유형: ${searchType}, 검색어: ${searchTerm}`);
     // TODO: searchType과 searchTerm을 활용해 API 호출 및 필터링 처리
   };
+
 
   const handlePageChange = (page) => {
     setCurrentPage(page);

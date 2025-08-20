@@ -5,6 +5,7 @@ import MyPage from "./pages/MyPage/MyPage";
 import ChatPage from "./pages/Chat/ChatPage";
 import MembersPage from "./pages/Admin/MembersPage";
 import ChatReportsPage from "./pages/Admin/ChatReportsPage";
+import ErrorBoundary from "./components/ErrorBoundary";
 import "./App.css";
 
 function App() {
