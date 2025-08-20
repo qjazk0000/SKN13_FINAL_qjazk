@@ -9,6 +9,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView,
 )
+from authapp.views import PasswordChangeView
 
 # API 엔드포인트 정의
 urlpatterns = [
@@ -18,6 +19,7 @@ urlpatterns = [
     path('api/auth/', include('authapp.urls')),
     path('api/receipt/', include('receipt.urls')),
     path('api/admin/', include('adminapp.urls')),  # 관리자용 API
+    path('api/user/password-change/', PasswordChangeView.as_view(), name='user-password-change'),
 
 ]
 

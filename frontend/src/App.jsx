@@ -5,7 +5,7 @@ import MyPage from "./pages/MyPage/MyPage";
 import ChatPage from "./pages/Chat/ChatPage";
 import MembersPage from "./pages/Admin/MembersPage";
 import ChatReportsPage from "./pages/Admin/ChatReportsPage";
-import ManageReceipts from "./pages/Admin/ManageReceipts";
+import ErrorBoundary from "./components/ErrorBoundary";
 import "./App.css";
 
 function App() {
@@ -18,7 +18,6 @@ function App() {
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/admin/members" element={<MembersPage />} />
         <Route path="/admin/chat-reports" element={<ChatReportsPage />} />
-        <Route path="/admin/manage-receipts" element={<ManageReceipts />} />
       </Routes>
     </Router>
   );

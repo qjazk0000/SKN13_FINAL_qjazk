@@ -115,10 +115,9 @@ export const authService = {
     // 비밀번호 변경
     async changePassword(passwordData) {  // 비밀번호 변경
         try {
-            const response = await api.post('/auth/password-change/', {
+            const response = await api.post('/user/password-change/', {
                 current_password: passwordData.currentPassword,
-                new_password: passwordData.newPassword,
-                confirm_password: passwordData.confirmPassword
+                new_password: passwordData.newPassword
             });
             
             if (response.data.success) {
