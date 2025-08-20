@@ -82,7 +82,6 @@ export const authService = {
         }
     },
 
-    // 사용자 프로필 조회
     async getUserProfile() {
         try {
             console.log('프로필 조회 시작...');
@@ -97,6 +96,7 @@ export const authService = {
             
             const response = await api.get('/auth/profile');
             console.log('프로필 조회 응답:', response);
+
             
             if (response.data.success) {
                 return response.data.data;  // 사용자 정보 반환
@@ -104,6 +104,7 @@ export const authService = {
                 throw new Error(response.data.message);
             }
         } catch (error) {
+
             console.error('프로필 조회 에러 상세:', error);
             console.error('에러 응답:', error.response);
             console.error('에러 요청:', error.request);
@@ -164,9 +165,9 @@ export const authService = {
             throw new Error('비밀번호 변경에 실패했습니다: ' + error.message);
         }
     },
-
     // 현재 로그인한 사용자 정보 가져오기
     getCurrentUser() {
+
         try {
             const userStr = localStorage.getItem('user');
             return userStr ? JSON.parse(userStr) : null;
@@ -176,8 +177,25 @@ export const authService = {
         }
     },
 
-    // 사용자 정보 업데이트 (로컬 스토리지)
-    updateCurrentUser(userData) {
+    // 관리자 여부 확인
+    isAdmin() {
+        try {
+            const user = this.getCurrentUser();
+            return user && user.auth === 'Y';
+        } catch (error) {
+            console.error('관리자 여부 확인 오류:', error);
+            return false;
+        }
+    },
+
+    // JWT 토큰 가져오기
+    getToken() {
+        return localStorage.getItem('access_token');
+    },
+
+
+    updateCurrentUser(userData) {  // 사용자 정보 업데이트 (로컬 스토리지)
+
         try {
             localStorage.setItem('user', JSON.stringify(userData));
         } catch (error) {
