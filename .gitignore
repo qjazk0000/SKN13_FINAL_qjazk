@@ -50,6 +50,15 @@ frontend/yarn-error.log
 *.swp
 docker-compose.override.yml
 
+# Jupyter 노트북
+*.ipynb
+
+# 데이터베이스 저장소
+qdrant_storage/
+
+# Django 관리 명령어 (선택적)
+backend/*/management/commands/
+
 # 기타
 coverage/
 dist/
