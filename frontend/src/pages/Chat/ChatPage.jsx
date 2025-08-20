@@ -27,6 +27,10 @@ function ChatPage() {
     [chats, selectedChatId]
   );
 
+  const handleGoToAdmin = useCallback(() => {
+    navigate("/admin/members"); 
+  }, [navigate]);
+
   // 사용자 정보 로드
   useEffect(() => {
     const loadUserInfo = () => {
@@ -47,7 +51,7 @@ function ChatPage() {
     const fetchChats = async () => {
       setIsSidebarLoading(true);
       try {
-        const response = await axios.get("/api/chats");
+        const response = await axios.get("/api/chatbot/list/");
         setChats(response.data);
         if (response.data.length > 0) {
           setSelectedChatId(response.data[0].id);
@@ -67,7 +71,7 @@ function ChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post("/api/chats");
+      const response = await axios.post("/api/chatbot/new");
       const newChat = response.data;
 
       setChats((prevChats) => [newChat, ...prevChats]);
@@ -102,8 +106,8 @@ function ChatPage() {
       };
       await new Promise((resolve) => setTimeout(resolve, 500));
       const newReceipt = mockResponse.data;
-      setReceipts((prevReceipts) => [newReceipt, ...prevReceipts]);
-      setSelectedReceiptId(newReceipt.id);
+      // setReceipts((prevReceipts) => [newReceipt, ...prevReceipts]);
+      // setSelectedReceiptId(newReceipt.id);
       setSelectedCategory("영수증 처리");
     } catch (error) {
       console.error("새 영수증 생성 실패:", error);
@@ -173,7 +177,7 @@ function ChatPage() {
       });
 
       try {
-        const response = await axios.post("/api/chat", {
+        const response = await axios.post(`/api/chatbot/${selectedChat.id}/query/`, {
           chatId: selectedChat.id,
           userMessage: message,
         });
@@ -262,6 +266,7 @@ function ChatPage() {
         onLogout={handleLogout}
         onUserNameClick={handleUserNameClick}
         isLoading={isSidebarLoading}
+        onGoToAdmin={handleGoToAdmin}
       />
       <div className="flex-grow flex justify-center items-center">
         {selectedCategory === "채팅방" || selectedCategory === "업무 가이드" ? (

@@ -1,17 +1,18 @@
-import React, { useState } from "react";
+import React from "react";
+import axios from "axios";
 import AdminSidebar from "./components/AdminSidebar.jsx";
 import SearchBar from "./components/SearchBar";
 import DataTable from "./components/DataTable";
 import Pagination from "./components/Pagination";
+import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 
 function MembersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchType, setSearchType] = useState("name");
-  const [members, setMembers] = useState([
-    { dept: "개발", name: "홍길동", id: 1, level: "사원", email: "hong@test.com", use_yn:"Y" },
-    { dept: "영업", name: "김철수", id: 2, level: "대리", email: "kim@test.com", use_yn:"Y" },
-  ]);
+  const [members, setMembers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const navigate = useNavigate();
 
   const columns = [
     { header: "부서", accessor: "dept" },
@@ -30,6 +31,19 @@ function MembersPage() {
     { value: "email", label: "이메일" },
   ];
 
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const response = await axios.get("/api/adminapp/users/");
+        setMembers(response.data); // 백엔드에서 오는 JSON 데이터로 교체
+      } catch (error) {
+        console.error("회원 목록 불러오기 실패:", error);
+      }
+    };
+
+    fetchMembers();
+  }, []);
+
    const handleSearch = () => {
     console.log(`검색 유형: ${searchType}, 검색어: ${searchTerm}`);
     // TODO: searchType과 searchTerm을 활용해 API 호출 및 필터링 처리
@@ -40,9 +54,15 @@ function MembersPage() {
     // TODO: API 호출로 페이지 데이터 불러오기
   };
 
+  const handleGoToChat = useCallback(() => {
+    navigate("/chat"); 
+  }, [navigate]);
+
   return (
     <div className="flex">
-      <AdminSidebar />
+      <AdminSidebar 
+        onGoToChat={handleGoToChat}
+      />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-bold mb-4">회원 관리</h1>
         <SearchBar

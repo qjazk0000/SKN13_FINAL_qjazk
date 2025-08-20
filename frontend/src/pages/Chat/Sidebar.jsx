@@ -12,6 +12,7 @@ function Sidebar({
   isLoading,
   onSelectCategory,
   selectedCategory,
+  onGoToAdmin,
 }) {
   const initials = userName?.[0] || "U";
   const displayName = userName || "사용자";
@@ -109,9 +110,19 @@ function Sidebar({
         )}
       </div>
 
-      {/* 하단 사용자명 + 로그아웃 */}
-      <div className="mt-auto px-4 py-3 border-t border-gray-700">
-        <div className="flex items-center justify-between">
+      {/* 하단 사용자명 + 채팅 화면 버튼 + 로그아웃 */}
+      <div className="mt-auto px-4 py-3 border-t border-gray-700 flex flex-col gap-2">
+        {/* 채팅 화면으로 돌아가기 버튼 */}
+        <button
+          type="button"
+          onClick={onGoToAdmin}
+          className="w-full py-2 px-4 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-left flex items-center gap-2 transition"
+        >
+          관리자 화면으로 이동
+        </button>
+        
+        {/* 사용자 정보 + 로그아웃 */}
+        <div className="flex items-center justify-between mt-2">
           <div className="flex items-center gap-4 min-w-0">
             <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-700 text-sm font-semibold">
               {initials}
@@ -128,7 +139,6 @@ function Sidebar({
             </div>
           </div>
 
-          {/* 로그아웃 버튼 (inline SVG 아이콘) */}
           <button
             type="button"
             onClick={onLogout}
