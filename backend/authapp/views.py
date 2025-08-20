@@ -17,6 +17,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class LoginView(APIView):
+    authentication_classes = []  # 인증 클래스 제외
+    permission_classes = []      # 권한 클래스 제외
+    
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
