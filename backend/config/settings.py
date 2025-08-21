@@ -7,8 +7,8 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 환경변수 덮어쓰기 필요시 주석을 해제
-#load_dotenv(BASE_DIR.parent / '.env')
+# 환경변수 로드
+load_dotenv(BASE_DIR.parent / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
