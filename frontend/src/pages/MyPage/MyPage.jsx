@@ -108,7 +108,6 @@ function MyPage() {
     }
   };
 
-const MyPage = () => {
   return (
     <div className="mypage-container">
       <div className="mypage-content">
@@ -288,6 +287,6 @@ const MyPage = () => {
       </div>
     </div>
   );
-};
+}
 
 export default MyPage;
