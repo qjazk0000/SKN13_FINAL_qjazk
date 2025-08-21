@@ -201,21 +201,5 @@ export const authService = {
         } catch (error) {
             console.error('사용자 정보 저장 오류:', error);
         }
-    },
-
-    // 관리자 여부 확인
-    isAdmin() {
-        try {
-            const user = this.getCurrentUser();
-            return user && user.auth === 'Y';
-        } catch (error) {
-            console.error('관리자 여부 확인 오류:', error);
-            return false;
-        }
-    },
-
-    // JWT 토큰 가져오기
-    getToken() {
-        return localStorage.getItem('access_token');
     }
 };
