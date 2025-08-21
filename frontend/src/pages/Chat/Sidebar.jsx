@@ -1,6 +1,6 @@
-import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/solid";
-import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, PlusIcon, TrashIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
+import api from "../../services/api";
 
 function Sidebar({
   userName,
@@ -14,6 +14,8 @@ function Sidebar({
   isLoading,
   onSelectCategory,
   selectedCategory,
+  onDeleteChat,
+  onDeleteReceipt,
 
   isAdmin,
   onAdminPageClick,
@@ -57,10 +59,31 @@ function Sidebar({
     setOpenDeleteMenuId(openDeleteMenuId === chatId ? null : chatId);
   };
 
-  const handleDelete = (chatId) => {
-    // todo: 실제 api 호출 로직 구현
-    console.log(`Deleting chat with ID: ${chatId}`);
-    setOpenDeleteMenuId(null);
+  const handleDelete = async (chatId) => {
+    try {
+      console.log(`Deleting chat with ID: ${chatId}`);
+      
+      // API 호출하여 채팅 삭제
+      const response = await api.delete(`/chat/${chatId}/delete/`);
+      
+      if (response.data.success) {
+        console.log('채팅 삭제 성공:', response.data.message);
+        
+        // 부모 컴포넌트에 삭제 완료 알림
+        if (onDeleteChat) {
+          onDeleteChat(chatId);
+        }
+        
+        // 삭제 메뉴 닫기
+        setOpenDeleteMenuId(null);
+      } else {
+        console.error('채팅 삭제 실패:', response.data.message);
+        alert('채팅 삭제에 실패했습니다: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('채팅 삭제 중 오류 발생:', error);
+      alert('채팅 삭제 중 오류가 발생했습니다.');
+    }
   };
 
   return (
