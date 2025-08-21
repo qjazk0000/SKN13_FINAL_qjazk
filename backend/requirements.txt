@@ -8,6 +8,7 @@ psycopg2-binary
 qdrant-client
 sentence-transformers
 pypdf>=4.2.0
+PyPDF2==3.0.1
 langchain
 langchain-community
 langchain-huggingface

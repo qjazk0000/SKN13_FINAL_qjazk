@@ -1,4 +1,6 @@
-import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/solid";
+import { ArrowPathIcon, PlusIcon, TrashIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import { useEffect, useRef, useState } from "react";
+import api from "../../services/api";
 
 function Sidebar({
   userName,
@@ -12,16 +14,30 @@ function Sidebar({
   isLoading,
   onSelectCategory,
   selectedCategory,
+  onDeleteChat,
+  onDeleteReceipt,
 
   isAdmin,
   onAdminPageClick,
 }) {
   const initials = userName?.[0] || "U";
   const displayName = userName || "사용자";
-  
-  // 디버깅용 로그
-  console.log('Sidebar - isAdmin:', isAdmin);
-  console.log('Sidebar - userName:', userName);
+
+  const [openDeleteMenuId, setOpenDeleteMenuId] = useState(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      // 메뉴가 열려있고, 클릭된 요소가 메뉴 내부에 있지 않으면 메뉴를 닫습니다.
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenDeleteMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [menuRef]);
 
   const getCategoryClass = (categoryName) => {
     return selectedCategory === categoryName
@@ -36,6 +52,37 @@ function Sidebar({
       onNewChat();
     } else {
       onNewReceipt();
+    }
+  };
+
+  const handleToggleDeleteMenu = (chatId) => {
+    setOpenDeleteMenuId(openDeleteMenuId === chatId ? null : chatId);
+  };
+
+  const handleDelete = async (chatId) => {
+    try {
+      console.log(`Deleting chat with ID: ${chatId}`);
+      
+      // API 호출하여 채팅 삭제
+      const response = await api.delete(`/chat/${chatId}/delete/`);
+      
+      if (response.data.success) {
+        console.log('채팅 삭제 성공:', response.data.message);
+        
+        // 부모 컴포넌트에 삭제 완료 알림
+        if (onDeleteChat) {
+          onDeleteChat(chatId);
+        }
+        
+        // 삭제 메뉴 닫기
+        setOpenDeleteMenuId(null);
+      } else {
+        console.error('채팅 삭제 실패:', response.data.message);
+        alert('채팅 삭제에 실패했습니다: ' + response.data.message);
+      }
+    } catch (error) {
+      console.error('채팅 삭제 중 오류 발생:', error);
+      alert('채팅 삭제 중 오류가 발생했습니다.');
     }
   };
 
@@ -90,32 +137,62 @@ function Sidebar({
           </div>
         ) : (
           // 로딩이 끝났을 때
-          <ul className="flex flex-col gap-2 flex-1 overflow-y-auto">
-            {chats.map((chat) => (
-              <li key={chat.id}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    isChatCategory ? onSelectChat(chat) : onSelectReceipt(chat)
-                  }
-                  className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
-                  title={chat.title}
+          <div className="max-h-80 overflow-y-auto">
+            <ul>
+              {chats.map((chat) => (
+                <li
+                  key={chat.id}
+                  className={`relative ${
+                    openDeleteMenuId === chat.id ? "bg-gray-700 rounded-md" : ""
+                  }`}
                 >
-                  {chat.title}
-                </button>
-              </li>
-            ))}
-            {chats.length === 0 && (
-              <li className="px-2 py-2 text-sm text-gray-400">
-                {isChatCategory
-                  ? "채팅 내역이 없습니다."
-                  : "영수증 내역이 없습니다."}
-              </li>
-            )}
-          </ul>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      isChatCategory
+                        ? onSelectChat(chat)
+                        : onSelectReceipt(chat)
+                    }
+                    className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
+                    title={chat.title}
+                  >
+                    {chat.title}
+                  </button>
+
+                  <div className="absolute top-0 right-0 h-full flex items-center">
+                    <div
+                      className="relative"
+                      ref={openDeleteMenuId === chat.id ? menuRef : null}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleDeleteMenu(chat.id);
+                        }}
+                        className="px-2 text-gray-400 hover:text-white focus:outline-none"
+                      >
+                        <EllipsisVerticalIcon className="w-5 h-5" />
+                      </button>
+
+                      {/* 드롭다운 메뉴 (삭제 버튼) */}
+                      {openDeleteMenuId === chat.id && (
+                        <div className="absolute right-0 top-8 mt-1 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16">
+                          <button
+                            onClick={() => handleDelete(chat.id)}
+                            className="block w-full text-left px-4 py-2 text-sm text-white transition"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
-
 
       {/* 관리자 페이지 버튼 */}
       {isAdmin && (
@@ -130,7 +207,6 @@ function Sidebar({
           </button>
         </div>
       )}
-
 
       {/* 하단 사용자명 + 로그아웃 */}
       <div className="mt-auto px-4 py-3 border-t border-gray-700">

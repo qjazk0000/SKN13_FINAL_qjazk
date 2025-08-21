@@ -162,6 +162,6 @@ export const authService = {
         } catch (error) {
             console.error('사용자 정보 저장 오류:', error);
         }
-    },
 
+    }
 };
