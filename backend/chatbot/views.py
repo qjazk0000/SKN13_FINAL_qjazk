@@ -87,6 +87,95 @@ class ConversationCreateView(generics.CreateAPIView):
             'data': response.data
         }, status=status.HTTP_201_CREATED)
 
+class ConversationDeleteView(generics.DestroyAPIView):
+    """
+    개별 채팅 삭제 API
+    - JWT 토큰 기반 사용자 인증
+    - 본인의 대화기록만 삭제 가능
+    - 연관된 채팅 메시지도 함께 삭제
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = ConversationSerializer
+    lookup_field = 'conversation_id'
+    
+    def delete(self, request, *args, **kwargs):
+        conversation_id = kwargs.get('conversation_id')
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header:
+            return Response(
+                {'success': False, 'message': '인증 토큰이 필요합니다.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        try:
+            # JWT 토큰에서 user_id 추출
+            token_type, token = auth_header.split(' ')
+            if token_type.lower() != 'bearer':
+                return Response(
+                    {'success': False, 'message': '올바른 토큰 형식이 아닙니다.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            payload = verify_token(token)
+            if not payload:
+                return Response(
+                    {'success': False, 'message': '유효하지 않은 토큰입니다.'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            user_id = payload.get('user_id')
+            if not user_id:
+                return Response(
+                    {'success': False, 'message': '사용자 정보를 찾을 수 없습니다.'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
+            # 대화기록 조회 및 권한 확인
+            try:
+                conversation = Conversation.objects.get(
+                    id=conversation_id,
+                    user_id=user_id
+                )
+            except Conversation.DoesNotExist:
+                return Response(
+                    {'success': False, 'message': '해당 대화기록을 찾을 수 없거나 삭제 권한이 없습니다.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # 연관된 채팅 메시지 삭제 (CASCADE 설정이지만 명시적으로 처리)
+            chat_messages = ChatMessage.objects.filter(conversation=conversation)
+            deleted_message_count = chat_messages.count()
+            chat_messages.delete()
+            
+            # 대화기록 삭제
+            conversation_title = conversation.title
+            conversation.delete()
+            
+            print(f"DEBUG: 대화기록 삭제 완료 - ID: {conversation_id}, 제목: {conversation_title}, 삭제된 메시지 수: {deleted_message_count}")
+            
+            return Response({
+                'success': True,
+                'message': f'대화기록 "{conversation_title}"이(가) 삭제되었습니다.',
+                'data': {
+                    'deleted_conversation_id': str(conversation_id),
+                    'deleted_message_count': deleted_message_count
+                }
+            }, status=status.HTTP_200_OK)
+            
+        except ValueError:
+            return Response(
+                {'success': False, 'message': '토큰 형식이 올바르지 않습니다.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            print(f"DEBUG: 대화기록 삭제 중 오류 발생: {str(e)}")
+            return Response(
+                {'success': False, 'message': f'대화기록 삭제 중 오류가 발생했습니다: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 class ChatQueryView(generics.CreateAPIView):
     """
     질문 전송 및 응답 생성
