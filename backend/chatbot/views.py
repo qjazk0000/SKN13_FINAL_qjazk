@@ -18,9 +18,32 @@ class ConversationListView(generics.ListAPIView):
     serializer_class = ConversationSerializer
 
     def get_queryset(self):
-        return Conversation.objects.filter(user=self.request.user).order_by('-updated_at')
+        # JWT 토큰에서 user_id 추출하여 필터링
+        auth_header = self.request.headers.get('Authorization')
+        user_id = None
+        
+        if auth_header:
+            try:
+                token_type, token = auth_header.split(' ')
+                if token_type.lower() == 'bearer':
+                    payload = verify_token(token)
+                    if payload:
+                        user_id = payload.get('user_id')
+                        print(f"DEBUG: ConversationListView - JWT에서 추출한 user_id: {user_id}")
+            except Exception as e:
+                print(f"DEBUG: ConversationListView - JWT 파싱 실패: {str(e)}")
+        
+        if user_id:
+            # user_id로 필터링된 대화방만 반환
+            queryset = Conversation.objects.filter(user_id=user_id).order_by('-updated_at')
+            print(f"DEBUG: ConversationListView - user_id {user_id}로 필터링된 대화방 수: {queryset.count()}")
+            return queryset
+        else:
+            # user_id가 없으면 빈 쿼리셋 반환
+            print(f"DEBUG: ConversationListView - user_id가 없어 빈 결과 반환")
+            return Conversation.objects.none()
 
-class ConversationCreateView(generics.ListAPIView):
+class ConversationCreateView(generics.CreateAPIView):
 
     """
     새 대화방 생성
