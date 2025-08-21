@@ -80,9 +80,9 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT', 5432),
-        'OPTIONS': {
-            'sslmode': 'require',  # RDS SSL 연결결
-        }
+        # 'OPTIONS': {
+        #     'sslmode': 'require',  # RDS SSL 연결
+        # }
     }
 }
 
@@ -178,9 +178,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-
     ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [],  # Django 인증 시스템 비활성화
+    # 'DEFAULT_AUTHENTICATION_CLASSES': []
 }
 
 
