@@ -1,7 +1,8 @@
 // ChatPage.jsx
 // todo: 실제 API 엔드포인트에 맞게 수정
-
+import axios from "axios";
 import api from "../../services/api";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
@@ -27,6 +28,8 @@ function ChatPage() {
   const [selectedCategory, setSelectedCategory] = useState("업무 가이드");
   const [userName, setUserName] = useState("");
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const selectedChat = useMemo(
     () => {
       const chat = (chats ?? []).find((chat) => chat.id === selectedChatId);
@@ -43,11 +46,18 @@ function ChatPage() {
   useEffect(() => {
     const loadUserInfo = () => {
       const currentUser = authService.getCurrentUser();
+      console.log('현재 사용자 정보:', currentUser); // 디버깅용 로그
+      
       if (currentUser && currentUser.name) {
         setUserName(currentUser.name);
+        // 관리자 여부 확인 (authService의 isAdmin 함수 사용)
+        const adminStatus = authService.isAdmin();
+        console.log('관리자 여부:', adminStatus); // 디버깅용 로그
+        setIsAdmin(adminStatus);
       } else {
         // 사용자 정보가 없으면 루트 페이지로 이동
         //navigate('/');
+        console.log('사용자 정보가 없습니다.'); // 디버깅용 로그
       }
     };
 
@@ -198,6 +208,12 @@ function ChatPage() {
     navigate('/mypage');
   }, [navigate]);
 
+
+  // 관리자 페이지로 이동 핸들러
+  const handleAdminPageClick = useCallback(() => {
+    navigate('/admin/members');
+  }, [navigate]);
+
   // 채팅 선택 핸들러
   const handleSelectChat = useCallback(
     async (chat) => {
@@ -205,10 +221,12 @@ function ChatPage() {
       setIsLoading(true);
 
       try {
+
         console.log("DEBUG: 채팅 선택됨:", chat);
         console.log("DEBUG: 선택된 채팅의 메시지:", chat.messages);
         
         // 채팅 메시지는 이미 대화방에 포함되어 있으므로 바로 선택
+
         setSelectedChatId(chat.id);
       } catch (error) {
         console.error("채팅 선택 실패:", error);
@@ -219,6 +237,7 @@ function ChatPage() {
     },
     [selectedChatId, isLoading]
   );
+
 
   // 영수증 채팅 선택 핸들러 (주석처리)
   // const handleSelectReceipt = useCallback(
@@ -239,6 +258,7 @@ function ChatPage() {
   //   },
   //   [selectedReceiptId, isLoading]
   // );
+
 
   // 메시지 전송 핸들러
   const handleSendMessage = useCallback(
@@ -371,6 +391,9 @@ function ChatPage() {
         onLogout={handleLogout}
         onUserNameClick={handleUserNameClick}
         isLoading={isSidebarLoading}
+        isAdmin={isAdmin}
+        onAdminPageClick={handleAdminPageClick}
+
       />
       <div className="flex-grow flex justify-center items-center">
         {selectedCategory === "채팅방" || selectedCategory === "업무 가이드" ? (
@@ -378,6 +401,7 @@ function ChatPage() {
             chat={selectedChat}
             onSendMessage={handleSendMessage}
             isLoading={isLoading}
+            selectedCategory={selectedCategory}
           />
         ) : (
           <Receipt selectedCategory={selectedCategory} />

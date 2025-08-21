@@ -178,8 +178,11 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [],  # Django 인증 시스템 비활성화
 }
+
 
 # JWT 설정
 SIMPLE_JWT = {
@@ -209,8 +212,7 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-# INSTALLED_APPS += ['corsheaders']
-# MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
+# corsheaders는 이미 INSTALLED_APPS와 MIDDLEWARE에 포함되어 있음
 CORS_ALLOWED_ORIGINS = [
     os.getenv('FRONTEND_ORIGIN', 'http://localhost'),
     'http://localhost:3000',  # React 개발 서버

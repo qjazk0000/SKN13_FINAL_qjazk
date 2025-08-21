@@ -11,6 +11,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
   // ✅ chat이 undefined일 때도 안전하게 처리
   const safeMessages = chat && Array.isArray(chat.messages) ? chat.messages : [];
 
+
   // 메시지 전송 후 스크롤을 맨 아래로 이동
   useEffect(() => {
     if (messageEndRef.current) {
@@ -47,6 +48,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
 
   return (
     <div className="flex flex-col w-full h-[100dvh] sm:px-8 md:px-16 lg:px-32 xl:px-60 rounded-lg">
+
       {/* NAVI 로고 헤더 - 항상 표시 */}
       <div className="flex flex-col items-center justify-center py-6 border-b">
         <img
@@ -68,11 +70,13 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
               key={message.id}
               className={`flex ${
                 message.sender_type === "user" ? "justify-end" : "justify-start"
+
               }`}
             >
               <div
                 className={`p-3 rounded-lg max-w-sm ${
                   message.sender_type === "user"
+
                     ? "bg-gray-200 text-gray-800"
                     : "bg-orange-200 text-gray-800"
                 } whitespace-pre-wrap`}
