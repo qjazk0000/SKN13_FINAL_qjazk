@@ -409,27 +409,136 @@ class ReceiptManagementView(APIView):
     - 영수증 이미지, 파일명, 업로드 일시 정보 제공
     """
     
-    @admin_required
     def get(self, request):
         """
         영수증 전체 목록 조회
-        - 출력: 영수증 기본 정보 목록
+        - 출력: 영수증 기본 정보 목록과 페이지네이션 정보
         """
         try:
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT receipt_id, user_id, file_name, uploaded_at, is_verified 
-                    FROM receipt_info 
-                    ORDER BY uploaded_at DESC
-                """)
-                columns = [col[0] for col in cursor.description]
-                receipts = [dict(zip(columns, row)) for row in cursor.fetchall()]
-                
-                serializer = ReceiptSerializer(receipts, many=True)
+            # 인증 및 권한 확인
+            token = extract_token_from_header(request)
+            if not token:
                 return Response({
-                    'success': True,
-                    'data': serializer.data  # 시리얼라이즈된 데이터 반환
+                    'success': False,
+                    'message': '인증 토큰이 필요합니다.',
+                    'error': 'MISSING_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 토큰 검증 및 사용자 정보 조회
+            user_data = get_user_from_token(token)
+            if not user_data:
+                return Response({
+                    'success': False,
+                    'message': '유효하지 않은 토큰입니다.',
+                    'error': 'INVALID_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 관리자 권한 확인 (auth 컬럼이 'Y'인 경우)
+            if user_data[8] != 'Y':  # auth 컬럼
+                return Response({
+                    'success': False,
+                    'message': '관리자 권한이 필요합니다.',
+                    'error': 'ADMIN_REQUIRED'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # 페이지네이션 파라미터
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 10))
+            
+            # 검색 및 필터 파라미터
+            name = request.GET.get('name', '')
+            dept = request.GET.get('dept', '')
+            status = request.GET.get('status', '')
+            start_date = request.GET.get('start_date', '')
+            end_date = request.GET.get('end_date', '')
+            
+            # 기본 쿼리 - receipt_info, user_info, file_info JOIN
+            base_query = """
+                SELECT r.receipt_id, r.user_id, r.amount, r.status, r.created_at,
+                       u.name, u.dept, u.user_login_id,
+                       f.file_path
+                FROM receipt_info r
+                JOIN user_info u ON r.user_id = u.user_id
+                JOIN file_info f ON r.file_id = f.file_id
+                WHERE 1=1
+            """
+            count_query = """
+                SELECT COUNT(*)
+                FROM receipt_info r
+                JOIN user_info u ON r.user_id = u.user_id
+                JOIN file_info f ON r.file_id = f.file_id
+                WHERE 1=1
+            """
+            params = []
+            
+            # 검색 조건 추가
+            if name:
+                base_query += " AND u.name ILIKE %s"
+                count_query += " AND u.name ILIKE %s"
+                params.append(f'%{name}%')
+            
+            if dept:
+                base_query += " AND u.dept ILIKE %s"
+                count_query += " AND u.dept ILIKE %s"
+                params.append(f'%{dept}%')
+            
+            if status:
+                base_query += " AND r.status = %s"
+                count_query += " AND r.status = %s"
+                params.append(status)
+            
+            if start_date:
+                base_query += " AND r.created_at >= %s"
+                count_query += " AND r.created_at >= %s"
+                params.append(start_date)
+            
+            if end_date:
+                base_query += " AND r.created_at <= %s"
+                count_query += " AND r.created_at <= %s"
+                params.append(end_date)
+            
+            # 전체 개수 조회
+            with connection.cursor() as cursor:
+                cursor.execute(count_query, params)
+                total_count = cursor.fetchone()[0]
+            
+            # 페이지네이션 적용
+            offset = (page - 1) * page_size
+            base_query += " ORDER BY r.created_at DESC LIMIT %s OFFSET %s"
+            params.extend([page_size, offset])
+            
+            # 실제 데이터 조회
+            with connection.cursor() as cursor:
+                cursor.execute(base_query, params)
+                columns = [col[0] for col in cursor.description]
+                raw_receipts = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            
+            # 프론트엔드가 요구하는 필드명으로 매핑
+            receipts = []
+            for receipt in raw_receipts:
+                receipts.append({
+                    'receipt_id': receipt['receipt_id'],
+                    'name': receipt['name'],
+                    'dept': receipt['dept'],
+                    'created_at': receipt['created_at'].isoformat() if receipt['created_at'] else None,
+                    'amount': float(receipt['amount']) if receipt['amount'] else 0,
+                    'status': receipt['status'],
+                    'file_path': receipt['file_path'],
+                    'user_login_id': receipt['user_login_id']
                 })
+            
+            # 응답 데이터 구성
+            total_pages = (total_count + page_size - 1) // page_size
+            
+            return Response({
+                'success': True,
+                'data': {
+                    'receipts': receipts,
+                    'total_pages': total_pages,
+                    'current_page': page,
+                    'total_count': total_count
+                }
+            })
                 
         except Exception as e:
             logger.error(f"영수증 목록 조회 오류: {str(e)}")
@@ -444,7 +553,6 @@ class ReceiptPreviewView(APIView):
     - 특정 영수증의 이미지 URL과 추출된 텍스트 제공
     """
     
-    @admin_required
     def get(self, request, receipt_id):
         """
         영수증 상세 정보 조회
@@ -452,10 +560,42 @@ class ReceiptPreviewView(APIView):
         - 출력: 영수증 이미지 URL과 추출 텍스트
         """
         try:
+            # 인증 및 권한 확인
+            token = extract_token_from_header(request)
+            if not token:
+                return Response({
+                    'success': False,
+                    'message': '인증 토큰이 필요합니다.',
+                    'error': 'MISSING_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 토큰 검증 및 사용자 정보 조회
+            user_data = get_user_from_token(token)
+            if not user_data:
+                return Response({
+                    'success': False,
+                    'message': '유효하지 않은 토큰입니다.',
+                    'error': 'INVALID_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 관리자 권한 확인 (auth 컬럼이 'Y'인 경우)
+            if user_data[8] != 'Y':  # auth 컬럼
+                return Response({
+                    'success': False,
+                    'message': '관리자 권한이 필요합니다.',
+                    'error': 'ADMIN_REQUIRED'
+                }, status=status.HTTP_403_FORBIDDEN)
+            
             with connection.cursor() as cursor:
                 cursor.execute("""
-                    SELECT * FROM receipt_info 
-                    WHERE receipt_id = %s
+                    SELECT r.receipt_id, r.user_id, r.payment_date, r.amount, r.currency, 
+                           r.store_name, r.status, r.created_at, r.updated_at, r.extracted_text,
+                           u.name, u.dept, u.rank, u.user_login_id,
+                           f.file_origin_name, f.file_path, f.file_size, f.file_ext
+                    FROM receipt_info r
+                    JOIN user_info u ON r.user_id = u.user_id
+                    JOIN file_info f ON r.file_id = f.file_id
+                    WHERE r.receipt_id = %s
                 """, [receipt_id])
                 row = cursor.fetchone()
                 
@@ -467,11 +607,32 @@ class ReceiptPreviewView(APIView):
                 
                 columns = [col[0] for col in cursor.description]
                 receipt = dict(zip(columns, row))  # 단일 영수증 정보 딕셔너리 변환
-                serializer = ReceiptDetailSerializer(receipt)
+                
+                # 프론트엔드가 기대하는 형식으로 데이터 변환
+                receipt_data = {
+                    'receipt_id': receipt['receipt_id'],
+                    'user_id': receipt['user_id'],
+                    'user_name': receipt['name'],
+                    'user_dept': receipt['dept'],
+                    'user_rank': receipt['rank'],
+                    'user_login_id': receipt['user_login_id'],
+                    'payment_date': receipt['payment_date'].isoformat() if receipt['payment_date'] else None,
+                    'amount': float(receipt['amount']) if receipt['amount'] else 0,
+                    'currency': receipt['currency'],
+                    'store_name': receipt['store_name'],
+                    'status': receipt['status'],
+                    'extracted_text': receipt['extracted_text'],
+                    'file_name': receipt['file_origin_name'],
+                    'file_path': receipt['file_path'],
+                    'file_size': receipt['file_size'],
+                    'file_ext': receipt['file_ext'],
+                    'created_at': receipt['created_at'].isoformat() if receipt['created_at'] else None,
+                    'updated_at': receipt['updated_at'].isoformat() if receipt['updated_at'] else None
+                }
                 
                 return Response({
                     'success': True,
-                    'data': serializer.data  # 상세 정보 반환 (이미지 URL 포함)
+                    'data': receipt_data
                 })
                 
         except Exception as e:

@@ -68,14 +68,27 @@ class ReceiptSerializer(serializers.ModelSerializer):
     - FFC-13: 영수증 이미지 목록 출력
     - 목록 조회 시 필요한 기본 정보 포함
     """
+    # 프론트엔드가 요구하는 필드들
+    name = serializers.CharField(source='user_info.name', read_only=True)
+    dept = serializers.CharField(source='user_info.dept', read_only=True)
+    created_at = serializers.DateTimeField(source='created_at', read_only=True)
+    amount = serializers.DecimalField(source='amount', max_digits=12, decimal_places=2, read_only=True)
+    status = serializers.CharField(source='status', read_only=True)
+    file_path = serializers.CharField(source='file_info.file_path', read_only=True)
+    receipt_id = serializers.UUIDField(source='receipt_id', read_only=True)
+    user_login_id = serializers.CharField(source='user_info.user_login_id', read_only=True)
+    
     class Meta:
         model = Receipt
         fields = [
             'receipt_id',    # 영수증 고유 ID
-            'user_id',       # 사용자 ID
-            'file_name',     # 파일명 (FFC-13: 파일제목)
-            'uploaded_at',   # 업로드 일시
-            'is_verified'    # 검증 상태
+            'name',          # 사용자 이름
+            'dept',          # 사용자 부서
+            'created_at',    # 생성일
+            'amount',        # 금액
+            'status',        # 상태
+            'file_path',     # 파일 경로
+            'user_login_id'  # 사용자 로그인 ID
         ]
         read_only_fields = fields  # 모든 필드 읽기 전용
 
@@ -88,24 +101,30 @@ class ReceiptDetailSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField(
         help_text="영수증 이미지 URL (미리보기용)"
     )
+    user_name = serializers.CharField(source='user_info.name', read_only=True)
+    user_dept = serializers.CharField(source='user_info.dept', read_only=True)
+    file_name = serializers.CharField(source='file_info.file_origin_name', read_only=True)
     
     class Meta:
         model = Receipt
         fields = [
             'receipt_id',        # 영수증 고유 ID
             'user_id',           # 사용자 ID
+            'user_name',         # 사용자 이름
+            'user_dept',         # 사용자 부서
             'image_url',         # 이미지 URL (FFC-12)
+            'file_name',         # 파일명
+            'payment_date',      # 결제일
+            'amount',            # 금액
+            'currency',          # 통화
+            'store_name',        # 상점명
             'extracted_text',    # 추출된 텍스트 (FFC-13)
-            'uploaded_at'        # 업로드 일시
+            'status',            # 상태
+            'created_at'         # 생성일
         ]
-        read_only_fields = fields  # 모든 필드 읽기 전용
-
+    
     def get_image_url(self, obj):
-        """
-        영수증 이미지 URL 생성 메서드
-        - file_path를 기반으로 미디어 URL 생성
-        - FFC-12: 이미지 미리보기 기능 지원
-        """
-        if obj.file_path:
-            return f"/media/receipts/{obj.file_path}"
+        """파일 경로를 기반으로 이미지 URL 생성"""
+        if hasattr(obj, 'file_info') and obj.file_info.file_path:
+            return obj.file_info.file_path
         return None

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { authService } from "../../services/authService";
+import api from "../../services/api";
 import AdminSidebar from "./components/AdminSidebar.jsx";
 import SearchBar from "./components/SearchBar";
 import DataTable from "./components/DataTable";
 import Pagination from "./components/Pagination";
-import { authService } from "../../services/authService";
 
 function MembersPage() {
   const navigate = useNavigate();
@@ -49,32 +50,14 @@ function MembersPage() {
         throw new Error('로그인이 필요합니다.');
       }
       
-      const response = await fetch(`/api/admin/users/?filter=${encodeURIComponent(filter)}&page=${page}&page_size=10`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await api.get(`/admin/users/?filter=${encodeURIComponent(filter)}&page=${page}&page_size=10`);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`잘못된 응답 형식: ${contentType}. API 엔드포인트를 확인해주세요.`);
-      }
-
-      const data = await response.json();
-      console.log('API 응답:', data); // 디버깅용 로그
-      
-      if (data.success && data.data) {
-        setMembers(data.data.users || []);
-        setTotalPages(data.data.total_pages || 1);
+      if (response.data.success && response.data.data) {
+        setMembers(response.data.data.users || []);
+        setTotalPages(response.data.data.total_pages || 1);
         setCurrentPage(1);
       } else {
-        throw new Error(data.message || 'API 응답 오류');
+        throw new Error(response.data.message || 'API 응답 오류');
       }
     } catch (error) {
       console.error("회원 목록 조회 실패:", error);

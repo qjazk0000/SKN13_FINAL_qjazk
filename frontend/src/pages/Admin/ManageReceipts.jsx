@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from '../../services/api';
 import AdminSidebar from "./components/AdminSidebar.jsx";
 import DateSelectBar from "./components/DateSelectBar.jsx";
 import SearchBar from "./components/SearchBar.jsx";
@@ -51,12 +52,23 @@ function ManageReceipts() {
       setIsLoading(true);
       setError("");
       
-      const token = authService.getToken();
-      if (!token) {
+      // 로그인 상태 확인
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
         throw new Error('로그인이 필요합니다.');
       }
       
-      // 쿼리 파라미터 구성
+      // 관리자 권한 확인
+      if (!authService.isAdmin()) {
+        throw new Error('관리자 권한이 필요합니다.');
+      }
+      
+      // 토큰 확인
+      const token = authService.getToken();
+      if (!token) {
+        throw new Error('인증 토큰이 필요합니다.');
+      }
+      
       const params = new URLSearchParams();
       params.append('page', page.toString());
       params.append('page_size', '10');
@@ -79,32 +91,16 @@ function ManageReceipts() {
         }
       }
       
-      const response = await fetch(`/api/admin/receipts/list/?${params.toString()}`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+      const response = await api.get(`/admin/receipts/`, {
+        params: params
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`잘못된 응답 형식: ${contentType}. API 엔드포인트를 확인해주세요.`);
-      }
-
-      const data = await response.json();
-      console.log('API 응답:', data);
-      
-      if (data.success && data.data) {
-        setReceipts(data.data.receipts || []);
-        setTotalPages(data.data.total_pages || 1);
+      if (response.data.success && response.data.data) {
+        setReceipts(response.data.data.receipts || []);
+        setTotalPages(response.data.data.total_pages || 1);
         setCurrentPage(page);
       } else {
-        throw new Error(data.message || 'API 응답 오류');
+        throw new Error(response.data.message || 'API 응답 오류');
       }
     } catch (error) {
       console.error("영수증 목록 조회 실패:", error);

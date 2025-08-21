@@ -44,7 +44,7 @@ api.interceptors.request.use(
     }
 );
 
-// 응답 인터셉터 - 단순화
+// 응답 인터셉터 - 401 에러 시 토큰 갱신 및 재시도
 api.interceptors.response.use(
     (response) => {
         console.log('API 응답 성공:', response.config.method?.toUpperCase(), response.config.url, response.status);
@@ -52,10 +52,31 @@ api.interceptors.response.use(
     },
     async (error) => {
         console.error('API 응답 에러:', error.config?.method?.toUpperCase(), error.config?.url, error.response?.status);
+        
         if (error.response?.status === 401) {
-            // 401 에러는 authService에서 처리하도록 그대로 전달
-            console.log('401 에러 발생, authService에서 처리');
+            console.log('401 에러 발생, 토큰 갱신 시도');
+            
+            try {
+                // 토큰 갱신 시도
+                const newToken = await authService.refreshToken();
+                if (newToken) {
+                    console.log('토큰 갱신 성공, 원래 요청 재시도');
+                    
+                    // 원래 요청의 Authorization 헤더 업데이트
+                    error.config.headers.Authorization = `Bearer ${newToken}`;
+                    
+                    // 원래 요청 재시도
+                    return api.request(error.config);
+                }
+            } catch (refreshError) {
+                console.error('토큰 갱신 실패:', refreshError);
+                // 토큰 갱신 실패 시 로그인 페이지로 리다이렉트
+                localStorage.clear();
+                window.location.href = '/login';
+                return Promise.reject(refreshError);
+            }
         }
+        
         return Promise.reject(error);
     }
 );
