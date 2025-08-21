@@ -18,6 +18,7 @@ import uuid
 #     class Meta:
 #         db_table = 'file_info'
 #         managed = False  # Django가 테이블 생성/수정하지 않음
+
 #         verbose_name = '파일 정보'
 #         verbose_name_plural = '파일 정보 목록'
 
@@ -36,7 +37,7 @@ class ReceiptInfo(models.Model):
     currency = models.CharField(max_length=10, default='KRW')
     store_name = models.CharField(max_length=200, null=True, blank=True)
     extracted_text = models.TextField(null=True, blank=True)
-    status = models.CharField(max_length=20)
+    status = models.CharField(max_length=20, default='pending')
     created_at = models.DateTimeField()
     updated_at = models.DateTimeField()
 
@@ -45,6 +46,3 @@ class ReceiptInfo(models.Model):
         managed = False
         verbose_name = '영수증 정보'
         verbose_name_plural = '영수증 정보 목록'
-        
-    def __str__(self):
-        return f"{self.store_name} - {self.amount}"
