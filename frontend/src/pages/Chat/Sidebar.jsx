@@ -1,4 +1,9 @@
-import { ArrowPathIcon, PlusIcon, TrashIcon, EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import {
+  ArrowPathIcon,
+  PlusIcon,
+  TrashIcon,
+  EllipsisVerticalIcon,
+} from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
 import api from "../../services/api";
 import LoadingMask from "../../components/LoadingMask";
@@ -15,6 +20,7 @@ function Sidebar({
   isLoading,
   onSelectCategory,
   selectedCategory,
+  selectedChatId,
   onDeleteChat,
   onDeleteReceipt,
 
@@ -25,7 +31,7 @@ function Sidebar({
   const displayName = userName || "사용자";
 
   const [openDeleteMenuId, setOpenDeleteMenuId] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);  // 삭제 중 상태
+  const [isDeleting, setIsDeleting] = useState(false); // 삭제 중 상태
   const menuRef = useRef(null);
 
   useEffect(() => {
@@ -72,32 +78,32 @@ function Sidebar({
       // 삭제 중 상태로 설정
       setIsDeleting(true);
       console.log(`Deleting chat with ID: ${chatId}`);
-      
+
       // API 호출하여 채팅 삭제
       const response = await api.delete(`/chat/${chatId}/delete/`);
-      
+
       if (response.data.success) {
-        console.log('채팅 삭제 성공:', response.data.message);
-        
+        console.log("채팅 삭제 성공:", response.data.message);
+
         // 부모 컴포넌트에 삭제 완료 알림
         if (onDeleteChat) {
           onDeleteChat(chatId);
         }
-        
+
         // 삭제 메뉴 닫기
         setOpenDeleteMenuId(null);
       } else {
-        console.error('채팅 삭제 실패:', response.data.message);
-        alert('채팅 삭제에 실패했습니다: ' + response.data.message);
+        console.error("채팅 삭제 실패:", response.data.message);
+        alert("채팅 삭제에 실패했습니다: " + response.data.message);
       }
     } catch (error) {
-      console.error('채팅 삭제 중 오류 발생:', error);
-      
+      console.error("채팅 삭제 중 오류 발생:", error);
+
       // 이미 삭제된 채팅인지 확인
       if (error.response?.status === 404) {
-        alert('이미 삭제된 채팅입니다.');
+        alert("이미 삭제된 채팅입니다.");
       } else {
-        alert('채팅 삭제 중 오류가 발생했습니다.');
+        alert("채팅 삭제 중 오류가 발생했습니다.");
       }
     } finally {
       // 삭제 중 상태 해제
@@ -109,7 +115,7 @@ function Sidebar({
     <>
       {/* LoadingMask */}
       <LoadingMask isVisible={isDeleting} message="채팅을 삭제하는 중..." />
-      
+
       <div className="flex flex-col w-64 h-screen bg-gray-800 text-white">
         {/* 상단 로고 */}
         <div
@@ -160,61 +166,67 @@ function Sidebar({
             // 로딩이 끝났을 때
             <div className="max-h-80 overflow-y-auto">
               <ul>
-                {chats.map((chat) => (
-                  <li
-                    key={chat.id}
-                    className={`relative ${
-                      openDeleteMenuId === chat.id ? "bg-gray-700 rounded-md" : ""
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        isChatCategory
-                          ? onSelectChat(chat)
-                          : onSelectReceipt(chat)
-                      }
-                      className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
-                      title={chat.title}
+                {chats.map((chat) => {
+                  const isSelected = selectedChatId === chat.id;
+
+                  return (
+                    <li
+                      key={chat.id}
+                      className={`relative ${
+                        openDeleteMenuId === chat.id || isSelected
+                          ? "bg-gray-700 rounded-md"
+                          : ""
+                      }`}
                     >
-                      {chat.title}
-                    </button>
-
-                    <div className="absolute top-0 right-0 h-full flex items-center">
-                      <div
-                        className="relative"
-                        ref={openDeleteMenuId === chat.id ? menuRef : null}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          isChatCategory
+                            ? onSelectChat(chat)
+                            : onSelectReceipt(chat)
+                        }
+                        className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
+                        title={chat.title}
                       >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleDeleteMenu(chat.id);
-                          }}
-                          className="px-2 text-gray-400 hover:text-white focus:outline-none"
-                        >
-                          <EllipsisVerticalIcon className="w-5 h-5" />
-                        </button>
+                        {chat.title}
+                      </button>
 
-                        {/* 드롭다운 메뉴 (삭제 버튼) */}
-                        {openDeleteMenuId === chat.id && (
-                          <div className="absolute right-0 top-8 mt-1 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16">
-                            <button
-                              onClick={() => handleDelete(chat.id)}
-                              disabled={isDeleting}
-                              className={`block w-full text-left px-4 py-2 text-sm text-white transition ${
-                                isDeleting 
-                                  ? 'opacity-50 cursor-not-allowed' 
-                                  : 'hover:bg-gray-700'
-                              }`}
-                            >
-                              {isDeleting ? '삭제 중...' : '삭제'}
-                            </button>
-                          </div>
-                        )}
+                      <div className="absolute top-0 right-0 h-full flex items-center">
+                        <div
+                          className="relative"
+                          ref={openDeleteMenuId === chat.id ? menuRef : null}
+                        >
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleDeleteMenu(chat.id);
+                            }}
+                            className="px-2 text-gray-400 hover:text-white focus:outline-none"
+                          >
+                            <EllipsisVerticalIcon className="w-5 h-5" />
+                          </button>
+
+                          {/* 드롭다운 메뉴 (삭제 버튼) */}
+                          {openDeleteMenuId === chat.id && (
+                            <div className="absolute right-0 top-8 mt-1 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16">
+                              <button
+                                onClick={() => handleDelete(chat.id)}
+                                disabled={isDeleting}
+                                className={`block w-full text-left px-4 py-2 text-sm text-white transition ${
+                                  isDeleting
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : "hover:bg-gray-700"
+                                }`}
+                              >
+                                {isDeleting ? "삭제 중..." : "삭제"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
