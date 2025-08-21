@@ -10,6 +10,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # 환경변수 로드
 load_dotenv(BASE_DIR.parent / '.env')
 
+# Upstage api key
+UPSTAGE_API_KEY = os.getenv('UPSTAGE_API_KEY')
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
 

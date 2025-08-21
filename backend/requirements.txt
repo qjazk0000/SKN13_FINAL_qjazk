@@ -12,6 +12,8 @@ langchain
 langchain-community
 langchain-huggingface
 langchain-openai
+langchain-upstage
+langchain-core
 transformers
 torch>=2.2.2
 tqdm>=4.66.4

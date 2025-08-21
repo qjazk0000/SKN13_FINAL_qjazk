@@ -1,16 +1,10 @@
 #receipt/urls.py
 
 from django.urls import path
-from .views import (
-    FileUploadView,
-    ReceiptExtractionView,
-    ReceiptConfirmationView,
-    ReceiptListView
-)
+from .views import ReceiptUploadView, ReceiptSaveView, ReceiptDownloadView
 
 urlpatterns = [
-    path('upload/', FileUploadView.as_view(), name='receipt-upload'),
-    path('list/', ReceiptListView.as_view(), name='receipt-list'),
-    path('<uuid:receipt_id>/extraction/', ReceiptExtractionView.as_view(), name='receipt-extraction'),
-    path('<uuid:receipt_id>/confirm/', ReceiptConfirmationView.as_view(), name='receipt-confirm'),
+    path('upload/', ReceiptUploadView.as_view()),
+    path('save/', ReceiptSaveView.as_view()),
+    path('download/', ReceiptDownloadView.as_view()),
 ]
