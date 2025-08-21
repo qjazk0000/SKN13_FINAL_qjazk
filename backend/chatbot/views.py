@@ -132,13 +132,17 @@ class ConversationDeleteView(generics.DestroyAPIView):
                     status=status.HTTP_401_UNAUTHORIZED
                 )
             
-            # 대화기록 조회 및 권한 확인
+            print(f"DEBUG: 삭제 요청 - conversation_id: {conversation_id}, user_id: {user_id}")
+            
+            # 🔒 보안 강화: user_id와 conversation_id를 모두 확인
             try:
                 conversation = Conversation.objects.get(
                     id=conversation_id,
-                    user_id=user_id
+                    user_id=user_id  # 반드시 본인의 대화기록만 삭제 가능
                 )
+                print(f"DEBUG: 권한 확인 성공 - 사용자 {user_id}의 대화기록 {conversation_id}")
             except Conversation.DoesNotExist:
+                print(f"DEBUG: 권한 확인 실패 - conversation_id: {conversation_id}, user_id: {user_id}")
                 return Response(
                     {'success': False, 'message': '해당 대화기록을 찾을 수 없거나 삭제 권한이 없습니다.'},
                     status=status.HTTP_404_NOT_FOUND
@@ -216,10 +220,20 @@ class ChatQueryView(generics.CreateAPIView):
             all_conversations = Conversation.objects.all()
             print(f"DEBUG: 데이터베이스의 모든 Conversation: {list(all_conversations.values('id', 'user_id', 'title'))}")
             
-            # 먼저 ID로만 조회 시도 (user_id 무시)
+            # 🔒 보안 강화: user_id와 conversation_id를 모두 확인
             try:
-                conversation = Conversation.objects.get(id=session_id)
-                print(f"DEBUG: Conversation 조회 성공 (ID만으로): {conversation}")
+                if user_id:
+                    # JWT 토큰이 있는 경우: user_id와 conversation_id 모두 확인
+                    conversation = Conversation.objects.get(
+                        id=session_id,
+                        user_id=user_id  # 반드시 본인의 대화방만 접근 가능
+                    )
+                    print(f"DEBUG: Conversation 조회 성공 (user_id + conversation_id): {conversation}")
+                else:
+                    # JWT 토큰이 없는 경우: conversation_id만으로 조회 (개발 단계)
+                    conversation = Conversation.objects.get(id=session_id)
+                    print(f"DEBUG: Conversation 조회 성공 (conversation_id만): {conversation}")
+                    print(f"⚠️ 경고: JWT 토큰이 없어 보안 검증을 건너뜁니다!")
             except Conversation.DoesNotExist:
                 print(f"DEBUG: Conversation.DoesNotExist 예외 발생!")
                 print(f"DEBUG: 조회하려던 session_id: {session_id}")
@@ -228,7 +242,8 @@ class ChatQueryView(generics.CreateAPIView):
                     'success': False,
                     'message': '대화방을 찾을 수 없습니다',
                     'errors': {'session_id': '유효하지 않은 세션 ID입니다.'}
-                }, status=status.HTTP_404_NOT_FOUND)
+                }, status=status.HTTP_404_NOT_FOUND
+                )
                 
         except Exception as e:
             print(f"DEBUG: 예상치 못한 오류 발생: {str(e)}")
@@ -243,11 +258,19 @@ class ChatQueryView(generics.CreateAPIView):
         user_message = serializer.validated_data['message']
 
         # 사용자 메시지 저장
-        ChatMessage.objects.create(
+        user_message_obj = ChatMessage.objects.create(
             conversation=conversation,
             sender_type='user',
             content=user_message
         )
+
+        # 첫 질문인 경우 대화기록 제목을 질문 내용으로 설정
+        if conversation.messages.count() == 1:  # 방금 생성된 사용자 메시지가 첫 번째 메시지
+            # 질문 내용을 제목으로 사용 (최대 50자로 제한)
+            title = user_message[:50] + "..." if len(user_message) > 50 else user_message
+            conversation.title = title
+            conversation.save()
+            print(f"DEBUG: 첫 질문으로 대화기록 제목 설정: {title}")
 
         try:
             print(f"DEBUG: RAG 시스템 시작 - 질문: {user_message}")
@@ -258,6 +281,8 @@ class ChatQueryView(generics.CreateAPIView):
             print(f"DEBUG: RAG 시스템 완료 - 응답: {ai_response[:100]}...")
         except Exception as e:
             print(f"DEBUG: RAG 시스템 실패 - 오류: {str(e)}")
+            # RAG 시스템 실패 시 기본 AI 응답 생성
+            ai_response = f"죄송합니다. RAG 시스템이 실패했습니다. 오류: {str(e)}. 질문: '{user_message}'에 대한 답변을 생성할 수 없습니다."
             sources = []
 
         # AI 응답 저장
@@ -274,6 +299,7 @@ class ChatQueryView(generics.CreateAPIView):
             "response": ai_response,
             "message_id": str(ai_msg.id),
             "sources": sources,
+            "conversation_title": conversation.title,  # 업데이트된 제목 반환
         }, status=status.HTTP_200_OK)
 
 class ChatStatusView(generics.RetrieveAPIView):
