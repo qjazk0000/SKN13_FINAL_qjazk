@@ -127,66 +127,72 @@ function ChatPage() {
   // 새 채팅 생성 핸들러
   const handleNewChat = useCallback(async () => {
     setIsLoading(true);
-
     try {
-      // JWT 토큰에서 user_id를 직접 추출
-      const token = localStorage.getItem("access_token");
-      console.log("DEBUG: 저장된 토큰:", token ? "있음" : "없음");
-
-      let userId;
-      if (token) {
-        try {
-          // JWT 토큰 디코딩 (base64 디코딩)
-          const payload = JSON.parse(atob(token.split(".")[1]));
-          userId = payload.user_id;
-          console.log("DEBUG: JWT 토큰에서 추출한 user_id:", userId);
-        } catch (error) {
-          console.error("JWT 토큰 디코딩 실패:", error);
-          // fallback: localStorage에서 사용자 정보 가져오기
-          const currentUser = authService.getCurrentUser();
-          userId = currentUser?.id;
-          console.log("DEBUG: localStorage에서 가져온 user_id:", userId);
-        }
-      } else {
-        // 토큰이 없으면 localStorage에서 사용자 정보 가져오기
-        const currentUser = authService.getCurrentUser();
-        userId = currentUser?.id;
-        console.log("DEBUG: localStorage에서 가져온 user_id:", userId);
-      }
+      const raw = localStorage.getItem("user");
+      const user = raw ? JSON.parse(raw) : null;
+      const userId = user?.user_id;
 
       if (!userId) {
         throw new Error("사용자 ID를 찾을 수 없습니다. 다시 로그인해주세요.");
       }
 
-      console.log("DEBUG: 최종 사용할 user_id:", userId);
-
       const response = await api.post("/chat/new/", {
         title: "새로운 대화",
         user_id: userId,
       });
+      const newChat = normalizeChat(response.data.data);
 
-      // 디버깅을 위한 로그 추가
-      console.log("DEBUG: 새 채팅 생성 응답:", response.data);
-      console.log("DEBUG: response.data.data:", response.data.data);
-      console.log("DEBUG: response.data.data.id:", response.data.data?.id);
-      console.log("DEBUG: response.data type:", typeof response.data);
-
-      const newChat = normalizeChat(response.data.data); // response.data.data 사용
-      console.log("DEBUG: normalizeChat 결과:", newChat);
-      console.log("DEBUG: newChat.id:", newChat.id);
-
-      setChats((prevChats) => [newChat, ...prevChats]);
+      setChats((prev) => [newChat, ...prev]);
       setSelectedChatId(newChat.id);
       setSelectedCategory("업무 가이드");
-    } catch (error) {
-      console.error("새 채팅 생성 실패:", error);
+    } catch (err) {
+      console.error("새 채팅 생성 실패:", err);
       alert("새 채팅을 생성하는 데 실패했습니다.");
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // 사용자 이름 클릭 핸들러 (MyPage로 이동)
+  // 새 영수증 생성 핸들러
+  const handleNewReceipt = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // const raw = localStorage.getItem("user");
+      // const user = raw ? JSON.parse(raw) : null;
+      // const userId = user?.user_id;
+
+      // if (!userId) {
+      //   throw new Error("사용자 ID를 찾을 수 없습니다. 다시 로그인해주세요.");
+      // }
+
+      // const response = await api.post("/receipt/new/", {
+      //   title: "새로운 영수증",
+      //   user_id: userId,
+      // });
+
+      // Mock API 응답 (실제 API 연동 시 제거 필요)
+      const mockResponse = {
+        data: {
+          id: Date.now(), // 고유한 ID 생성
+          title: "새 영수증",
+          data: {}, // 영수증 데이터 초기화
+        },
+      };
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const newReceipt = mockResponse.data;
+
+      setReceipts((prev) => [newReceipt, ...prev]);
+      setSelectedReceiptId(newReceipt.id);
+      setSelectedCategory("영수증 처리");
+    } catch (err) {
+      console.error("새 영수증 생성 실패:", err);
+      alert("새 영수증을 생성하는 데 실패했습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // 마이페이지 이동 핸들러
   const handleUserNameClick = useCallback(() => {
     navigate("/mypage");
   }, [navigate]);
@@ -203,11 +209,7 @@ function ChatPage() {
       setIsLoading(true);
 
       try {
-        console.log("DEBUG: 채팅 선택됨:", chat);
-        console.log("DEBUG: 선택된 채팅의 메시지:", chat.messages);
-
         // 채팅 메시지는 이미 대화방에 포함되어 있으므로 바로 선택
-
         setSelectedChatId(chat.id);
       } catch (error) {
         console.error("채팅 선택 실패:", error);
@@ -219,7 +221,7 @@ function ChatPage() {
     [selectedChatId, isLoading]
   );
 
-  // 영수증 채팅 선택 핸들러 (주석처리)
+  // 영수증 채팅 선택 핸들러
   const handleSelectReceipt = useCallback(
     async (receipt) => {
       if (receipt.id === selectedReceiptId || isLoading) return;
@@ -371,25 +373,32 @@ function ChatPage() {
   // 카테고리 선택 핸들러 (업무 가이드, 영수증 처리)
   const handleSelectCategory = useCallback((category) => {
     setSelectedCategory(category);
-    setSelectedChatId(null);
+
+    if (category === "업무 가이드") {
+      // 업무 가이드로 전환 → 영수증 선택값 초기화
+      setSelectedReceiptId(null);
+      setSelectedChatId(null);
+    } else {
+      // 영수증 처리로 전환 → 채팅 선택값 초기화
+      setSelectedChatId(null);
+      setSelectedReceiptId(null);
+    }
   }, []);
 
   const sidebarList = selectedCategory === "업무 가이드" ? chats : receipts;
-
-  // 초기 렌더 가드
-  // if (isSidebarLoading) return <div className="p-4">불러오는 중…</div>;
 
   return (
     <div className="flex w-full min-h-screen bg-gray-100">
       <Sidebar
         userName={userName}
-        chats={chats}
+        chats={sidebarList}
         onNewChat={handleNewChat}
-        onNewReceipt={handleNewChat}
+        onNewReceipt={handleNewReceipt}
         onSelectChat={handleSelectChat}
         onSelectReceipt={handleSelectReceipt}
         onSelectCategory={handleSelectCategory}
         selectedCategory={selectedCategory}
+        selectedChatId={selectedChatId}
         onLogout={handleLogout}
         onUserNameClick={handleUserNameClick}
         isLoading={isSidebarLoading}
