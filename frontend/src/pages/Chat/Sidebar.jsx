@@ -12,9 +12,16 @@ function Sidebar({
   isLoading,
   onSelectCategory,
   selectedCategory,
+
+  isAdmin,
+  onAdminPageClick,
 }) {
   const initials = userName?.[0] || "U";
   const displayName = userName || "사용자";
+  
+  // 디버깅용 로그
+  console.log('Sidebar - isAdmin:', isAdmin);
+  console.log('Sidebar - userName:', userName);
 
   const getCategoryClass = (categoryName) => {
     return selectedCategory === categoryName
@@ -108,6 +115,22 @@ function Sidebar({
           </ul>
         )}
       </div>
+
+
+      {/* 관리자 페이지 버튼 */}
+      {isAdmin && (
+        <div className="px-4 py-2 border-t border-gray-700">
+          <button
+            type="button"
+            onClick={onAdminPageClick}
+            className="w-full py-2 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-center font-medium transition flex items-center justify-center gap-2"
+            title="관리자 페이지로 이동"
+          >
+            관리자 페이지
+          </button>
+        </div>
+      )}
+
 
       {/* 하단 사용자명 + 로그아웃 */}
       <div className="mt-auto px-4 py-3 border-t border-gray-700">
