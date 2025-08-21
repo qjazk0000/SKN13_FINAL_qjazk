@@ -41,7 +41,7 @@ function ManageReceipts() {
         setUserName(currentUser.name);
       }
     } catch (error) {
-      console.error("사용자 정보 로드 실패:", error);
+      // 사용자 정보 로드 실패 시 기본값 사용
     }
   };
 
@@ -97,7 +97,6 @@ function ManageReceipts() {
       }
 
       const data = await response.json();
-      console.log('API 응답:', data);
       
       if (data.success && data.data) {
         setReceipts(data.data.receipts || []);
@@ -107,37 +106,8 @@ function ManageReceipts() {
         throw new Error(data.message || 'API 응답 오류');
       }
     } catch (error) {
-      console.error("영수증 목록 조회 실패:", error);
       setError(`영수증 목록을 불러오는데 실패했습니다: ${error.message}`);
-      
-      // 개발 환경에서만 더미 데이터 표시
-      if (process.env.NODE_ENV === 'development') {
-        setReceipts([
-          {
-            name: "홍길동",
-            dept: "개발팀",
-            created_at: "2024-01-15T10:00:00",
-            amount: 50000,
-            status: "승인완료",
-            file_path: "https://example.com/receipt1.pdf",
-            receipt_id: "1",
-            user_login_id: "hong"
-          },
-          {
-            name: "김철수",
-            dept: "영업팀",
-            created_at: "2024-01-14T14:30:00",
-            amount: 75000,
-            status: "승인대기",
-            file_path: "https://example.com/receipt2.pdf",
-            receipt_id: "2",
-            user_login_id: "kim"
-          }
-        ]);
-        setTotalPages(1);
-      } else {
-        setReceipts([]);
-      }
+      setReceipts([]);
     } finally {
       setIsLoading(false);
     }
@@ -173,7 +143,6 @@ function ManageReceipts() {
 
   // 검색 처리 함수
   const handleSearch = () => {
-    console.log(`검색 유형: ${searchType}, 검색어: ${searchTerm}`);
     setCurrentPage(1);
     fetchReceipts(1);
   };
@@ -194,13 +163,11 @@ function ManageReceipts() {
 
   // 사용자명 클릭 핸들러
   const handleUserNameClick = () => {
-    console.log("마이페이지로 이동");
     // TODO: 마이페이지로 이동하는 로직 구현
   };
 
   // 로그아웃 핸들러
   const handleLogout = () => {
-    console.log("로그아웃");
     // TODO: 로그아웃 로직 구현
   };
 
@@ -220,7 +187,7 @@ function ManageReceipts() {
         // 현재 페이지이므로 이동하지 않음
         break;
       default:
-        console.log(`알 수 없는 탭: ${tabName}`);
+        break;
     }
   };
 

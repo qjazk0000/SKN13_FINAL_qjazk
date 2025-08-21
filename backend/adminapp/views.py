@@ -257,7 +257,6 @@ class AdminReceiptsView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
-            logger.error(f"영수증 목록 조회 중 오류: {e}")
             return Response({
                 'success': False,
                 'message': '영수증 목록 조회 중 오류가 발생했습니다.',
