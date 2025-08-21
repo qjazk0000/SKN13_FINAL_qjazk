@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../services/authService';
-// import './MyPage.css';
+import './MyPage.css';
 
 function MyPage() {
   const [userInfo, setUserInfo] = useState({
