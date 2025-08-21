@@ -390,7 +390,7 @@ function ChatPage() {
   const sidebarList = selectedCategory === "업무 가이드" ? chats : receipts;
 
   // 초기 렌더 가드
-  if (isSidebarLoading) return <div className="p-4">불러오는 중…</div>;
+  // if (isSidebarLoading) return <div className="p-4">불러오는 중…</div>;
 
   return (
     <div className="flex w-full min-h-screen bg-gray-100">
