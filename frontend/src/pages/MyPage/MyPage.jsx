@@ -67,7 +67,8 @@ function MyPage() {
       
       await authService.changePassword({
         currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
+        newPassword: passwordData.newPassword,
+        confirmPassword: passwordData.confirmPassword
       });
       
       setSuccess('비밀번호가 성공적으로 변경되었습니다.');
