@@ -8,7 +8,7 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 환경변수 덮어쓰기 필요시 주석을 해제
-#load_dotenv(BASE_DIR.parent / '.env')
+load_dotenv(BASE_DIR.parent / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
@@ -78,7 +78,7 @@ DATABASES = {
         'NAME': os.getenv('DB_NAME'),
         'USER': os.getenv('DB_USER'),
         'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
+        'HOST': os.getenv('DB_HOST', 'dopamine-navi.c3s2ck4uq9oo.ap-southeast-2.rds.amazonaws.com'),
         'PORT': os.getenv('DB_PORT', 5432),
         'OPTIONS': {
             'sslmode': 'require',  # RDS SSL 연결결
