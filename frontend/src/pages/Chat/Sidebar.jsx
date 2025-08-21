@@ -1,4 +1,6 @@
 import { ArrowPathIcon, PlusIcon } from "@heroicons/react/24/solid";
+import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import { useEffect, useRef, useState } from "react";
 
 function Sidebar({
   userName,
@@ -12,10 +14,28 @@ function Sidebar({
   isLoading,
   onSelectCategory,
   selectedCategory,
-  onGoToAdmin,
+
+  isAdmin,
+  onAdminPageClick,
 }) {
   const initials = userName?.[0] || "U";
   const displayName = userName || "사용자";
+
+  const [openDeleteMenuId, setOpenDeleteMenuId] = useState(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      // 메뉴가 열려있고, 클릭된 요소가 메뉴 내부에 있지 않으면 메뉴를 닫습니다.
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenDeleteMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [menuRef]);
 
   const getCategoryClass = (categoryName) => {
     return selectedCategory === categoryName
@@ -31,6 +51,16 @@ function Sidebar({
     } else {
       onNewReceipt();
     }
+  };
+
+  const handleToggleDeleteMenu = (chatId) => {
+    setOpenDeleteMenuId(openDeleteMenuId === chatId ? null : chatId);
+  };
+
+  const handleDelete = (chatId) => {
+    // todo: 실제 api 호출 로직 구현
+    console.log(`Deleting chat with ID: ${chatId}`);
+    setOpenDeleteMenuId(null);
   };
 
   return (
@@ -84,45 +114,80 @@ function Sidebar({
           </div>
         ) : (
           // 로딩이 끝났을 때
-          <ul className="flex flex-col gap-2 flex-1 overflow-y-auto">
-            {chats.map((chat) => (
-              <li key={chat.id}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    isChatCategory ? onSelectChat(chat) : onSelectReceipt(chat)
-                  }
-                  className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
-                  title={chat.title}
+          <div className="max-h-80 overflow-y-auto">
+            <ul>
+              {chats.map((chat) => (
+                <li
+                  key={chat.id}
+                  className={`relative ${
+                    openDeleteMenuId === chat.id ? "bg-gray-700 rounded-md" : ""
+                  }`}
                 >
-                  {chat.title}
-                </button>
-              </li>
-            ))}
-            {chats.length === 0 && (
-              <li className="px-2 py-2 text-sm text-gray-400">
-                {isChatCategory
-                  ? "채팅 내역이 없습니다."
-                  : "영수증 내역이 없습니다."}
-              </li>
-            )}
-          </ul>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      isChatCategory
+                        ? onSelectChat(chat)
+                        : onSelectReceipt(chat)
+                    }
+                    className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
+                    title={chat.title}
+                  >
+                    {chat.title}
+                  </button>
+
+                  <div className="absolute top-0 right-0 h-full flex items-center">
+                    <div
+                      className="relative"
+                      ref={openDeleteMenuId === chat.id ? menuRef : null}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleDeleteMenu(chat.id);
+                        }}
+                        className="px-2 text-gray-400 hover:text-white focus:outline-none"
+                      >
+                        <EllipsisVerticalIcon className="w-5 h-5" />
+                      </button>
+
+                      {/* 드롭다운 메뉴 (삭제 버튼) */}
+                      {openDeleteMenuId === chat.id && (
+                        <div className="absolute right-0 top-8 mt-1 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16">
+                          <button
+                            onClick={() => handleDelete(chat.id)}
+                            className="block w-full text-left px-4 py-2 text-sm text-white transition"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
 
-      {/* 하단 사용자명 + 채팅 화면 버튼 + 로그아웃 */}
-      <div className="mt-auto px-4 py-3 border-t border-gray-700 flex flex-col gap-2">
-        {/* 채팅 화면으로 돌아가기 버튼 */}
-        <button
-          type="button"
-          onClick={onGoToAdmin}
-          className="w-full py-2 px-4 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-left flex items-center gap-2 transition"
-        >
-          관리자 화면으로 이동
-        </button>
-        
-        {/* 사용자 정보 + 로그아웃 */}
-        <div className="flex items-center justify-between mt-2">
+      {/* 관리자 페이지 버튼 */}
+      {isAdmin && (
+        <div className="px-4 py-2 border-t border-gray-700">
+          <button
+            type="button"
+            onClick={onAdminPageClick}
+            className="w-full py-2 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-center font-medium transition flex items-center justify-center gap-2"
+            title="관리자 페이지로 이동"
+          >
+            관리자 페이지
+          </button>
+        </div>
+      )}
+
+      {/* 하단 사용자명 + 로그아웃 */}
+      <div className="mt-auto px-4 py-3 border-t border-gray-700">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 min-w-0">
             <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-700 text-sm font-semibold">
               {initials}
@@ -139,6 +204,7 @@ function Sidebar({
             </div>
           </div>
 
+          {/* 로그아웃 버튼 (inline SVG 아이콘) */}
           <button
             type="button"
             onClick={onLogout}

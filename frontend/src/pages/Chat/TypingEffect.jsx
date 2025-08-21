@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 function TypingEffect({ text = "" }) {
+
   const [displayedText, setDisplayedText] = useState("");
   const [index, setIndex] = useState(0);
 

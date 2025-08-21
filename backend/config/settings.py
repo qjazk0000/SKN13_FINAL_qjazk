@@ -7,8 +7,8 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 환경변수 덮어쓰기 필요시 주석을 해제
-#load_dotenv(BASE_DIR.parent / '.env')
+# 환경변수 로드
+load_dotenv(BASE_DIR.parent / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
@@ -178,8 +178,11 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [],  # Django 인증 시스템 비활성화
 }
+
 
 # JWT 설정
 SIMPLE_JWT = {
@@ -209,8 +212,7 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-# INSTALLED_APPS += ['corsheaders']
-# MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
+# corsheaders는 이미 INSTALLED_APPS와 MIDDLEWARE에 포함되어 있음
 CORS_ALLOWED_ORIGINS = [
     os.getenv('FRONTEND_ORIGIN', 'http://localhost'),
     'http://localhost:3000',  # React 개발 서버

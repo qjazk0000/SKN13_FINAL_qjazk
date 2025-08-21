@@ -2,12 +2,14 @@
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from authapp.utils import verify_token, get_user_from_token
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from .models import Conversation, ChatMessage
 from .serializers import ConversationSerializer, ChatMessageSerializer, ChatQuerySerializer
 from .services.rag_service import rag_answer
 
+
 class ConversationListView(generics.ListAPIView):
+
     """
     대화방 목록 조회
     """
@@ -41,14 +43,6 @@ class ConversationListView(generics.ListAPIView):
             print(f"DEBUG: ConversationListView - user_id가 없어 빈 결과 반환")
             return Conversation.objects.none()
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({
-            'success': True,
-            'data': serializer.data
-        })
-    
 class ConversationCreateView(generics.CreateAPIView):
 
     """
@@ -175,15 +169,6 @@ class ChatQueryView(generics.CreateAPIView):
             print(f"DEBUG: RAG 시스템 완료 - 응답: {ai_response[:100]}...")
         except Exception as e:
             print(f"DEBUG: RAG 시스템 실패 - 오류: {str(e)}")
-            # RAG 시스템 실패 시 기본 AI 응답 생성
-            if "육아휴직" in user_message:
-                ai_response = "육아휴직은 자녀 1명당 3년 이내로 사용할 수 있으며, 6회에 한해 분할하여 사용할 수 있습니다. 육아휴직을 신청할 경우, 고용보험법령에 따라 육아휴직급여를 받을 수 있도록 증빙서류를 제공하는 등 적극적으로 협조해야 합니다."
-            elif "한국인터넷진흥원" in user_message:
-                ai_response = "한국인터넷진흥원은 정보통신망의 정보보호 및 인터넷주소자원 관련 기술개발 및 표준화, 지식정보보안 산업정책 지원 및 관련 기술개발과 인력양성, 정보보호 안전진단, 정보보호관리체계 인증의 실시·지원, 정보보호시스템의 연구·개발 및 시험·평가 등을 담당하는 기관입니다."
-            elif "연차" in user_message and "수당" in user_message:
-                ai_response = "연차 수당은 근로기준법에 따라 1년간 80% 이상 출근한 근로자에게 1년 미만의 근속연수에 대해서는 1개월, 1년 이상의 근속연수에 대해서는 1개월을 초과하는 연차에 대해서는 1개월을 초과하는 연차 1개월분의 평균임금을 지급하는 제도입니다. 연차 수당은 연차 발생일로부터 3년 이내에 사용하지 않으면 시효가 완성되어 소멸됩니다."
-            else:
-                ai_response = f"죄송합니다. 현재 RAG 시스템에 일시적인 문제가 있어 정확한 답변을 제공할 수 없습니다. 질문: '{user_message}'"
             sources = []
 
         # AI 응답 저장

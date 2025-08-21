@@ -135,3 +135,4 @@ class FileInfo(models.Model):
         db_table = 'file_info'
         verbose_name = '파일 정보'
         verbose_name_plural = '파일 정보 목록'
+
