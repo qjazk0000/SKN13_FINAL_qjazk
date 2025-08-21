@@ -1,6 +1,6 @@
 // ChatPage.jsx
 // todo: 실제 API 엔드포인트에 맞게 수정
-
+import axios from "axios";
 import api from "../../services/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
