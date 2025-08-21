@@ -8,7 +8,7 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 환경변수 로드
-load_dotenv(BASE_DIR.parent / '.env')
+# load_dotenv(BASE_DIR.parent / '.env')
 
 # Upstage api key
 UPSTAGE_API_KEY = os.getenv('UPSTAGE_API_KEY')
