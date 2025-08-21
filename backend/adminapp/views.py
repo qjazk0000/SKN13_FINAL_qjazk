@@ -6,11 +6,10 @@ from django.db import connection
 from .serializers import (
     UserSearchSerializer,
     ConversationSearchSerializer,
-    ReportedConversationSerializer,
-    ReceiptSerializer,
-    ReceiptDetailSerializer
+    AdminReceiptSerializer,
+    AdminReceiptDetailSerializer,
+    ReceiptPreviewSerializer
 )
-# from authapp.decorators import admin_required
 from .decorators import admin_required
 import logging
 
@@ -170,17 +169,20 @@ class ReceiptManagementView(APIView):
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
-                    SELECT receipt_id, user_id, file_name, uploaded_at, is_verified 
-                    FROM receipt_info 
-                    ORDER BY uploaded_at DESC
+                    SELECT ri.receipt_id, ri.user_id, fi.file_origin_name, 
+                           ri.uploaded_at, ri.status, ri.store_name, ri.amount
+                    FROM receipt_info ri
+                    JOIN file_info fi ON ri.file_id = fi.file_id
+                    ORDER BY ri.created_at DESC
                 """)
                 columns = [col[0] for col in cursor.description]
                 receipts = [dict(zip(columns, row)) for row in cursor.fetchall()]
                 
-                serializer = ReceiptSerializer(receipts, many=True)
+                # 새로운 시리얼라이저 사용
+                serializer = AdminReceiptSerializer(receipts, many=True)
                 return Response({
                     'success': True,
-                    'data': serializer.data  # 시리얼라이즈된 데이터 반환
+                    'data': serializer.data
                 })
                 
         except Exception as e:
@@ -190,10 +192,10 @@ class ReceiptManagementView(APIView):
                 'message': '영수증 목록 조회 중 오류 발생'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class ReceiptPreviewView(APIView):
+class AdminReceiptDetailView(APIView):
     """
-    영수증 상세 조회(미리보기) API
-    - 특정 영수증의 이미지 URL과 추출된 텍스트 제공
+    관리자용 영수증 상세 조회 API
+    - 영수증 상세 정보 제공
     """
     
     @admin_required
@@ -201,16 +203,18 @@ class ReceiptPreviewView(APIView):
         """
         영수증 상세 정보 조회
         - 입력: receipt_id (경로 파라미터)
-        - 출력: 영수증 이미지 URL과 추출 텍스트
+        - 출력: 영수증 상세 정보
         """
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
-                    SELECT * FROM receipt_info 
-                    WHERE receipt_id = %s
+                    SELECT ri.*, fi.file_origin_name, fi.file_path
+                    FROM receipt_info ri
+                    JOIN file_info fi ON ri.file_id = fi.file_id
+                    WHERE ri.receipt_id = %s
                 """, [receipt_id])
-                row = cursor.fetchone()
                 
+                row = cursor.fetchone()
                 if not row:
                     return Response({
                         'success': False,
@@ -218,12 +222,13 @@ class ReceiptPreviewView(APIView):
                     }, status=status.HTTP_404_NOT_FOUND)
                 
                 columns = [col[0] for col in cursor.description]
-                receipt = dict(zip(columns, row))  # 단일 영수증 정보 딕셔너리 변환
-                serializer = ReceiptDetailSerializer(receipt)
+                receipt = dict(zip(columns, row))
                 
+                # 새로운 상세 시리얼라이저 사용
+                serializer = AdminReceiptDetailSerializer(receipt)
                 return Response({
                     'success': True,
-                    'data': serializer.data  # 상세 정보 반환 (이미지 URL 포함)
+                    'data': serializer.data
                 })
                 
         except Exception as e:
@@ -231,4 +236,50 @@ class ReceiptPreviewView(APIView):
             return Response({
                 'success': False,
                 'message': '영수증 상세 조회 중 오류 발생'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ReceiptPreviewView(APIView):
+    """
+    영수증 이미지 미리보기 API
+    - 특정 영수증의 이미지 URL 제공
+    """
+    
+    @admin_required
+    def get(self, request, receipt_id):
+        """
+        영수증 이미지 미리보기
+        - 입력: receipt_id (경로 파라미터)
+        - 출력: 영수증 이미지 URL
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT fi.file_origin_name, fi.file_path
+                    FROM receipt_info ri
+                    JOIN file_info fi ON ri.file_id = fi.file_id
+                    WHERE ri.receipt_id = %s
+                """, [receipt_id])
+                
+                row = cursor.fetchone()
+                if not row:
+                    return Response({
+                        'success': False,
+                        'message': '영수증을 찾을 수 없습니다'
+                    }, status=status.HTTP_404_NOT_FOUND)
+                
+                columns = [col[0] for col in cursor.description]
+                file_info = dict(zip(columns, row))
+                
+                # 이미지 미리보기 시리얼라이저 사용
+                serializer = ReceiptPreviewSerializer(file_info)
+                return Response({
+                    'success': True,
+                    'data': serializer.data
+                })
+                
+        except Exception as e:
+            logger.error(f"영수증 미리보기 오류: {str(e)}")
+            return Response({
+                'success': False,
+                'message': '영수증 미리보기 중 오류 발생'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

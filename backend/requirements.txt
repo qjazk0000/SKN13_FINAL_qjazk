@@ -19,3 +19,4 @@ requests
 PyJWT
 openai>=1.35.0
 djangorestframework-simplejwt
+PyPDF2

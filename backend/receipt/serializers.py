@@ -1,6 +1,5 @@
 # receipt/serializers.py
 from rest_framework import serializers
-from .models import FileInfo, ReceiptInfo
 
 class FileUploadSerializer(serializers.Serializer):
     """
@@ -11,25 +10,17 @@ class FileUploadSerializer(serializers.Serializer):
         help_text="업로드할 파일"
     )
 
-# receipt/serializers.py
 class ReceiptExtractionSerializer(serializers.ModelSerializer):
     """
     영수증 추출 정보 응답 시리얼라이저 (사용자 확인용)
     """
-    file_name = serializers.CharField(source='file.file_origin_name', read_only=True)
-    
-    class Meta:
-        model = ReceiptInfo
-        fields = [
-            'receipt_id',
-            'file_name',        # 파일 이름
-            'store_name',       # 가맹점명
-            'payment_date',     # 결제일시
-            'amount',           # 결제금액
-            'currency',         # 통화
-            'extracted_text'    # 추출된 텍스트
-        ]
-        read_only_fields = fields
+    receipt_id = serializers.UUIDField()
+    file_name = serializers.CharField()
+    store_name = serializers.CharField()
+    payment_date = serializers.DateTimeField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    currency = serializers.CharField()
+    extracted_text = serializers.CharField()
 
 class ReceiptConfirmSerializer(serializers.Serializer):
     """
@@ -40,38 +31,14 @@ class ReceiptConfirmSerializer(serializers.Serializer):
         help_text="추출 정보 확인 여부"
     )
 
-class ReceiptDetailSerializer(serializers.ModelSerializer):
+class ReceiptListSerializer(serializers.Serializer):
     """
-    영수증 상세 정보 응답 시리얼라이저 (관리자 페이지)
+    사용자 영수증 목록 응답 시리얼라이저
     """
-
-    class Meta:
-        model = ReceiptInfo
-        fields = [
-            'receipt_id',
-            'user_id',
-            'payment_date',
-            'amount',
-            'currency',
-            'store_name',
-            'file_path',
-            'extracted_text',
-            'status',
-            'created_at',
-            'updated_at'
-        ]
-        read_only_fields = fields
-
-class ReceiptProcessSerializer(serializers.Serializer):
-    """
-    영수증 처리 상태 업데이트 시리얼라이저
-    """
-    status = serializers.ChoiceField(
-        choices=ReceiptInfo.STATUS_CHOICES,
-        help_text="처리 상태"
-    )
-    extracted_text = serializers.CharField(
-        required=False,
-        allow_blank=True,
-        help_text="OCR로 추출된 텍스트"
-    )
+    receipt_id = serializers.UUIDField()
+    store_name = serializers.CharField()
+    payment_date = serializers.DateTimeField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    currency = serializers.CharField()
+    status = serializers.CharField()
+    created_at = serializers.DateTimeField()

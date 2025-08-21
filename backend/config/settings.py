@@ -8,7 +8,7 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 환경변수 덮어쓰기 필요시 주석을 해제
-#load_dotenv(BASE_DIR.parent / '.env')
+load_dotenv(BASE_DIR.parent / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
@@ -81,7 +81,7 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT', 5432),
         'OPTIONS': {
-            'sslmode': 'require',  # RDS SSL 연결결
+            'sslmode': os.getenv('disable'),  # 기본값은 disable
         }
     }
 }
