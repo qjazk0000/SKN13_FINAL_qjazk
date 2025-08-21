@@ -289,6 +289,19 @@ function ChatPage() {
           message: message,
         });
         const aiResponseText = response.data.response;
+        const conversationTitle = response.data.conversation_title;  // 백엔드에서 반환된 제목
+
+        // 채팅 제목 업데이트 (첫 질문인 경우)
+        if (conversationTitle) {
+          setChats((prevChats) =>
+            prevChats.map((chat) =>
+              chat.id === selectedChat.id
+                ? { ...chat, title: conversationTitle }
+                : chat
+            )
+          );
+          console.log('DEBUG: 채팅 제목 업데이트:', conversationTitle);
+        }
 
         setChats((prevChats) =>
           prevChats.map((chat) =>

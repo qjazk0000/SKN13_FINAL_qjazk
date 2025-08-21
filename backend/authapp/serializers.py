@@ -154,11 +154,7 @@ class PasswordChangeSerializer(serializers.Serializer):
                 'confirm_password': '새 비밀번호와 확인 비밀번호가 일치하지 않습니다.'
             })
         
-        # 현재 비밀번호 검증
-        user = self.context['request'].user
-        if not user.check_password(current_password):
-            raise serializers.ValidationError({
-                'current_password': '현재 비밀번호가 올바르지 않습니다.'
-            })
+        # 현재 비밀번호 검증은 View에서 처리하므로 여기서는 제거
+        # JWT 토큰 기반 인증에서는 request.user가 AnonymousUser가 됨
         
         return attrs
