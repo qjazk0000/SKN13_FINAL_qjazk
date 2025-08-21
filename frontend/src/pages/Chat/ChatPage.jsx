@@ -10,7 +10,7 @@ import Chat from "./Chat";
 import Receipt from "./Receipt";
 import Sidebar from "./Sidebar";
 
-// ✅ 모든 chat 오브젝트를 안전 스키마로 강제
+// 모든 chat 오브젝트를 안전 스키마로 강제
 const normalizeChat = (c) => ({
   id: c?.id ?? c?.session_id ?? c?.conversation_id ?? crypto.randomUUID(),
   title: c?.title ?? "새 채팅",
@@ -19,21 +19,24 @@ const normalizeChat = (c) => ({
 
 function ChatPage() {
   const navigate = useNavigate();
-  const [chats, setChats] = useState([]); // 항상 배열
-  const [receipts, setReceipts] = useState([]); // 항상 배열
-  const [selectedChatId, setSelectedChatId] = useState(null);
-  const [selectedReceiptId, setSelectedReceiptId] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSidebarLoading, setIsSidebarLoading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("업무 가이드");
+
+  const [chats, setChats] = useState([]);
+  const [receipts, setReceipts] = useState([]);
   const [userName, setUserName] = useState("");
 
+  const [selectedChatId, setSelectedChatId] = useState(null);
+  const [selectedReceiptId, setSelectedReceiptId] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState("업무 가이드");
+
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSidebarLoading, setIsSidebarLoading] = useState(false);
 
   const selectedChat = useMemo(() => {
     const chat = (chats ?? []).find((chat) => chat.id === selectedChatId);
     return chat ? normalizeChat(chat) : null;
   }, [chats, selectedChatId]);
+
   const selectedReceipt = useMemo(
     () =>
       (receipts ?? []).find((receipt) => receipt.id === selectedReceiptId) ||
@@ -45,18 +48,16 @@ function ChatPage() {
   useEffect(() => {
     const loadUserInfo = () => {
       const currentUser = authService.getCurrentUser();
-      console.log("현재 사용자 정보:", currentUser); // 디버깅용 로그
 
       if (currentUser && currentUser.name) {
         setUserName(currentUser.name);
-        // 관리자 여부 확인 (authService의 isAdmin 함수 사용)
+
         const adminStatus = authService.isAdmin();
-        console.log("관리자 여부:", adminStatus); // 디버깅용 로그
         setIsAdmin(adminStatus);
       } else {
-        // 사용자 정보가 없으면 루트 페이지로 이동
-        //navigate('/');
-        console.log("사용자 정보가 없습니다."); // 디버깅용 로그
+        console.log("사용자 정보가 없습니다.");
+        alert("로그인이 필요합니다.");
+        navigate("/login");
       }
     };
 
@@ -68,17 +69,10 @@ function ChatPage() {
     const fetchChats = async () => {
       setIsSidebarLoading(true);
       try {
-        console.log("DEBUG: fetchChats 시작");
-
         const [chatResponse, receiptResponse] = await Promise.all([
           api.get("/chat/list/"),
           api.get("/receipt/"),
         ]);
-
-        console.log("DEBUG: chatResponse 전체:", chatResponse);
-        console.log("DEBUG: chatResponse.data:", chatResponse?.data);
-        console.log("DEBUG: chatResponse.data.data:", chatResponse?.data?.data);
-
         // 백엔드 응답 형태가 배열이 아닐 수도 있으므로 안전하게 파싱
         const chatsData = Array.isArray(chatResponse?.data)
           ? chatResponse.data
@@ -88,9 +82,6 @@ function ChatPage() {
           ? chatResponse.data.data
           : [];
 
-        console.log("DEBUG: 파싱된 chatsData:", chatsData);
-        console.log("DEBUG: chatsData 길이:", chatsData.length);
-
         const receiptsData = Array.isArray(receiptResponse?.data)
           ? receiptResponse.data
           : Array.isArray(receiptResponse?.data?.results)
@@ -99,7 +90,6 @@ function ChatPage() {
 
         // normalizeChat을 사용하여 안전한 스키마로 변환
         const normalizedChats = chatsData.map(normalizeChat);
-        console.log("DEBUG: normalizedChats:", normalizedChats);
 
         // DB에서 가져온 메시지에 isNew: false 플래그 추가
         const chatsWithMessageFlags = normalizedChats.map((chat) => ({
@@ -109,21 +99,18 @@ function ChatPage() {
             isNew: false, // DB에서 가져온 메시지는 타이핑 효과 적용 안함
           })),
         }));
-        console.log("DEBUG: chatsWithMessageFlags:", chatsWithMessageFlags);
 
         setChats(chatsWithMessageFlags);
         setReceipts(receiptsData);
 
         if (selectedCategory === "업무 가이드" && chatsData.length > 0) {
           setSelectedChatId(chatsData[0].id);
+        } else if (
+          selectedCategory === "영수증 처리" &&
+          receiptsData.length > 0
+        ) {
+          setSelectedReceiptId(receiptsData[0].id);
         }
-        // 영수증 처리 로직 주석처리
-        // else if (
-        //   selectedCategory === "영수증 처리" &&
-        //   receiptsData.length > 0
-        // ) {
-        //   setSelectedReceiptId(receiptsData[0].id);
-        // }
       } catch (error) {
         console.error("데이터 로드 실패:", error);
         // 실패해도 UI는 동작 가능하게 빈 배열 유지
