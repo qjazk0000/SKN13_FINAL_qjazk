@@ -100,7 +100,7 @@ export const authService = {
     // 사용자 프로필 수정
     async updateUserProfile(userData) {  // 사용자 프로필 수정
         try {
-            const response = await api.put('/auth/profile/', userData);
+            const response = await api.put('/auth/profile/');
             
             if (response.data.success) {
                 return response.data.data;  // 업데이트된 사용자 정보 반환

@@ -223,3 +223,11 @@ CORS_ALLOW_CREDENTIALS = True
 
 # 개발 환경에서 CORS 설정 완화
 CORS_ALLOW_ALL_ORIGINS = True  # 개발 중에만 사용 (프로덕션에서는 제거)
+
+
+MIGRATION_MODULES = {
+    'admin': None,
+    'auth': None,
+    'contenttypes': None,
+    'sessions': None,
+}
