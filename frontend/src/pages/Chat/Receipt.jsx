@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
+import api from "../../services/api";
 
 function Receipt({ selectedReceipt, selectedCategory }) {
   const [uploadFile, setUploadFile] = useState(null);
   const [reportDateRange, setReportDateRange] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
@@ -11,13 +13,38 @@ function Receipt({ selectedReceipt, selectedCategory }) {
     }
   };
 
-  const handleUpload = () => {
-    // TODO: 영수증 업로드 API 연동
-    if (uploadFile) {
-      alert(`${uploadFile.name} 파일 업로드 요청`);
-      console.log("영수증 업로드:", uploadFile.name);
-    } else {
+  const handleUpload = async () => {
+    if (!uploadFile) {
       alert("업로드할 파일을 선택해주세요.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const formData = new FormData();
+      formData.append("files", uploadFile);
+
+      // if (selectedCategory) {
+      //   formData.append("category", selectedCategory);
+      // }
+      // if (selectedReceipt?.id) {
+      //   formData.append("receipt_id", selectedReceipt.id);
+      // }
+
+      const res = await api.post("/receipt/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      alert("업로드 완료!");
+      console.log("업로드 결과:", res.data);
+
+      setUploadFile(null);
+    } catch (error) {
+      console.error("업로드 에러:", error);
+      alert(error.response?.data?.message || "업로드 실패");
+    } finally {
+      setIsLoading(false);
     }
   };
 
