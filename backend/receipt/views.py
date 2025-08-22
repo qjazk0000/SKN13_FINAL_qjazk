@@ -19,56 +19,79 @@ logger = logging.getLogger(__name__)
 
 
 class ReceiptUploadView(APIView):
+    """
+    1. 영수증 파일 업로드 + OCR 데이터 추출
+    - file_info, receipt_info 테이블에 저장
+    - status = pending
+    """
     @require_auth
     def post(self, request):
         serializer = ReceiptUploadSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response({...}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'success': False,
+                'message': '입력 데이터가 유효하지 않습니다',
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        files = serializer.validated_data['files']
-        results = []
-
+        f = serializer.validated_data['files']  # 단일 파일만 처리
         try:
-            for f in files:
-                # 업로드된 파일을 임시 경로에 저장
-                tmp_path = f"/tmp/{f.name}"
-                with open(tmp_path, "wb") as tmp:
-                    for chunk in f.chunks():
-                        tmp.write(chunk)
+            # 업로드된 파일을 임시 경로에 저장
+            tmp_path = f"/tmp/{uuid.uuid4()}_{f.name}"
+            with open(tmp_path, "wb") as tmp:
+                for chunk in f.chunks():
+                    tmp.write(chunk)
 
-                # OCR 처리
-                extracted_data = extract_receipt_info(tmp_path)
+            # OCR 처리
+            extracted_data = extract_receipt_info(tmp_path)
+            store_name = extracted_data.get('결제처', '')
+            payment_date = extracted_data.get('결제일시', None)
+            amount = extracted_data.get('총합계', 0)
 
-                with connection.cursor() as cursor:
-                    file_id = uuid.uuid4()
-                    receipt_id = uuid.uuid4()
-                    
-                    # file_info 저장
-                    cursor.execute("""INSERT INTO file_info ...""", [...])
+            # file_info / receipt_info 저장
+            with connection.cursor() as cursor:
+                file_id = uuid.uuid4()
+                receipt_id = uuid.uuid4()
+                
+                # file_info 저장
+                cursor.execute("""
+                    INSERT INTO file_info 
+                    (file_id, chat_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
+                    VALUES (%s, NULL, %s, %s, %s, %s, %s, NOW())
+                """, [
+                    file_id,
+                    f.name,
+                    f"receipt_{file_id}",
+                    f"receipts/{file_id}",  # 실제 저장 위치
+                    f.size,
+                    f.name.split('.')[-1] if '.' in f.name else ''
+                ])
 
-                    # receipt_info 저장
-                    cursor.execute("""INSERT INTO receipt_info ...""", [
-                        receipt_id,
-                        file_id,
-                        request.user_id,
-                        extracted_data.get('결제일시'),
-                        extracted_data.get('총합계', 0),
-                        'KRW',
-                        extracted_data.get('결제처'),
-                        str(extracted_data)
-                    ])
-
-                    results.append({
-                        'receipt_id': str(receipt_id),
-                        'file_id': str(file_id),
-                        'file_name': f.name,
-                        'extracted': extracted_data
-                    })
+                # receipt_info 저장 (status = pending)
+                cursor.execute("""
+                    INSERT INTO receipt_info 
+                    (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', NOW(), NOW())
+                """, [
+                    receipt_id,
+                    file_id,
+                    request.user_id,
+                    payment_date,
+                    amount,
+                    'KRW',
+                    store_name,
+                    str(extracted_data)
+                ])
 
             return Response({
                 'success': True,
                 'message': '파일 업로드 및 OCR 추출 성공',
-                'data': results
+                'data': {
+                    'receipt_id': str(receipt_id),
+                    'file_id': str(file_id),
+                    'file_name': f.name,
+                    'extracted': extracted_data
+                }
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
@@ -181,4 +204,40 @@ class ReceiptDownloadView(APIView):
             return Response({
                 'success': False,
                 'message': 'CSV 다운로드 중 오류가 발생했습니다.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ReceiptDetailView(APIView):
+    """
+    업로드된 영수증의 임시 OCR 데이터를 조회
+    """
+    @require_auth
+    def get(self, request, receipt_id):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT store_name, payment_date, amount, extracted_text, status
+                    FROM receipt_info
+                    WHERE receipt_id = %s AND user_id = %s
+                """, [receipt_id, request.user_id])
+                row = cursor.fetchone()
+
+            if not row:
+                return Response({
+                    'success': False,
+                    'message': '영수증 데이터를 찾을 수 없습니다.'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            columns = [col[0] for col in cursor.description]
+            data = dict(zip(columns, row))
+
+            return Response({
+                'success': True,
+                'data': data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"영수증 조회 오류: {str(e)}")
+            return Response({
+                'success': False,
+                'message': '영수증 조회 중 오류 발생'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

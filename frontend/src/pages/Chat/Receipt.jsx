@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
+import api from "../../services/api"; // API 호출을 위한 axios 인스턴스
 
 function Receipt({ selectedReceipt, selectedCategory }) {
   const [uploadFile, setUploadFile] = useState(null);
-  const [reportDateRange, setReportDateRange] = useState("");
+  const [reportStart, setReportStart] = useState("");
+  const [reportEnd, setReportEnd] = useState("");
 
   const handleFileChange = (e) => {
     if (e.target.files.length > 0) {
@@ -11,23 +13,61 @@ function Receipt({ selectedReceipt, selectedCategory }) {
     }
   };
 
-  const handleUpload = () => {
-    // TODO: 영수증 업로드 API 연동
-    if (uploadFile) {
+  const handleUpload = async () => {
+    if (!uploadFile) {
+      alert("업로드할 파일을 선택해주세요.");
+    } else {
       alert(`${uploadFile.name} 파일 업로드 요청`);
       console.log("영수증 업로드:", uploadFile.name);
-    } else {
-      alert("업로드할 파일을 선택해주세요.");
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("files", uploadFile);
+
+      const response = await api.post("/receipt/upload/", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (response.data.success) {
+        alert("텍스트 추출 성공! 결과 확인하세요.");
+        console.log("서버 응답:", response.data.data);
+      } else {
+        alert(response.data.message || "텍스트 추출 실패");
+      }
+    } catch (error) {
+      console.error("텍스트 추출 오류:", error);
+      alert(error.response?.data?.message || "텍스트 추출 중 오류가 발생했습니다.");
     }
   };
 
-  const handleDownload = () => {
-    // TODO: 영수증 보고서 다운로드 API 연동
-    if (reportDateRange) {
-      alert(`${reportDateRange} 기간 보고서 다운로드 요청`);
-      console.log("영수증 보고서 다운로드:", reportDateRange);
-    } else {
-      alert("보고서 기간을 선택해주세요.");
+  const handleDownload = async () => {
+    if (!reportStart || !reportEnd) {
+      alert("기간을 선택해주세요.");
+      return;
+    }
+
+    try {
+      const response = await api.get("/receipt/download/", {
+        params: { start_date: reportStart, end_date: reportEnd },
+        responseType: "blob",   // 파일 다운로드 시 필수
+      });
+
+      // 파일 저장
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `receipt_data_${reportStart}_${reportEnd}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      alert("다운로드 성공!");
+    } catch (error) {
+      console.error("다운로드 오류:", error);
+      alert(error.response?.data?.message || "다운로드 중 오류가 발생했습니다.");
     }
   };
 
@@ -108,14 +148,14 @@ function Receipt({ selectedReceipt, selectedCategory }) {
             <h3 className="text-lg font-semibold text-gray-800">보고서 추출</h3>
             <input
               type="month"
-              value={reportDateRange}
-              onChange={(e) => setReportDateRange(e.target.value)}
+              value={reportStart}
+              onChange={(e) => setReportStart(e.target.value)}
               className="w-full h-8 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
             <input
               type="month"
-              value={reportDateRange}
-              onChange={(e) => setReportDateRange(e.target.value)}
+              value={reportEnd}
+              onChange={(e) => setReportEnd(e.target.value)}
               className="w-full p-2 h-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"
             />
             <button
