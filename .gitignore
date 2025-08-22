@@ -50,6 +50,9 @@ frontend/yarn-error.log
 *.swp
 docker-compose.override.yml
 
+# qdrant snapshots
+qdrant_snapshots/
+
 # Jupyter 노트북
 *.ipynb
 
