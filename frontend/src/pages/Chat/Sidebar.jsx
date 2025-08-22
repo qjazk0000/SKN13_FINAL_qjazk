@@ -1,7 +1,6 @@
 import {
   ArrowPathIcon,
   PlusIcon,
-  TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
@@ -33,6 +32,7 @@ function Sidebar({
   const [openDeleteMenuId, setOpenDeleteMenuId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false); // 삭제 중 상태
   const menuRef = useRef(null);
+  const listRef = useRef(null);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -63,8 +63,18 @@ function Sidebar({
     }
   };
 
-  const handleToggleDeleteMenu = (chatId) => {
-    setOpenDeleteMenuId(openDeleteMenuId === chatId ? null : chatId);
+  const handleToggleDeleteMenu = (chatId, e) => {
+    e.stopPropagation();
+    setOpenDeleteMenuId((prev) => (prev === chatId ? null : chatId));
+
+    // 열리는 경우에만 스크롤 살짝 맞춤
+    if (openDeleteMenuId !== chatId) {
+      const li = e.currentTarget.closest("li");
+      // 컨테이너가 있으면, li를 컨테이너 내에서 보이게
+      if (li && listRef.current) {
+        li.scrollIntoView({ block: "nearest" });
+      }
+    }
   };
 
   const handleDelete = async (chatId) => {
@@ -147,7 +157,7 @@ function Sidebar({
           <button
             type="button"
             onClick={handleAddNewItem}
-            className="w-full mb-2 py-2 px-4 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-left flex items-center gap-2 transition"
+            className="w-full mb-4 py-2 px-4 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-left flex items-center gap-2 transition"
             disabled={isLoading}
           >
             <span>
@@ -163,7 +173,7 @@ function Sidebar({
             </div>
           ) : (
             // 로딩이 끝났을 때
-            <div className="max-h-80 overflow-y-auto">
+            <div ref={listRef} className="max-h-96 overflow-y-auto">
               <ul>
                 {chats.map((chat) => {
                   const isSelected = selectedChatId === chat.id;
@@ -207,11 +217,11 @@ function Sidebar({
 
                           {/* 드롭다운 메뉴 (삭제 버튼) */}
                           {openDeleteMenuId === chat.id && (
-                            <div className="absolute right-0 top-8 mt-1 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16">
+                            <div className="absolute right-2 mt-1 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16">
                               <button
                                 onClick={() => handleDelete(chat.id)}
                                 disabled={isDeleting}
-                                className={`block w-full text-left px-4 py-2 text-sm text-white transition ${
+                                className={`w-full text-left px-4 py-2 text-sm text-white transition ${
                                   isDeleting
                                     ? "opacity-50 cursor-not-allowed"
                                     : "hover:bg-gray-700"
