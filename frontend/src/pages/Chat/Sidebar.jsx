@@ -77,14 +77,11 @@ function Sidebar({
     try {
       // 삭제 중 상태로 설정
       setIsDeleting(true);
-      console.log(`Deleting chat with ID: ${chatId}`);
 
       // API 호출하여 채팅 삭제
       const response = await api.delete(`/chat/${chatId}/delete/`);
 
       if (response.data.success) {
-        console.log("채팅 삭제 성공:", response.data.message);
-
         // 부모 컴포넌트에 삭제 완료 알림
         if (onDeleteChat) {
           onDeleteChat(chatId);
@@ -161,7 +158,9 @@ function Sidebar({
 
           {isLoading ? (
             // 로딩 중일 때
-            <LoadingMask />
+            <div className="flex justify-center items-center h-full text-gray-400">
+              <ArrowPathIcon className="h-6 w-6 animate-spin" />
+            </div>
           ) : (
             // 로딩이 끝났을 때
             <div className="max-h-80 overflow-y-auto">
