@@ -51,7 +51,7 @@ frontend/yarn-error.log
 docker-compose.override.yml
 
 # qdrant snapshots
-# qdrant_snapshots/
+qdrant_snapshots/
 
 # Jupyter 노트북
 *.ipynb
