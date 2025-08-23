@@ -7,6 +7,7 @@ function MyPage() {
     email: '',
     dept: '',
     rank: ''
+    rank: ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -38,35 +39,11 @@ function MyPage() {
     fetchUserProfile();
   }, []);
 
-  const handleUserInfoChange = (field, value) => {
-    setUserInfo(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   const handlePasswordChange = (field, value) => {
     setPasswordData(prev => ({
       ...prev,
       [field]: value
     }));
-  };
-
-  // 프로필 정보 수정
-  const handleUserInfoUpdate = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setSuccess('');
-      
-      const updatedProfile = await authService.updateUserProfile(userInfo);
-      setUserInfo(updatedProfile);
-      setSuccess('프로필이 성공적으로 업데이트되었습니다.');
-    } catch (error) {
-      setError('프로필 업데이트에 실패했습니다: ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   // 비밀번호 변경
@@ -133,6 +110,28 @@ function MyPage() {
             채팅 화면
           </button>
         </div>
+        <div className="flex justify-between items-center mb-6">
+          <h2>마이페이지</h2>
+          <button
+            onClick={() => window.history.back()}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition flex items-center gap-2"
+            title="채팅 화면으로 돌아가기"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            채팅 화면
+          </button>
+        </div>
         
         <div className="mypage-sections">
           {/* 사용자 정보 섹션 */}
@@ -159,9 +158,9 @@ function MyPage() {
                 <input
                   type="text"
                   value={userInfo.username || ''}
-                  onChange={(e) => handleUserInfoChange('username', e.target.value)}
                   className="info-input"
-                  disabled={isProfileLoading}
+                  disabled={true}
+                  readOnly
                 />
               </div>
               
@@ -170,9 +169,9 @@ function MyPage() {
                 <input
                   type="text"
                   value={userInfo.dept || ''}
-                  onChange={(e) => handleUserInfoChange('dept', e.target.value)}
                   className="info-input"
-                  disabled={isProfileLoading}
+                  disabled={true}
+                  readOnly
                 />
               </div>
               
@@ -189,13 +188,7 @@ function MyPage() {
             </div>
 
             {/* 프로필 수정 버튼 */}
-            <button 
-              onClick={handleUserInfoUpdate}
-              className="update-profile-button"
-              disabled={isLoading || isProfileLoading}
-            >
-              {isLoading ? '저장 중...' : '프로필 수정'}
-            </button>
+            {/* Removed as per edit hint */}
           </div>
 
           {/* 비밀번호 관리 섹션 */}

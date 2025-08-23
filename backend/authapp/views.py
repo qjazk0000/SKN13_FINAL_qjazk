@@ -17,6 +17,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class LoginView(APIView):
+    authentication_classes = []  # 인증 클래스 제외
+    permission_classes = []      # 권한 클래스 제외
+    
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -40,6 +43,9 @@ class LoginView(APIView):
                         'dept': user.dept,                  # dept
                         'rank': user.rank,                  # rank
                         'auth': user.auth,                  # auth - 관리자 권한 확인용
+
+                        # auth 컬럼은 관리자 권한을 나타내는 컬럼으로 로그인 가능 여부와는 상관없음
+                        # 'auth': user.auth,                  # auth
                     }
                 }
             }, status=status.HTTP_200_OK)
@@ -122,6 +128,7 @@ class RefreshTokenView(APIView):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 class LogoutView(APIView):
+
     def post(self, request):
         try:
             # Authorization 헤더 확인
@@ -324,19 +331,41 @@ class PasswordChangeView(APIView):
                 current_password = serializer.validated_data['current_password']
                 new_password = serializer.validated_data['new_password']
                 
-                # user_info 테이블에서 비밀번호 변경
+                # 현재 비밀번호 검증
                 with connection.cursor() as cursor:
                     cursor.execute("""
-                        UPDATE user_info 
-                        SET passwd = %s 
+                        SELECT passwd FROM user_info 
                         WHERE user_id = %s
-                    """, [new_password, user_data[0]])  # user_data[0]은 user_id
+                    """, [user_data[0]])  # user_data[0]은 user_id
                     
-                    if cursor.rowcount == 0:
+                    result = cursor.fetchone()
+                    if not result:
                         return Response({
                             'success': False,
                             'message': '사용자를 찾을 수 없습니다.'
                         }, status=status.HTTP_404_NOT_FOUND)
+                    
+                    stored_password = result[0]
+                    
+                    # 현재 비밀번호 확인
+                    if stored_password != current_password:
+                        return Response({
+                            'success': False,
+                            'message': '현재 비밀번호가 올바르지 않습니다.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    # 새 비밀번호로 업데이트
+                    cursor.execute("""
+                        UPDATE user_info 
+                        SET passwd = %s 
+                        WHERE user_id = %s
+                    """, [new_password, user_data[0]])
+                    
+                    if cursor.rowcount == 0:
+                        return Response({
+                            'success': False,
+                            'message': '비밀번호 업데이트에 실패했습니다.'
+                        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
                 return Response({
                     'success': True,
@@ -356,6 +385,4 @@ class PasswordChangeView(APIView):
             'message': '입력 데이터가 올바르지 않습니다.',
             'errors': serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
-
-
 

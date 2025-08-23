@@ -7,8 +7,8 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env file
-load_dotenv(BASE_DIR.parent / '.env')
+# 환경변수 로드
+# load_dotenv(BASE_DIR.parent / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
@@ -87,10 +87,14 @@ DATABASES = {
 }
 
 # Qdrant Vector Database 설정
-QDRANT_HOST = os.getenv('QDRANT_HOST', 'localhost')
+QDRANT_HOST = os.getenv('QDRANT_HOST', 'qdrant')
 QDRANT_PORT = int(os.getenv('QDRANT_PORT', 6333))
-QDRANT_COLLECTION_NAME = 'kisa_documents'
-QDRANT_VECTOR_SIZE = 1024  # nlpai-lab/KoE5 모델의 벡터 크기
+QDRANT_COLLECTION_NAME = os.getenv('QDRANT_COLLECTION_NAME', 'regulations_final')
+QDRANT_VECTOR_SIZE = int(os.getenv('QDRANT_VECTOR_SIZE', 1024))
+RAG_TOP_K = int(os.getenv('RAG_TOP_K', 5))
+
+# OpenAI 설정
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 
 # Qdrant 관련 로깅 설정
 LOGGING = {
@@ -170,17 +174,47 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # 기본 권한을 AllowAny로 변경
+        'rest_framework.permissions.AllowAny',  # 개발 단계에서는 AllowAny
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [],  # Django 인증 시스템 비활성화
 }
 
-# JWT 설정 제거 (더 이상 필요하지 않음)
-# SIMPLE_JWT = { ... }  # 이 부분을 주석 처리하거나 제거
 
-# INSTALLED_APPS += ['corsheaders']
-# MIDDLEWARE.insert(0, 'corsheaders.middleware.CorsMiddleware')
+# JWT 설정
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': False,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+    'JWK_URL': None,
+    'LEEWAY': 0,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'USER_AUTHENTICATION_RULE': 'rest_framework_simplejwt.authentication.default_user_authentication_rule',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'TOKEN_USER_CLASS': 'rest_framework_simplejwt.models.TokenUser',
+    'JTI_CLAIM': 'jti',
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
+}
+
+# corsheaders는 이미 INSTALLED_APPS와 MIDDLEWARE에 포함되어 있음
 CORS_ALLOWED_ORIGINS = [
+    os.getenv('FRONTEND_ORIGIN', 'http://localhost'),
     'http://localhost:3000',  # React 개발 서버
     'http://127.0.0.1:3000',  # React 개발 서버 (IP)
     'http://localhost:8000',  # Django 개발 서버

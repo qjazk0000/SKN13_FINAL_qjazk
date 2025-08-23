@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-function TypingEffect({ text }) {
+function TypingEffect({ text = "" }) {
+
   const [displayedText, setDisplayedText] = useState("");
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (index < text.length) {
+    if (text && index < text.length) {
       const timer = setTimeout(() => {
         setDisplayedText((prev) => prev + text.charAt(index));
         setIndex((prev) => prev + 1);

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import dayjs from "dayjs";
 import AdminSidebar from "./components/AdminSidebar.jsx";
 import SearchBar from "./components/SearchBar";
@@ -9,6 +10,7 @@ import DateSelectBar from "./components/DateSelectBar";
 import { authService } from "../../services/authService";
 
 function ChatReportsPage() {
+
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchType, setSearchType] = useState("chat_id");
@@ -33,10 +35,10 @@ function ChatReportsPage() {
     },
   ]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedTab, setSelectedTab] = useState("chat-reports");
-  
+  const [selectedTab, setSelectedTab] = useState("chat-reports");  
   // 사용자 정보 상태 (실제로는 API에서 가져와야 함)
   const [userName, setUserName] = useState("관리자");
+
 
   const columns = [
     { header: "채팅 ID", accessor: "chat_id" },
@@ -71,7 +73,11 @@ function ChatReportsPage() {
     // TODO: 마이페이지로 이동하는 로직 구현
   };
 
-
+  // 로그아웃 핸들러
+  const handleLogout = () => {
+    console.log("로그아웃");
+    // TODO: 로그아웃 로직 구현
+  };
 
   // 탭 선택 핸들러
   const handleTabSelect = (tabName) => {
@@ -103,6 +109,7 @@ function ChatReportsPage() {
       <AdminSidebar 
         userName={userName}
         onUserNameClick={handleUserNameClick}
+        onLogout={handleLogout}
         selectedTab={selectedTab}
         onTabSelect={handleTabSelect}
         onChatPageClick={handleChatPageClick}
