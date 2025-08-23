@@ -142,11 +142,7 @@ function MembersPage() {
     // TODO: 마이페이지로 이동하는 로직 구현
   };
 
-  // 로그아웃 핸들러
-  const handleLogout = () => {
-    console.log("로그아웃");
-    // TODO: 로그아웃 로직 구현
-  };
+
 
   // 탭 선택 핸들러
   const handleTabSelect = (tabName) => {
@@ -178,7 +174,6 @@ function MembersPage() {
       <AdminSidebar 
         userName={userName}
         onUserNameClick={handleUserNameClick}
-        onLogout={handleLogout}
         selectedTab={selectedTab}
         onTabSelect={handleTabSelect}
         onChatPageClick={handleChatPageClick}
