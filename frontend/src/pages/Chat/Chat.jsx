@@ -2,6 +2,7 @@
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
+import MarkdownRenderer from "./MarkdownRenderer";
 import TypingEffect from "./TypingEffect";
 
 function Chat({ chat, onSendMessage, isLoading = false }) {
@@ -103,7 +104,17 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
                       </span>
                     ) : // 새로 생성된 메시지만 타이핑 효과 적용
                     shouldAnimate ? (
-                      <TypingEffect text={message.content} />
+                      <TypingEffect
+                        text={message.content}
+                        interval={25}
+                        render={(partial) => (
+                          <MarkdownRenderer content={partial} />
+                        )}
+                        onDone={() => {
+                          // 애니메이션 완료 시 isNew 해제 등 클라이언트 상태 업데이트
+                          // e.g., markMessageAsNotNew(message.id)
+                        }}
+                      />
                     ) : (
                       // 기존 DB 데이터는 즉시 표시
                       message.content
