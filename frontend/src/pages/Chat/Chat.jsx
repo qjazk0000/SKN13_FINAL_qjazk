@@ -119,6 +119,18 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
                     message.content
                   )}
                 </div>
+                {/* 신고하기 버튼 */}
+                {message.sender_type === "ai" && (
+                  <button
+                    className="ml-2 self-end text-xs text-gray-500 underline"
+                    onClick={() => {
+                      // 여기에 신고 로직 추가
+                      alert(`메시지 ${message.id} 신고하기 눌림`);
+                    }}
+                  >
+                    신고하기
+                  </button>
+                )}
               </div>
             );
           })
