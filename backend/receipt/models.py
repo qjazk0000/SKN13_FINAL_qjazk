@@ -2,35 +2,68 @@
 
 import uuid
 from django.db import models
-from django.conf import settings
 
-class FileInfo(models.Model):
-    file_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    file_origin_name = models.CharField(max_length=512)
-    file = models.FileField(upload_to='uploads/receipts/%Y/%m/%d/')
-    file_size = models.BigIntegerField()
-    file_ext = models.CharField(max_length=32, null=True, blank=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+class RecJob(models.Model):
+    class Status(models.TextChoices):
+        PENDING="PENDING"; QUEUED="QUEUED"; RUNNING="RUNNING"; DONE="DONE"; FAILED="FAILED";
 
-    def __str__(self):
-        return self.file_origin_name
-
-class ReceiptInfo(models.Model):
-    STATUS_CHOICES = (
-        ('pending','pending'),
-        ('processing','processing'),
-        ('processed','processed'),
-        ('failed','failed')
-    )
-    receipt_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    file = models.ForeignKey(FileInfo, on_delete=models.CASCADE)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    payment_date = models.DateTimeField(null=True, blank=True)
-    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    currency = models.CharField(max_length=10, default='KRW', null=True, blank=True)
-    store_name = models.CharField(max_length=255, null=True, blank=True)
-    extracted_text = models.TextField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    job_id = models.UUIDField(primary_key=True)
+    user_id = models.UUIDField()
+    file_id = models.UUIDField(null=True)  # file_info 테이블 참조 (선택적)
+    input_s3_key = models.CharField(max_length=500)
+    result_s3_key = models.CharField(max_length=500, null=True)
+    original_filename = models.CharField(max_length=500, null=True)
+    model_version = models.CharField(max_length=255, null=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    started_at = models.DateTimeField(null=True, blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    error_message = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return f"RecJob {self.job_id} - {self.status}"
+
+    class Meta:
+        db_table = 'rec_job'
+        ordering = ['-created_at']
+
+
+class RecResultSummary(models.Model):
+    job_id = models.OneToOneField(RecJob, on_delete=models.CASCADE, primary_key=True)
+    store_name = models.CharField(max_length=255, null=True, blank=True)
+    payment_date = models.DateTimeField(null=True, blank=True)
+    card_company = models.CharField(max_length=100, null=True, blank=True)
+    card_number_masked = models.CharField(max_length=50, null=True, blank=True)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=10, default='KRW')
+    extracted_text = models.TextField(null=True, blank=True)
+    raw_json = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"RecResultSummary {self.job_id}"
+
+    class Meta:
+        db_table = 'rec_result_summary'
+
+
+class RecResultItem(models.Model):
+    item_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job_id = models.ForeignKey(RecJob, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    quantity = models.IntegerField(null=True, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    line_no = models.IntegerField()
+    extra = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"RecResultItem {self.item_id} - {self.name}"
+
+    class Meta:
+        db_table = 'rec_result_item'
+        ordering = ['line_no']
 
