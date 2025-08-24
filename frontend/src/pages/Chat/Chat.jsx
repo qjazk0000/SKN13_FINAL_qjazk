@@ -110,10 +110,6 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
                         render={(partial) => (
                           <MarkdownRenderer content={partial} />
                         )}
-                        onDone={() => {
-                          // 애니메이션 완료 시 isNew 해제 등 클라이언트 상태 업데이트
-                          // e.g., markMessageAsNotNew(message.id)
-                        }}
                       />
                     ) : (
                       // 기존 DB 데이터는 즉시 표시
