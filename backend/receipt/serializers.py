@@ -17,12 +17,14 @@ class RecJobCreateSerializer(serializers.ModelSerializer):
 class RecJobDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecJob
-        fields = ('job_id', 'status', 'original_filename', 'created_at', 'updated_at', 'error_message')
+        fields = ('job_id', 'status', 'original_filename', 'created_at', 'updated_at', 
+                 'queued_at', 'started_at', 'processed_at', 'error_message')
 
 class RecJobListSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecJob
-        fields = ('job_id', 'status', 'original_filename', 'created_at', 'updated_at')
+        fields = ('job_id', 'status', 'original_filename', 'created_at', 'updated_at',
+                 'queued_at', 'started_at', 'processed_at')
 
 class RecResultSummarySerializer(serializers.ModelSerializer):
     class Meta:

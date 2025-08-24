@@ -8,14 +8,14 @@ from .services.model_client import infer_image_bytes
 logger = logging.getLogger(__name__)
 
 s3 = boto3.client("s3", region_name=os.getenv("AWS_REGION"))
-BUCKET = os.getenv("AWS_S3_BUCKET")
+BUCKET = os.getenv("AWS_S3_BUCKET_NAME")  # 환경변수 통일
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=10)
 def run_rec_job(self, job_id: str):
     logger.info(f"Starting receipt processing job: {job_id}")
     
     try:
-        job = RecJob.objects.get(pk=job_id)
+        job = RecJob.objects.get(job_id=job_id)  # pk 대신 job_id 사용
         
         # 상태 업데이트
         from django.db import transaction
@@ -52,7 +52,7 @@ def run_rec_job(self, job_id: str):
         with transaction.atomic():
             # 요약 upsert(없으면 생성)
             RecResultSummary.objects.update_or_create(
-                job_id=job_id,
+                job_id=job_id,  # pk 대신 job_id 사용
                 defaults={
                     "store_name": summary.get("store_name"),
                     "payment_date": summary.get("payment_date"),
@@ -95,7 +95,7 @@ def run_rec_job(self, job_id: str):
         ])
         
         # 요약 로우 + 품목 펼치기
-        sumrow = RecResultSummary.objects.get(pk=job_id)
+        sumrow = RecResultSummary.objects.get(job_id=job_id)  # pk 대신 job_id 사용
         items_qs = RecResultItem.objects.filter(job_id=job_id).order_by("line_no")
         
         if items_qs.exists():
@@ -139,6 +139,9 @@ def run_rec_job(self, job_id: str):
         logger.info(f"Job {job_id} completed successfully")
         return {"ok": True, "job_id": job_id}
         
+    except RecJob.DoesNotExist:
+        logger.error(f"Job {job_id} not found")
+        return {"ok": False, "error": f"Job {job_id} not found"}
     except Exception as e:
         logger.error(f"Error in job {job_id}: {e}")
         
@@ -148,7 +151,7 @@ def run_rec_job(self, job_id: str):
         
         # 최대 재시도 횟수 초과 시 실패 처리
         try:
-            job = RecJob.objects.get(pk=job_id)
+            job = RecJob.objects.get(job_id=job_id)
             job.status = RecJob.Status.FAILED
             job.error_message = str(e)
             job.save(update_fields=["status","error_message","updated_at"])

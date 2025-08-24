@@ -26,11 +26,13 @@ class TestUploadView(AllowAny, APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            # S3 업로드용 presigned URL 생성
-            upload_url = presign_upload(filename, content_type)
+            # S3 업로드용 presigned URL 생성 (올바른 S3 키 사용)
+            s3_key = f"uploads/test/{filename}"
+            upload_url = presign_upload(s3_key, content_type)
             
             return Response({
                 'upload_url': upload_url,
+                's3_key': s3_key,
                 'filename': filename,
                 'content_type': content_type
             })
@@ -68,7 +70,7 @@ class CreateJobView(APIView):
             # RecJob 모델에 작업 정보 저장
             job = RecJob.objects.create(
                 job_id=job_id,
-                user_id=user_id,
+                user_id=user_id,  # UUID 값 직접 전달
                 input_s3_key=input_s3_key,
                 original_filename=filename
             )
@@ -79,6 +81,7 @@ class CreateJobView(APIView):
             return Response({
                 'job_id': str(job_id),
                 'upload_url': upload_url,
+                's3_key': input_s3_key,
                 'status': job.status
             })
             
@@ -112,9 +115,10 @@ class CommitJobView(APIView):
                     status=status.HTTP_404_NOT_FOUND
                 )
             
-            # 작업 상태를 QUEUED로 변경
+            # 작업 상태를 QUEUED로 변경하고 queued_at 설정
             job.status = RecJob.Status.QUEUED
-            job.save()
+            job.queued_at = timezone.now()
+            job.save(update_fields=["status", "queued_at", "updated_at"])
             
             # Celery 작업 실행
             run_rec_job.delay(str(job_id))
@@ -122,6 +126,7 @@ class CommitJobView(APIView):
             return Response({
                 'job_id': str(job_id),
                 'status': job.status,
+                'queued_at': job.queued_at,
                 'message': '작업이 큐에 추가되었습니다.'
             })
             
@@ -152,6 +157,9 @@ class JobDetailView(APIView):
                 'original_filename': job.original_filename,
                 'created_at': job.created_at,
                 'updated_at': job.updated_at,
+                'queued_at': job.queued_at,
+                'started_at': job.started_at,
+                'processed_at': job.processed_at,
                 'download_url': download_url,
                 'error_message': job.error_message
             })
@@ -185,7 +193,10 @@ class JobListView(APIView):
                     'status': job.status,
                     'original_filename': job.original_filename,
                     'created_at': job.created_at,
-                    'updated_at': job.updated_at
+                    'updated_at': job.updated_at,
+                    'queued_at': job.queued_at,
+                    'started_at': job.started_at,
+                    'processed_at': job.processed_at
                 }
                 
                 # 결과가 있으면 다운로드 URL도 제공

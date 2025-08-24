@@ -20,7 +20,7 @@ class RecJobAdmin(admin.ModelAdmin):
             'fields': ('status', 'error_message')
         }),
         ('시간 정보', {
-            'fields': ('started_at', 'processed_at', 'created_at', 'updated_at')
+            'fields': ('queued_at', 'started_at', 'processed_at', 'created_at', 'updated_at')
         }),
     )
 
