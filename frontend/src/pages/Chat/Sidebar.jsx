@@ -188,8 +188,9 @@ function Sidebar({
             // 로딩이 끝났을 때
             <div ref={listRef} className="max-h-96 overflow-y-auto">
               <ul>
-                {chats.map((chat) => {
+                {chats.map((chat, index) => {
                   const isSelected = selectedChatId === chat.id;
+                  const isLastItem = index === chats.length - 1;
 
                   return (
                     <li
@@ -220,7 +221,6 @@ function Sidebar({
                         >
                           <button
                             onClick={(e) => {
-                              e.stopPropagation();
                               handleToggleDeleteMenu(chat.id, e);
                             }}
                             className="px-2 text-gray-400 hover:text-white focus:outline-none"
@@ -230,7 +230,11 @@ function Sidebar({
 
                           {/* 드롭다운 메뉴 (삭제 버튼) */}
                           {openDeleteMenuId === chat.id && (
-                            <div className="absolute right-2 mt-1 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16">
+                            <div
+                              className={`absolute ${
+                                isLastItem ? "bottom-8" : "mt-1"
+                              } right-2 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16`}
+                            >
                               <button
                                 onClick={() => handleDelete(chat.id)}
                                 disabled={isDeleting}
