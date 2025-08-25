@@ -2,11 +2,13 @@
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
+import MarkdownRenderer from "./MarkdownRenderer";
 import TypingEffect from "./TypingEffect";
 
 function Chat({ chat, onSendMessage, isLoading = false }) {
   const [text, setText] = useState("");
   const messageEndRef = useRef(null);
+  const sessionStartAtRef = useRef(Date.now());
 
   // ✅ chat이 undefined일 때도 안전하게 처리
   const safeMessages =
@@ -68,40 +70,70 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
             <p className="mt-4">메시지를 입력하여 대화를 시작하세요.</p>
           </div>
         ) : (
-          safeMessages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.sender_type === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
+          safeMessages.map((message) => {
+            const shouldAnimate =
+              message.sender_type === "ai" &&
+              message.isNew === true &&
+              // created_at(ISO string) 기준. 없으면 서버에서 넣어줘야 함.
+              message.created_at &&
+              new Date(message.created_at).getTime() >=
+                sessionStartAtRef.current;
+
+            return (
               <div
-                className={`p-3 rounded-lg max-w-sm ${
+                key={message.id}
+                className={`flex ${
                   message.sender_type === "user"
-                    ? "bg-gray-200 text-gray-800"
-                    : "bg-orange-200 text-gray-800"
-                } whitespace-pre-wrap`}
+                    ? "justify-end"
+                    : "justify-start"
+                }`}
               >
-                {message.sender_type === "ai" ? (
-                  message.isLoading ? (
-                    <span className="flex items-center space-x-2">
-                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100"></span>
-                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200"></span>
-                      <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-300"></span>
-                    </span>
-                  ) : // 새로 생성된 메시지만 타이핑 효과 적용
-                  message.isNew ? (
-                    <TypingEffect text={message.content} />
+                <div
+                  className={`p-3 rounded-lg max-w-sm ${
+                    message.sender_type === "user"
+                      ? "bg-gray-200 text-gray-800"
+                      : "bg-orange-200 text-gray-800"
+                  } whitespace-pre-wrap`}
+                >
+                  {message.sender_type === "ai" ? (
+                    message.isLoading ? (
+                      <span className="flex items-center space-x-2">
+                        <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-100"></span>
+                        <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-200"></span>
+                        <span className="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-300"></span>
+                      </span>
+                    ) : // 새로 생성된 메시지만 타이핑 효과 적용
+                    shouldAnimate ? (
+                      <TypingEffect
+                        text={message.content}
+                        interval={25}
+                        render={(partial) => (
+                          <MarkdownRenderer content={partial} />
+                        )}
+                      />
+                    ) : (
+                      // 기존 DB 데이터는 즉시 표시
+                      message.content
+                    )
                   ) : (
-                    // 기존 DB 데이터는 즉시 표시
                     message.content
-                  )
-                ) : (
-                  message.content
+                  )}
+                </div>
+                {/* 신고하기 버튼 */}
+                {message.sender_type === "ai" && (
+                  <button
+                    className="ml-2 self-end text-xs text-gray-500 underline"
+                    onClick={() => {
+                      // 여기에 신고 로직 추가
+                      alert(`메시지 ${message.id} 신고하기 눌림`);
+                    }}
+                  >
+                    신고하기
+                  </button>
                 )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messageEndRef} />
       </div>
