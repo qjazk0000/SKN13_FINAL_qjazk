@@ -1,7 +1,7 @@
 import axios from "axios";
 import { authService } from "./authService";
 // EC2 backend 서버 URL 설정
-//const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
 // Axios 인스턴스 생성
 // const api = axios.create({
 //     baseURL: API_BASE_URL,

@@ -8,11 +8,10 @@ from receipt.models import RecJob, RecResultSummary, RecResultItem
 from .serializers import (
     UserSearchSerializer,
     ConversationSearchSerializer,
-    ReportedConversationSerializer,
-    ReceiptSerializer,
-    ReceiptDetailSerializer
+    AdminReceiptSerializer,
+    AdminReceiptDetailSerializer,
+    ReceiptPreviewSerializer,
 )
-# from authapp.decorators import admin_required
 from .decorators import admin_required
 
 import logging
@@ -551,17 +550,17 @@ class ReceiptManagementView(APIView):
                 'message': '영수증 목록 조회 중 오류 발생'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class ReceiptPreviewView(APIView):
+class AdminReceiptDetailView(APIView):
     """
-    영수증 상세 조회(미리보기) API
-    - 특정 영수증의 이미지 URL과 추출된 텍스트 제공
+    관리자용 영수증 상세 조회 API
+    - 영수증 상세 정보 제공
     """
     
     def get(self, request, receipt_id):
         """
         영수증 상세 정보 조회
         - 입력: receipt_id (경로 파라미터)
-        - 출력: 영수증 이미지 URL과 추출 텍스트
+        - 출력: 영수증 상세 정보
         """
         try:
             # 인증 및 권한 확인
@@ -602,8 +601,8 @@ class ReceiptPreviewView(APIView):
                     LEFT JOIN file_info f ON rj.file_id = f.file_id
                     WHERE rj.job_id = %s
                 """, [receipt_id])
-                row = cursor.fetchone()
                 
+                row = cursor.fetchone()
                 if not row:
                     return Response({
                         'success': False,
@@ -635,6 +634,8 @@ class ReceiptPreviewView(APIView):
                     'updated_at': receipt['updated_at'].isoformat() if receipt['updated_at'] else None
                 }
                 
+                # 새로운 상세 시리얼라이저 사용
+                serializer = AdminReceiptDetailSerializer(receipt) #ReceiptDetailSerializer(receipt)
                 return Response({
                     'success': True,
                     'data': receipt_data

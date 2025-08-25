@@ -1,26 +1,57 @@
 import React, { useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
+<<<<<<< HEAD
 import ReceiptUpload from "../../components/ReceiptUpload";
+=======
+import api from "../../services/api";
+>>>>>>> 556cb3d8eebb778dab278cd9812a6ad7ee1d2264
 
 function Receipt({ selectedReceipt, selectedCategory }) {
   const [uploadFile, setUploadFile] = useState(null);
+  // const [uploadFiles, setUploadFiles] = useState([]);
   const [reportDateRange, setReportDateRange] = useState("");
+<<<<<<< HEAD
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState("");
+=======
+  const [isLoading, setIsLoading] = useState(false);
+>>>>>>> 556cb3d8eebb778dab278cd9812a6ad7ee1d2264
 
   const handleFileChange = (e) => {
-    if (e.target.files.length > 0) {
-      setUploadFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      setUploadFile(e.target.files[0]); // 첫 번째 파일만 저장
     }
   };
 
-  const handleUpload = () => {
-    // TODO: 영수증 업로드 API 연동
-    if (uploadFile) {
-      alert(`${uploadFile.name} 파일 업로드 요청`);
-      console.log("영수증 업로드:", uploadFile.name);
-    } else {
+  const handleUpload = async () => {
+    if (!uploadFile) {
       alert("업로드할 파일을 선택해주세요.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const formData = new FormData();
+      formData.append("files", uploadFile); // 서버에서 'files' 키로 받음
+
+      const res = await api.post("/receipt/upload/", formData);
+      alert("업로드 완료!");
+      console.log("업로드 결과:", res.data);
+
+      setUploadFile(null);
+    } catch (error) {
+      console.error("업로드 에러:", {
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+      alert(
+        error.response?.data?.detail ||
+          error.response?.data?.message ||
+          "업로드 실패"
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -117,7 +148,29 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                 onUploadSuccess={handleUploadSuccess}
                 onUploadError={handleUploadError}
               />
+<<<<<<< HEAD
             </div>
+=======
+              {uploadFile ? (
+                <span className="text-gray-700 font-semibold text-center">
+                  {uploadFile.name}
+                </span>
+              ) : (
+                <>
+                  <CloudArrowUpIcon className="h-8 w-8 text-gray-400 m-2" />
+                  <span className="text-gray-600 font-semibold text-center">
+                    파일을 선택하세요
+                  </span>
+                </>
+              )}
+            </label>
+            <button
+              onClick={handleUpload}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow-md hover:bg-gray-300 transition-colors w-full"
+            >
+              {isLoading ? "업로드 중..." : "업로드"}
+            </button>
+>>>>>>> 556cb3d8eebb778dab278cd9812a6ad7ee1d2264
           </div>
 
           {/* 영수증 보고서 추출 영역 */}

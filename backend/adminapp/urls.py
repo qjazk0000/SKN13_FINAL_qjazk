@@ -4,7 +4,8 @@ from .views import (
     UserManagementView,
     ConversationReportView,
     ReceiptManagementView,
-    ReceiptPreviewView
+    ReceiptPreviewView,
+    AdminReceiptDetailView
 )
 
 urlpatterns = [

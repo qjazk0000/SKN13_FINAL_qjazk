@@ -1,6 +1,6 @@
 # adminapp/serializers.py
 from rest_framework import serializers
-from .models import ReportedConversation, Receipt
+from .models import ReportedConversation
 
 class UserSearchSerializer(serializers.Serializer):
     """
@@ -51,6 +51,31 @@ class ConversationSearchSerializer(serializers.Serializer):
         help_text="검색할 키워드 입력"
     )
 
+    def validate(self, attrs):
+        """
+        사용자 정의 유효성 검사
+        - 직접입력(period='custom') 선택 시 시작일과 종료일 필수 확인
+        """
+        period = attrs.get('period')
+        start_date = attrs.get('start_date')
+        end_date = attrs.get('end_date')
+        
+        if period == 'custom':
+            if not start_date:
+                raise serializers.ValidationError({
+                    'start_date': '직접입력 시 시작일은 필수입니다.'
+                })
+            if not end_date:
+                raise serializers.ValidationError({
+                    'end_date': '직접입력 시 종료일은 필수입니다.'
+                })
+            if start_date > end_date:
+                raise serializers.ValidationError({
+                    'start_date': '시작일은 종료일보다 클 수 없습니다.'
+                })
+        
+        return attrs
+
 class ReportedConversationSerializer(serializers.ModelSerializer):
     """
     신고된 대화 내역 응답 데이터 시리얼라이저
@@ -62,11 +87,10 @@ class ReportedConversationSerializer(serializers.ModelSerializer):
         fields = '__all__'  # 모든 모델 필드 포함
         read_only_fields = ['report_id', 'created_at']  # 자동 생성 필드는 읽기 전용
 
-class ReceiptSerializer(serializers.ModelSerializer):
+class AdminReceiptSerializer(serializers.Serializer):
     """
-    영수증 목록 응답 데이터 시리얼라이저
+    관리자용 영수증 목록 응답 시리얼라이저 (Raw SQL 결과용)
     - FFC-13: 영수증 이미지 목록 출력
-    - 목록 조회 시 필요한 기본 정보 포함
     """
     # 프론트엔드가 요구하는 필드들 - 실제 DB 테이블 구조에 맞춤
     name = serializers.CharField(read_only=True)
@@ -92,9 +116,9 @@ class ReceiptSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields  # 모든 필드 읽기 전용
 
-class ReceiptDetailSerializer(serializers.ModelSerializer):
+class AdminReceiptDetailSerializer(serializers.Serializer):
     """
-    영수증 상세 정보 응답 데이터 시리얼라이저
+    관리자용 영수증 상세 정보 응답 시리얼라이저 (Raw SQL 결과용)
     - FFC-12: 영수증 이미지 출력 (미리보기)
     - FFC-13: 추출텍스트 목록 출력
     """

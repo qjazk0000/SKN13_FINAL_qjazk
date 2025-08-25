@@ -66,15 +66,15 @@ class FileInfo(models.Model):
     # )
     chat_id = models.UUIDField(null=True, blank=True, db_column='chat_id')  # 임시로 UUIDField로 변경
     
-    file_origin_name = models.CharField(max_length=100)
-    file_name = models.CharField(max_length=100)
-    file_path = models.CharField(max_length=500)
-    file_size = models.BigIntegerField()
-    file_ext = models.CharField(max_length=10, null=True, blank=True)
-    uploaded_at = models.DateTimeField(default=timezone.now)
+#     file_origin_name = models.CharField(max_length=100)
+#     file_name = models.CharField(max_length=100)
+#     file_path = models.CharField(max_length=500)
+#     file_size = models.BigIntegerField()
+#     file_ext = models.CharField(max_length=10, null=True, blank=True)
+#     uploaded_at = models.DateTimeField(default=timezone.now)
     
-    # 시리얼라이저에서 사용하는 필드들 추가
-    is_verified = models.BooleanField(default=False)
+#     # 시리얼라이저에서 사용하는 필드들 추가
+#     is_verified = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'file_info'
