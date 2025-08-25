@@ -7,7 +7,6 @@ function MyPage() {
     email: '',
     dept: '',
     rank: ''
-    rank: ''
   });
 
   const [passwordData, setPasswordData] = useState({

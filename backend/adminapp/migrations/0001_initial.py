@@ -84,7 +84,7 @@ class Migration(migrations.Migration):
             options={
                 'verbose_name': '영수증',
                 'verbose_name_plural': '영수증 목록',
-                'db_table': 'receipt_info',
+                'db_table': 'rec_result_summary',
                 'indexes': [models.Index(fields=['user_id'], name='idx_receipt_user'), models.Index(fields=['payment_date'], name='idx_receipt_date')],
             },
         ),

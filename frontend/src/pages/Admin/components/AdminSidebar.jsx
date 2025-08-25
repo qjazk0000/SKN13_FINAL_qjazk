@@ -46,15 +46,6 @@ function AdminSidebar({ userName, onUserNameClick, selectedTab, onTabSelect, onC
             className={`flex items-center px-4 py-2 rounded-md cursor-pointer transition ${getTabClass("members")}`}
             onClick={() => onTabSelect("members")}
           >
-    <div className="flex flex-col w-64 bg-gray-800 text-white min-h-screen">
-      {/* 상단 관리자 메뉴 */}
-      <div className="p-4">
-        <h2 className="text-xl font-bold mb-6">관리자 메뉴</h2>
-        <div className="space-y-4">
-          <div
-            className={`flex items-center px-4 py-2 rounded-md cursor-pointer transition ${getTabClass("members")}`}
-            onClick={() => onTabSelect("members")}
-          >
             회원 관리
           </div>
           <div

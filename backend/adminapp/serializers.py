@@ -68,15 +68,15 @@ class ReceiptSerializer(serializers.ModelSerializer):
     - FFC-13: 영수증 이미지 목록 출력
     - 목록 조회 시 필요한 기본 정보 포함
     """
-    # 프론트엔드가 요구하는 필드들
-    name = serializers.CharField(source='user_info.name', read_only=True)
-    dept = serializers.CharField(source='user_info.dept', read_only=True)
-    created_at = serializers.DateTimeField(source='created_at', read_only=True)
-    amount = serializers.DecimalField(source='amount', max_digits=12, decimal_places=2, read_only=True)
-    status = serializers.CharField(source='status', read_only=True)
-    file_path = serializers.CharField(source='file_info.file_path', read_only=True)
-    receipt_id = serializers.UUIDField(source='receipt_id', read_only=True)
-    user_login_id = serializers.CharField(source='user_info.user_login_id', read_only=True)
+    # 프론트엔드가 요구하는 필드들 - 실제 DB 테이블 구조에 맞춤
+    name = serializers.CharField(read_only=True)
+    dept = serializers.CharField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    status = serializers.CharField(read_only=True)
+    file_path = serializers.CharField(read_only=True)
+    receipt_id = serializers.UUIDField(read_only=True)
+    user_login_id = serializers.CharField(read_only=True)
     
     class Meta:
         model = Receipt
@@ -101,9 +101,9 @@ class ReceiptDetailSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField(
         help_text="영수증 이미지 URL (미리보기용)"
     )
-    user_name = serializers.CharField(source='user_info.name', read_only=True)
-    user_dept = serializers.CharField(source='user_info.dept', read_only=True)
-    file_name = serializers.CharField(source='file_info.file_origin_name', read_only=True)
+    user_name = serializers.CharField(read_only=True)
+    user_dept = serializers.CharField(read_only=True)
+    file_name = serializers.CharField(read_only=True)
     
     class Meta:
         model = Receipt
@@ -125,6 +125,5 @@ class ReceiptDetailSerializer(serializers.ModelSerializer):
     
     def get_image_url(self, obj):
         """파일 경로를 기반으로 이미지 URL 생성"""
-        if hasattr(obj, 'file_info') and obj.file_info.file_path:
-            return obj.file_info.file_path
-        return None
+        # 실제 DB에서 file_path를 직접 가져오므로 source 제거
+        return getattr(obj, 'file_path', None)

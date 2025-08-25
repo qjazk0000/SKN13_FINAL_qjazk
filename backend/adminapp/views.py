@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import connection
 from authapp.utils import extract_token_from_header, get_user_from_token
+from receipt.models import RecJob, RecResultSummary, RecResultItem
 
 from .serializers import (
     UserSearchSerializer,
@@ -175,26 +176,27 @@ class AdminReceiptsView(APIView):
                 SELECT 
                     u.name,
                     u.dept,
-                    r.created_at,
-                    r.amount,
-                    r.status,
+                    rj.created_at,
+                    rs.total_amount as amount,
+                    rj.status,
                     f.file_path,
-                    r.receipt_id,
+                    rj.job_id as receipt_id,
                     u.user_login_id
-                FROM receipt_info r
-                JOIN user_info u ON r.user_id = u.user_id
-                JOIN file_info f ON r.file_id = f.file_id
+                FROM rec_job rj
+                LEFT JOIN rec_result_summary rs ON rj.job_id = rs.job_id
+                JOIN user_info u ON rj.user_id = u.user_id
+                LEFT JOIN file_info f ON rj.file_id = f.file_id
                 WHERE u.use_yn = 'Y'
             """
             params = []
             
             # 날짜 필터 적용
             if start_date:
-                base_query += " AND r.created_at >= %s"
+                base_query += " AND rj.created_at >= %s"
                 params.append(start_date)
             
             if end_date:
-                base_query += " AND r.created_at <= %s"
+                base_query += " AND rj.created_at <= %s"
                 params.append(end_date + ' 23:59:59')  # 해당 날짜의 마지막 시간까지
             
             # 이름 필터 적용
@@ -209,7 +211,7 @@ class AdminReceiptsView(APIView):
             
             # 신고 여부 필터 적용
             if reported_yn:
-                base_query += " AND r.status = %s"
+                base_query += " AND rj.status = %s"
                 params.append(reported_yn)
             
             # 전체 개수 조회
@@ -452,21 +454,23 @@ class ReceiptManagementView(APIView):
             start_date = request.GET.get('start_date', '')
             end_date = request.GET.get('end_date', '')
             
-            # 기본 쿼리 - receipt_info, user_info, file_info JOIN
+            # 기본 쿼리 - rec_job, rec_result_summary, user_info, file_info JOIN
             base_query = """
-                SELECT r.receipt_id, r.user_id, r.amount, r.status, r.created_at,
+                SELECT rs.job_id as receipt_id, rj.user_id, rs.total_amount as amount, rj.status, rj.created_at,
                        u.name, u.dept, u.user_login_id,
                        f.file_path
-                FROM receipt_info r
-                JOIN user_info u ON r.user_id = u.user_id
-                JOIN file_info f ON r.file_id = f.file_id
+                FROM rec_job rj
+                LEFT JOIN rec_result_summary rs ON rj.job_id = rs.job_id
+                JOIN user_info u ON rj.user_id = u.user_id
+                LEFT JOIN file_info f ON rj.file_id = f.file_id
                 WHERE 1=1
             """
             count_query = """
                 SELECT COUNT(*)
-                FROM receipt_info r
-                JOIN user_info u ON r.user_id = u.user_id
-                JOIN file_info f ON r.file_id = f.file_id
+                FROM rec_job rj
+                LEFT JOIN rec_result_summary rs ON rj.job_id = rs.job_id
+                JOIN user_info u ON rj.user_id = u.user_id
+                LEFT JOIN file_info f ON rj.file_id = f.file_id
                 WHERE 1=1
             """
             params = []
@@ -504,7 +508,7 @@ class ReceiptManagementView(APIView):
             
             # 페이지네이션 적용
             offset = (page - 1) * page_size
-            base_query += " ORDER BY r.created_at DESC LIMIT %s OFFSET %s"
+            base_query += " ORDER BY rj.created_at DESC LIMIT %s OFFSET %s"
             params.extend([page_size, offset])
             
             # 실제 데이터 조회
@@ -588,14 +592,15 @@ class ReceiptPreviewView(APIView):
             
             with connection.cursor() as cursor:
                 cursor.execute("""
-                    SELECT r.receipt_id, r.user_id, r.payment_date, r.amount, r.currency, 
-                           r.store_name, r.status, r.created_at, r.updated_at, r.extracted_text,
+                    SELECT rj.job_id as receipt_id, rj.user_id, rs.payment_date, rs.total_amount as amount, rs.currency, 
+                           rs.store_name, rj.status, rj.created_at, rj.updated_at, rs.extracted_text,
                            u.name, u.dept, u.rank, u.user_login_id,
                            f.file_origin_name, f.file_path, f.file_size, f.file_ext
-                    FROM receipt_info r
-                    JOIN user_info u ON r.user_id = u.user_id
-                    JOIN file_info f ON r.file_id = f.file_id
-                    WHERE r.receipt_id = %s
+                    FROM rec_job rj
+                    LEFT JOIN rec_result_summary rs ON rj.job_id = rs.job_id
+                    JOIN user_info u ON rj.user_id = u.user_id
+                    LEFT JOIN file_info f ON rj.file_id = f.file_id
+                    WHERE rj.job_id = %s
                 """, [receipt_id])
                 row = cursor.fetchone()
                 

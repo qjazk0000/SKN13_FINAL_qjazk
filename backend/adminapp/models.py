@@ -50,39 +50,6 @@ class ReportedConversation(models.Model):
             models.Index(fields=['session_id'], name='idx_reported_session'),
         ]
 
-class Receipt(models.Model):
-    RECEIPT_STATUS_CHOICES = [
-        ('pending', '검증 대기'),
-        ('verified', '검증 완료'),
-        ('rejected', '거부됨')
-    ]
-
-    receipt_id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
-    file_id = models.UUIDField()  # file_info 테이블 참조
-    user_id = models.UUIDField()  # user_info 테이블 참조
-    
-    payment_date = models.DateTimeField()
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    currency = models.CharField(max_length=10, default='KRW')
-    store_name = models.CharField(max_length=200, null=True, blank=True)
-    extracted_text = models.TextField(null=True, blank=True)
-    status = models.CharField(
-        max_length=20,
-        choices=RECEIPT_STATUS_CHOICES,
-        default='pending'
-    )
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = 'receipt_info'
-        verbose_name = '영수증 정보'
-        verbose_name_plural = '영수증 정보 목록'
-
 class FileInfo(models.Model):
     file_id = models.UUIDField(
         primary_key=True,
@@ -113,3 +80,47 @@ class FileInfo(models.Model):
         db_table = 'file_info'
         verbose_name = '파일 정보'
         verbose_name_plural = '파일 정보 목록'
+
+class Receipt(models.Model):
+    """
+    영수증 정보 모델 (receipt_info 테이블과 매핑)
+    """
+    RECEIPT_STATUS_CHOICES = [
+        ('pending', '대기'),
+        ('processing', '처리중'),
+        ('completed', '완료'),
+        ('failed', '실패')
+    ]
+
+    receipt_id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    file_id = models.UUIDField()  # file_info 테이블 참조
+    user_id = models.UUIDField()  # user_info 테이블 참조
+    payment_date = models.DateTimeField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=10, default='KRW')
+    store_name = models.CharField(max_length=200, null=True, blank=True)
+    extracted_text = models.TextField(null=True, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=RECEIPT_STATUS_CHOICES,
+        default='pending'
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'receipt_info'
+        verbose_name = '영수증 정보'
+        verbose_name_plural = '영수증 정보 목록'
+        indexes = [
+            models.Index(fields=['user_id'], name='idx_receipt_user'),
+            models.Index(fields=['status'], name='idx_receipt_status'),
+            models.Index(fields=['created_at'], name='idx_receipt_created'),
+        ]
+
+    def __str__(self):
+        return f"Receipt {self.receipt_id} - {self.amount} {self.currency}"
