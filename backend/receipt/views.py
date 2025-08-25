@@ -44,9 +44,9 @@ class ReceiptUploadView(APIView):
 
             # OCR 처리
             extracted_data = extract_receipt_info(tmp_path)
-            store_name = extracted_data.get('결제처', '')
-            payment_date = extracted_data.get('결제일시', None)
-            amount = extracted_data.get('총합계', 0)
+            store_name = extracted_data.get('storeName', '')
+            payment_date = extracted_data.get('transactionDate', None)
+            amount = extracted_data.get('transactionAmount', 0)
 
             # file_info / receipt_info 저장
             with connection.cursor() as cursor:
@@ -175,8 +175,8 @@ class ReceiptDownloadView(APIView):
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        start = serializer.validated_data['start_date']
-        end = serializer.validated_data['end_date']
+        start = serializer.validated_data['start_date'] + '-01'
+        end = serializer.validated_data['end_date'] + '-01'
 
         try:
             with connection.cursor() as cursor:
