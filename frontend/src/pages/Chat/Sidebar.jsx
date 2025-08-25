@@ -1,11 +1,11 @@
 import {
   ArrowPathIcon,
-  PlusIcon,
   EllipsisVerticalIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
 import { useEffect, useRef, useState } from "react";
-import api from "../../services/api";
 import LoadingMask from "../../components/LoadingMask";
+import api from "../../services/api";
 
 function Sidebar({
   userName,
@@ -31,6 +31,7 @@ function Sidebar({
 
   const [openDeleteMenuId, setOpenDeleteMenuId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false); // 삭제 중 상태
+  const [newChatDisabled, setNewChatDisabled] = useState(false);
   const menuRef = useRef(null);
   const listRef = useRef(null);
 
@@ -58,9 +59,20 @@ function Sidebar({
   const handleAddNewItem = () => {
     if (isChatCategory) {
       onNewChat();
+      setNewChatDisabled(true);
     } else {
       onNewReceipt();
     }
+  };
+
+  const handleSelectChat = (chat) => {
+    onSelectChat(chat);
+    setNewChatDisabled(false);
+  };
+
+  const handleSelectReceipt = (receipt) => {
+    onSelectReceipt(receipt);
+    setNewChatDisabled(false);
   };
 
   const handleToggleDeleteMenu = (chatId, e) => {
@@ -157,8 +169,12 @@ function Sidebar({
           <button
             type="button"
             onClick={handleAddNewItem}
-            className="w-full mb-4 py-2 px-4 rounded-md bg-gray-600 hover:bg-gray-500 text-white text-left flex items-center gap-2 transition"
-            disabled={isLoading}
+            className={`w-full mb-4 py-2 px-4 rounded-md text-left flex items-center gap-2 transition ${
+              newChatDisabled || isLoading
+                ? "bg-gray-500 cursor-not-allowed opacity-60"
+                : "bg-gray-600 hover:bg-gray-500 text-white"
+            }`}
+            disabled={newChatDisabled || isLoading}
           >
             <span>
               <PlusIcon className="w-5 h-5" />
@@ -191,8 +207,8 @@ function Sidebar({
                         type="button"
                         onClick={() =>
                           isChatCategory
-                            ? onSelectChat(chat)
-                            : onSelectReceipt(chat)
+                            ? handleSelectChat(chat)
+                            : handleSelectReceipt(chat)
                         }
                         className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
                         title={chat.title}
