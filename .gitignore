@@ -68,5 +68,11 @@ dist/
 *.tgz
 *.zip
 
+#migrations
+backend/receipt/migrations/
+
+#package-lock
+Frontend/package-lock.json
+
 # AWS keypair
 *.pem
