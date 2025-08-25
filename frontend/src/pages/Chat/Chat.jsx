@@ -113,7 +113,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
                       />
                     ) : (
                       // 기존 DB 데이터는 즉시 표시
-                      message.content
+                      <MarkdownRenderer content={message.content} />
                     )
                   ) : (
                     message.content
