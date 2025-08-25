@@ -1,15 +1,17 @@
 import React, { useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
-import api from "../../services/api"; // API 호출을 위한 axios 인스턴스
+import api from "../../services/api";
 
 function Receipt({ selectedReceipt, selectedCategory }) {
   const [uploadFile, setUploadFile] = useState(null);
+  // const [uploadFiles, setUploadFiles] = useState([]);
   const [reportStart, setReportStart] = useState("");
   const [reportEnd, setReportEnd] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleFileChange = (e) => {
-    if (e.target.files.length > 0) {
-      setUploadFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      setUploadFile(e.target.files[0]); // 첫 번째 파일만 저장
     }
   };
 
@@ -139,7 +141,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
               onClick={handleUpload}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow-md hover:bg-gray-300 transition-colors w-full"
             >
-              <span>업로드</span>
+              {isLoading ? "업로드 중..." : "업로드"}
             </button>
           </div>
 
