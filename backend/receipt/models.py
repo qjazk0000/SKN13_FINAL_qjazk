@@ -1,5 +1,6 @@
 # receipt/models.py
 from django.db import models
+import uuid
 
 class RecJob(models.Model):
     class Status(models.TextChoices):

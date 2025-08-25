@@ -1,21 +1,15 @@
 import React, { useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
-<<<<<<< HEAD
 import ReceiptUpload from "../../components/ReceiptUpload";
-=======
 import api from "../../services/api";
->>>>>>> 556cb3d8eebb778dab278cd9812a6ad7ee1d2264
 
 function Receipt({ selectedReceipt, selectedCategory }) {
   const [uploadFile, setUploadFile] = useState(null);
   // const [uploadFiles, setUploadFiles] = useState([]);
   const [reportDateRange, setReportDateRange] = useState("");
-<<<<<<< HEAD
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState("");
-=======
   const [isLoading, setIsLoading] = useState(false);
->>>>>>> 556cb3d8eebb778dab278cd9812a6ad7ee1d2264
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -148,9 +142,8 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                 onUploadSuccess={handleUploadSuccess}
                 onUploadError={handleUploadError}
               />
-<<<<<<< HEAD
             </div>
-=======
+            <label>
               {uploadFile ? (
                 <span className="text-gray-700 font-semibold text-center">
                   {uploadFile.name}
@@ -170,7 +163,6 @@ function Receipt({ selectedReceipt, selectedCategory }) {
             >
               {isLoading ? "업로드 중..." : "업로드"}
             </button>
->>>>>>> 556cb3d8eebb778dab278cd9812a6ad7ee1d2264
           </div>
 
           {/* 영수증 보고서 추출 영역 */}

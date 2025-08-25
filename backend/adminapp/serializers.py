@@ -92,29 +92,15 @@ class AdminReceiptSerializer(serializers.Serializer):
     관리자용 영수증 목록 응답 시리얼라이저 (Raw SQL 결과용)
     - FFC-13: 영수증 이미지 목록 출력
     """
-    # 프론트엔드가 요구하는 필드들 - 실제 DB 테이블 구조에 맞춤
-    name = serializers.CharField(read_only=True)
-    dept = serializers.CharField(read_only=True)
-    created_at = serializers.DateTimeField(read_only=True)
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-    status = serializers.CharField(read_only=True)
-    file_path = serializers.CharField(read_only=True)
-    receipt_id = serializers.UUIDField(read_only=True)
-    user_login_id = serializers.CharField(read_only=True)
-    
-    class Meta:
-        model = Receipt
-        fields = [
-            'receipt_id',    # 영수증 고유 ID
-            'name',          # 사용자 이름
-            'dept',          # 사용자 부서
-            'created_at',    # 생성일
-            'amount',        # 금액
-            'status',        # 상태
-            'file_path',     # 파일 경로
-            'user_login_id'  # 사용자 로그인 ID
-        ]
-        read_only_fields = fields  # 모든 필드 읽기 전용
+    # 프론트엔드가 요구하는 필드들 - Raw SQL JOIN 결과에서 가져옴
+    receipt_id = serializers.UUIDField(help_text="영수증 고유 ID")
+    name = serializers.CharField(help_text="사용자 이름")
+    dept = serializers.CharField(help_text="사용자 부서")
+    created_at = serializers.DateTimeField(help_text="생성일")
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="금액")
+    status = serializers.CharField(help_text="상태")
+    file_path = serializers.CharField(help_text="파일 경로")
+    user_login_id = serializers.CharField(help_text="사용자 로그인 ID")
 
 class AdminReceiptDetailSerializer(serializers.Serializer):
     """
@@ -122,32 +108,35 @@ class AdminReceiptDetailSerializer(serializers.Serializer):
     - FFC-12: 영수증 이미지 출력 (미리보기)
     - FFC-13: 추출텍스트 목록 출력
     """
-    image_url = serializers.SerializerMethodField(
-        help_text="영수증 이미지 URL (미리보기용)"
-    )
-    user_name = serializers.CharField(read_only=True)
-    user_dept = serializers.CharField(read_only=True)
-    file_name = serializers.CharField(read_only=True)
-    
-    class Meta:
-        model = Receipt
-        fields = [
-            'receipt_id',        # 영수증 고유 ID
-            'user_id',           # 사용자 ID
-            'user_name',         # 사용자 이름
-            'user_dept',         # 사용자 부서
-            'image_url',         # 이미지 URL (FFC-12)
-            'file_name',         # 파일명
-            'payment_date',      # 결제일
-            'amount',            # 금액
-            'currency',          # 통화
-            'store_name',        # 상점명
-            'extracted_text',    # 추출된 텍스트 (FFC-13)
-            'status',            # 상태
-            'created_at'         # 생성일
-        ]
-    
-    def get_image_url(self, obj):
-        """파일 경로를 기반으로 이미지 URL 생성"""
-        # 실제 DB에서 file_path를 직접 가져오므로 source 제거
-        return getattr(obj, 'file_path', None)
+    # Raw SQL JOIN 결과에서 가져오는 필드들
+    receipt_id = serializers.UUIDField(help_text="영수증 고유 ID")
+    user_id = serializers.UUIDField(help_text="사용자 ID")
+    user_name = serializers.CharField(help_text="사용자 이름")
+    user_dept = serializers.CharField(help_text="사용자 부서")
+    file_path = serializers.CharField(help_text="파일 경로 (이미지 URL)")
+    file_name = serializers.CharField(help_text="파일명")
+    payment_date = serializers.DateTimeField(help_text="결제일")
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="금액")
+    currency = serializers.CharField(help_text="통화")
+    store_name = serializers.CharField(help_text="상점명")
+    extracted_text = serializers.CharField(help_text="추출된 텍스트")
+    status = serializers.CharField(help_text="상태")
+    created_at = serializers.DateTimeField(help_text="생성일")
+
+
+class ReceiptPreviewSerializer(serializers.Serializer):
+    """
+    영수증 미리보기용 시리얼라이저 (Raw SQL 결과용)
+    """
+    receipt_id = serializers.UUIDField(help_text="영수증 고유 ID")
+    user_name = serializers.CharField(help_text="사용자 이름")
+    user_dept = serializers.CharField(help_text="사용자 부서")
+    file_path = serializers.CharField(help_text="파일 경로")
+    file_name = serializers.CharField(help_text="파일명")
+    payment_date = serializers.DateTimeField(help_text="결제일")
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="금액")
+    currency = serializers.CharField(help_text="통화")
+    store_name = serializers.CharField(help_text="상점명")
+    extracted_text = serializers.CharField(help_text="추출된 텍스트")
+    status = serializers.CharField(help_text="상태")
+    created_at = serializers.DateTimeField(help_text="생성일")

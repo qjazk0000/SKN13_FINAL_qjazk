@@ -179,9 +179,9 @@ function MyPage() {
                 <input
                   type="text"
                   value={userInfo.rank || ''}
-                  onChange={(e) => handleUserInfoChange('rank', e.target.value)}
                   className="info-input"
-                  disabled={isProfileLoading}
+                  disabled={true}
+                  readOnly
                 />
               </div>
             </div>

@@ -14,7 +14,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api
  * - prod/vercel 등: 환경변수 REACT_APP_API_BASE_URL 사용 가능
  */
 const baseURL =
-  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") || "http://localhost"; // 끝 슬래시 제거된 형태
+  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8001"; // 끝 슬래시 제거된 형태
 
 const api = axios.create({
   baseURL: `${baseURL}/api`,

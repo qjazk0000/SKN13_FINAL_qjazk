@@ -37,9 +37,9 @@ INSTALLED_APPS = [
     'authapp',
     'qdrant',
     'adminapp',
-    # Celery 관련 앱들
-    'django_celery_results',
-    'django_celery_beat',
+    # Celery 관련 앱들 (임시로 주석 처리)
+    # 'django_celery_results',
+    # 'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -229,35 +229,35 @@ REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 REDIS_DB = int(os.getenv('REDIS_DB', 0))
 
-# Celery 설정
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
+# Celery 설정 (임시로 주석 처리)
+# CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
+# CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
 
-# Celery 추가 설정
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Seoul'
-CELERY_ENABLE_UTC = False
+# Celery 추가 설정 (임시로 주석 처리)
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_SERIALIZER = 'json'
+# CELERY_TIMEZONE = 'Asia/Seoul'
+# CELERY_ENABLE_UTC = False
 
-# Celery Beat 설정 (정기 작업 스케줄링)
-CELERY_BEAT_SCHEDULE = {
-    # 예시: 매일 자정에 실행되는 작업
-    # 'daily-cleanup': {
-    #     'task': 'receipt.tasks.cleanup_old_jobs',
-    #     'schedule': crontab(hour=0, minute=0),
-    # },
-}
+# Celery Beat 설정 (정기 작업 스케줄링) (임시로 주석 처리)
+# CELERY_BEAT_SCHEDULE = {
+#     # 예시: 매일 자정에 실행되는 작업
+#     # 'daily-cleanup': {
+#     #     'task': 'receipt.tasks.cleanup_old_jobs',
+#     #     'schedule': crontab(hour=0, minute=0),
+#     # },
+# }
 
-# Celery Worker 설정
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
-CELERY_TASK_ACKS_LATE = True
-CELERY_WORKER_DISABLE_RATE_LIMITS = False
+# Celery Worker 설정 (임시로 주석 처리)
+# CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+# CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+# CELERY_TASK_ACKS_LATE = True
+# CELERY_WORKER_DISABLE_RATE_LIMITS = False
 
-# Celery 모니터링 설정
-CELERY_WORKER_SEND_TASK_EVENTS = True
-CELERY_TASK_SEND_SENT_EVENT = True
+# Celery 모니터링 설정 (임시로 주석 처리)
+# CELERY_WORKER_SEND_TASK_EVENTS = True
+# CELERY_TASK_SEND_SENT_EVENT = True
 
 # corsheaders는 이미 INSTALLED_APPS와 MIDDLEWARE에 포함되어 있음
 CORS_ALLOWED_ORIGINS = [
