@@ -46,62 +46,65 @@ class ReceiptUploadView(APIView):
         if not serializer.is_valid():
             return Response({...}, status=status.HTTP_400_BAD_REQUEST)
 
-        files = serializer.validated_data['files']
+        file = serializer.validated_data['files']
         results = []
 
         try:
-            for f in files:
-                # S3에 파일 업로드
-                upload_result = s3_receipt_service.upload_receipt_file(f, request.user_id)
+            # S3에 파일 업로드
+            upload_result = s3_receipt_service.upload_receipt_file(file, request.user_id)
+            
+            if not upload_result['success']:
+                logger.error(f"파일 업로드 실패: {upload_result['error']}")
+                return Response({
+                    'success': False,
+                    'message': f'파일 업로드 실패: {upload_result["error"]}',
+                    'error': 'UPLOAD_FAILED'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # OCR 처리 (S3에서 다운로드하여 처리)
+            extracted_data = extract_receipt_info(file)  # 파일 객체 직접 전달
+
+            with connection.cursor() as cursor:
+                file_id = uuid.uuid4()
+                receipt_id = uuid.uuid4()
                 
-                if not upload_result['success']:
-                    logger.error(f"파일 업로드 실패: {upload_result['error']}")
-                    continue
+                # file_info 저장 (S3 키 포함)
+                cursor.execute("""
+                    INSERT INTO file_info (file_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                """, [
+                    file_id,
+                    upload_result['original_name'],
+                    upload_result['original_name'],
+                    upload_result['s3_key'],  # S3 키를 file_path에 저장
+                    upload_result['file_size'],
+                    os.path.splitext(upload_result['original_name'])[1]
+                ])
 
-                # OCR 처리 (S3에서 다운로드하여 처리)
-                extracted_data = extract_receipt_info(f)  # 파일 객체 직접 전달
+                # receipt_info 저장
+                cursor.execute("""
+                    INSERT INTO receipt_info (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                """, [
+                    receipt_id,
+                    file_id,
+                    request.user_id,
+                    extracted_data.get('결제일시'),
+                    extracted_data.get('총합계', 0),
+                    'KRW',
+                    extracted_data.get('결제처'),
+                    str(extracted_data),
+                    'pending'
+                ])
 
-                with connection.cursor() as cursor:
-                    file_id = uuid.uuid4()
-                    receipt_id = uuid.uuid4()
-                    
-                    # file_info 저장 (S3 키 포함)
-                    cursor.execute("""
-                        INSERT INTO file_info (file_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, NOW())
-                    """, [
-                        file_id,
-                        upload_result['original_name'],
-                        upload_result['original_name'],
-                        upload_result['s3_key'],  # S3 키를 file_path에 저장
-                        upload_result['file_size'],
-                        os.path.splitext(upload_result['original_name'])[1]
-                    ])
-
-                    # receipt_info 저장
-                    cursor.execute("""
-                        INSERT INTO receipt_info (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
-                    """, [
-                        receipt_id,
-                        file_id,
-                        request.user_id,
-                        extracted_data.get('결제일시'),
-                        extracted_data.get('총합계', 0),
-                        'KRW',
-                        extracted_data.get('결제처'),
-                        str(extracted_data),
-                        'pending'
-                    ])
-
-                    results.append({
-                        'receipt_id': str(receipt_id),
-                        'file_id': str(file_id),
-                        'file_name': upload_result['original_name'],
-                        's3_key': upload_result['s3_key'],
-                        'file_url': upload_result['file_url'],
-                        'extracted': extracted_data
-                    })
+                results.append({
+                    'receipt_id': str(receipt_id),
+                    'file_id': str(file_id),
+                    'file_name': upload_result['original_name'],
+                    's3_key': upload_result['s3_key'],
+                    'file_url': upload_result['file_url'],
+                    'extracted': extracted_data
+                })
 
             return Response({
                 'success': True,

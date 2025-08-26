@@ -37,12 +37,20 @@ import json
 #     | JsonOutputParser()
 # )
 
-def extract_receipt_info(image_path: str) -> dict:
+def extract_receipt_info(file_obj) -> dict:
     """
-    영수증 이미지 경로를 받아 Upstage OCR 결과(JSON)를 반환
+    영수증 파일 객체를 받아 Upstage OCR 결과(JSON)를 반환
     현재는 임시로 더미 데이터 반환
     """
     # TODO: Upstage API 키 설정 후 OCR 기능 활성화
+    # file_obj는 Django의 UploadedFile 객체 또는 파일 객체
+    
+    # 파일 정보 로깅
+    file_name = getattr(file_obj, 'name', 'unknown')
+    file_size = getattr(file_obj, 'size', 0)
+    
+    print(f"OCR 처리 중: {file_name}, 크기: {file_size} bytes")
+    
     return {
         "결제처": "임시 매장명",
         "결제일시": "2025-01-01 12:00:00",
