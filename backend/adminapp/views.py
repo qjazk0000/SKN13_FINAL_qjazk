@@ -3,20 +3,35 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import connection
 from authapp.utils import extract_token_from_header, get_user_from_token
+import os
 
 from .serializers import (
     UserSearchSerializer,
     ConversationSearchSerializer,
-    ReportedConversationSerializer,
-    ReceiptSerializer,
-    ReceiptDetailSerializer
+    AdminReceiptSerializer,
+    AdminReceiptDetailSerializer,
+    ReceiptPreviewSerializer,
 )
-# from authapp.decorators import admin_required
 from .decorators import admin_required
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+def generate_s3_public_url(s3_key):
+    """
+    S3 키를 공개 URL로 변환
+    """
+    if not s3_key:
+        return ""
+    
+    # S3 버킷 정보 (환경변수에서 가져오거나 하드코딩)
+    bucket_name = os.getenv('AWS_S3_BUCKET_NAME', 'skn.dopamine-navi.bucket')
+    region = os.getenv('AWS_REGION', 'ap-northeast-2')
+    
+    # S3 공개 URL 형식: https://bucket-name.s3.region.amazonaws.com/key
+    s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
+    return s3_url
 
 class AdminUsersView(APIView):
     """
@@ -237,7 +252,7 @@ class AdminReceiptsView(APIView):
                     'created_at': receipt[2].isoformat() if receipt[2] else '',
                     'amount': float(receipt[3]) if receipt[3] else 0,
                     'status': receipt[4] or '',
-                    'file_path': receipt[5] or '',
+                    'file_path': generate_s3_public_url(receipt[5]) if receipt[5] else '',
                     'receipt_id': str(receipt[6]),
                     'user_login_id': receipt[7] or ''
                 })
@@ -425,10 +440,10 @@ class ReceiptManagementView(APIView):
                 columns = [col[0] for col in cursor.description]
                 receipts = [dict(zip(columns, row)) for row in cursor.fetchall()]
                 
-                serializer = ReceiptSerializer(receipts, many=True)
+                serializer = AdminReceiptSerializer(receipts, many=True) #ReceiptSerializer(receipts, many=True)
                 return Response({
                     'success': True,
-                    'data': serializer.data  # 시리얼라이즈된 데이터 반환
+                    'data': serializer.data
                 })
                 
         except Exception as e:
@@ -438,10 +453,10 @@ class ReceiptManagementView(APIView):
                 'message': '영수증 목록 조회 중 오류 발생'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class ReceiptPreviewView(APIView):
+class AdminReceiptDetailView(APIView):
     """
-    영수증 상세 조회(미리보기) API
-    - 특정 영수증의 이미지 URL과 추출된 텍스트 제공
+    관리자용 영수증 상세 조회 API
+    - 영수증 상세 정보 제공
     """
     
     @admin_required
@@ -449,16 +464,18 @@ class ReceiptPreviewView(APIView):
         """
         영수증 상세 정보 조회
         - 입력: receipt_id (경로 파라미터)
-        - 출력: 영수증 이미지 URL과 추출 텍스트
+        - 출력: 영수증 상세 정보
         """
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
-                    SELECT * FROM receipt_info 
-                    WHERE receipt_id = %s
+                    SELECT ri.*, fi.file_origin_name, fi.file_path
+                    FROM receipt_info ri
+                    JOIN file_info fi ON ri.file_id = fi.file_id
+                    WHERE ri.receipt_id = %s
                 """, [receipt_id])
-                row = cursor.fetchone()
                 
+                row = cursor.fetchone()
                 if not row:
                     return Response({
                         'success': False,
@@ -466,12 +483,13 @@ class ReceiptPreviewView(APIView):
                     }, status=status.HTTP_404_NOT_FOUND)
                 
                 columns = [col[0] for col in cursor.description]
-                receipt = dict(zip(columns, row))  # 단일 영수증 정보 딕셔너리 변환
-                serializer = ReceiptDetailSerializer(receipt)
+                receipt = dict(zip(columns, row))
                 
+                # 새로운 상세 시리얼라이저 사용
+                serializer = AdminReceiptDetailSerializer(receipt) #ReceiptDetailSerializer(receipt)
                 return Response({
                     'success': True,
-                    'data': serializer.data  # 상세 정보 반환 (이미지 URL 포함)
+                    'data': serializer.data
                 })
                 
         except Exception as e:
@@ -479,4 +497,50 @@ class ReceiptPreviewView(APIView):
             return Response({
                 'success': False,
                 'message': '영수증 상세 조회 중 오류 발생'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ReceiptPreviewView(APIView):
+    """
+    영수증 이미지 미리보기 API
+    - 특정 영수증의 이미지 URL 제공
+    """
+    
+    @admin_required
+    def get(self, request, receipt_id):
+        """
+        영수증 이미지 미리보기
+        - 입력: receipt_id (경로 파라미터)
+        - 출력: 영수증 이미지 URL
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT fi.file_origin_name, fi.file_path
+                    FROM receipt_info ri
+                    JOIN file_info fi ON ri.file_id = fi.file_id
+                    WHERE ri.receipt_id = %s
+                """, [receipt_id])
+                
+                row = cursor.fetchone()
+                if not row:
+                    return Response({
+                        'success': False,
+                        'message': '영수증을 찾을 수 없습니다'
+                    }, status=status.HTTP_404_NOT_FOUND)
+                
+                columns = [col[0] for col in cursor.description]
+                file_info = dict(zip(columns, row))
+                
+                # 이미지 미리보기 시리얼라이저 사용
+                serializer = ReceiptPreviewSerializer(file_info)
+                return Response({
+                    'success': True,
+                    'data': serializer.data
+                })
+                
+        except Exception as e:
+            logger.error(f"영수증 미리보기 오류: {str(e)}")
+            return Response({
+                'success': False,
+                'message': '영수증 미리보기 중 오류 발생'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

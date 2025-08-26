@@ -79,7 +79,7 @@ function ManageReceipts() {
         }
       }
       
-      const response = await fetch(`/api/admin/receipts/list/?${params.toString()}`, {
+      const response = await fetch(`/api/admin/receipts/?${params.toString()}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -153,14 +153,53 @@ function ManageReceipts() {
     { 
       header: "영수증 보기", 
       accessor: "file_path",
-      cell: (value) => (
-        <button
-          onClick={() => window.open(value, '_blank')}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm"
-        >
-          보기
-        </button>
-      )
+      cell: (value) => {
+        if (!value) return <span className="text-gray-400">파일 없음</span>;
+        
+        // 파일 확장자 확인
+        const fileExt = value.split('.').pop()?.toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExt);
+        
+        if (isImage) {
+          return (
+            <div className="flex space-x-2">
+              <button
+                onClick={() => window.open(value, '_blank')}
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm"
+              >
+                보기
+              </button>
+              <a
+                href={value}
+                download
+                className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm"
+              >
+                다운로드
+              </a>
+            </div>
+          );
+        } else {
+          return (
+            <div className="flex space-x-2">
+              <a
+                href={value}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm"
+              >
+                열기
+              </a>
+              <a
+                href={value}
+                download
+                className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm"
+              >
+                다운로드
+              </a>
+            </div>
+          );
+        }
+      }
     }
   ];
 

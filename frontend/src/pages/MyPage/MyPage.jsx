@@ -38,35 +38,11 @@ function MyPage() {
     fetchUserProfile();
   }, []);
 
-  const handleUserInfoChange = (field, value) => {
-    setUserInfo(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
   const handlePasswordChange = (field, value) => {
     setPasswordData(prev => ({
       ...prev,
       [field]: value
     }));
-  };
-
-  // 프로필 정보 수정
-  const handleUserInfoUpdate = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      setSuccess('');
-      
-      const updatedProfile = await authService.updateUserProfile(userInfo);
-      setUserInfo(updatedProfile);
-      setSuccess('프로필이 성공적으로 업데이트되었습니다.');
-    } catch (error) {
-      setError('프로필 업데이트에 실패했습니다: ' + error.message);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   // 비밀번호 변경
@@ -159,9 +135,9 @@ function MyPage() {
                 <input
                   type="text"
                   value={userInfo.username || ''}
-                  onChange={(e) => handleUserInfoChange('username', e.target.value)}
                   className="info-input"
-                  disabled={isProfileLoading}
+                  disabled={true}
+                  readOnly
                 />
               </div>
               
@@ -170,9 +146,9 @@ function MyPage() {
                 <input
                   type="text"
                   value={userInfo.dept || ''}
-                  onChange={(e) => handleUserInfoChange('dept', e.target.value)}
                   className="info-input"
-                  disabled={isProfileLoading}
+                  disabled={true}
+                  readOnly
                 />
               </div>
               
@@ -181,39 +157,6 @@ function MyPage() {
                 <input
                   type="text"
                   value={userInfo.rank || ''}
-                  onChange={(e) => handleUserInfoChange('rank', e.target.value)}
-                  className="info-input"
-                  disabled={isProfileLoading}
-                />
-              </div>
-              
-              <div className="field-group">
-                <label>사용자 ID (User ID)</label>
-                <input
-                  type="text"
-                  value={userInfo.user_id || ''}
-                  className="info-input"
-                  disabled={true}
-                  readOnly
-                />
-              </div>
-              
-              <div className="field-group">
-                <label>가입일시 (Created Date)</label>
-                <input
-                  type="text"
-                  value={userInfo.created_dt ? new Date(userInfo.created_dt).toLocaleString('ko-KR') : ''}
-                  className="info-input"
-                  disabled={true}
-                  readOnly
-                />
-              </div>
-              
-              <div className="field-group">
-                <label>인증상태 (Auth Status)</label>
-                <input
-                  type="text"
-                  value={userInfo.auth === 'Y' ? '인증됨' : '미인증'}
                   className="info-input"
                   disabled={true}
                   readOnly
@@ -222,13 +165,7 @@ function MyPage() {
             </div>
 
             {/* 프로필 수정 버튼 */}
-            <button 
-              onClick={handleUserInfoUpdate}
-              className="update-profile-button"
-              disabled={isLoading || isProfileLoading}
-            >
-              {isLoading ? '저장 중...' : '프로필 수정'}
-            </button>
+            {/* Removed as per edit hint */}
           </div>
 
           {/* 비밀번호 관리 섹션 */}
