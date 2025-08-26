@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import connection
 from authapp.utils import extract_token_from_header, get_user_from_token
+import os
 
 from .serializers import (
     UserSearchSerializer,
@@ -16,6 +17,21 @@ from .decorators import admin_required
 import logging
 
 logger = logging.getLogger(__name__)
+
+def generate_s3_public_url(s3_key):
+    """
+    S3 키를 공개 URL로 변환
+    """
+    if not s3_key:
+        return ""
+    
+    # S3 버킷 정보 (환경변수에서 가져오거나 하드코딩)
+    bucket_name = os.getenv('AWS_S3_BUCKET_NAME', 'skn.dopamine-navi.bucket')
+    region = os.getenv('AWS_REGION', 'ap-northeast-2')
+    
+    # S3 공개 URL 형식: https://bucket-name.s3.region.amazonaws.com/key
+    s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
+    return s3_url
 
 class AdminUsersView(APIView):
     """
@@ -236,7 +252,7 @@ class AdminReceiptsView(APIView):
                     'created_at': receipt[2].isoformat() if receipt[2] else '',
                     'amount': float(receipt[3]) if receipt[3] else 0,
                     'status': receipt[4] or '',
-                    'file_path': receipt[5] or '',
+                    'file_path': generate_s3_public_url(receipt[5]) if receipt[5] else '',
                     'receipt_id': str(receipt[6]),
                     'user_login_id': receipt[7] or ''
                 })
