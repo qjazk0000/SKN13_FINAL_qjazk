@@ -45,7 +45,8 @@ class ReceiptUploadView(APIView):
             # OCR 처리
             extracted_data = extract_receipt_info(tmp_path)
             store_name = extracted_data.get('storeName', '')
-            payment_date = extracted_data.get('transactionDate', None)
+            # payment_date = extracted_data.get('transactionDate', None)
+            payment_date = extracted_data.get("transactionDate", "").split()[0] or None
             amount = extracted_data.get('transactionAmount', 0)
 
             # file_info / receipt_info 저장
