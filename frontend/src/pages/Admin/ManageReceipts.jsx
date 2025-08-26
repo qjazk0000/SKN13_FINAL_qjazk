@@ -79,7 +79,7 @@ function ManageReceipts() {
         }
       }
       
-      const response = await fetch(`/api/admin/receipts/list/?${params.toString()}`, {
+      const response = await fetch(`/api/admin/receipts/?${params.toString()}`, {
         method: "GET",
         headers: {
           "Authorization": `Bearer ${token}`,
