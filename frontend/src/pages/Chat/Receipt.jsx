@@ -17,11 +17,10 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   };
 
   const handleUpload = async () => {
+    setIsLoading(true);
+
     if (!uploadFile) {
       alert("업로드할 파일을 선택해주세요.");
-    } else {
-      alert(`${uploadFile.name} 파일 업로드 요청`);
-      console.log("영수증 업로드:", uploadFile.name);
     }
 
     try {
@@ -45,6 +44,8 @@ function Receipt({ selectedReceipt, selectedCategory }) {
       alert(
         error.response?.data?.message || "텍스트 추출 중 오류가 발생했습니다."
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -138,6 +139,40 @@ function Receipt({ selectedReceipt, selectedCategory }) {
           <p className="mt-4 text-gray-500">
             영수증 업로드와 보고서 추출 기능을 이용해보세요.
           </p>
+        </div>
+      )}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center h-[100dvh] text-gray-500 absolute inset-0 bg-white bg-opacity-70 z-50">
+          <img
+            src="/images/NAVI.png"
+            alt="NAVI Logo"
+            className="w-24 h-auto mb-4 animate-pulse"
+          />
+          <div className="text-xl font-bold text-gray-700 mb-2">
+            영수증 업로드 및 변환중...
+          </div>
+          <div className="mt-2 text-gray-400">잠시만 기다려주세요.</div>
+          <div className="mt-6">
+            <svg
+              className="animate-spin h-8 w-8 text-orange-400"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8z"
+              />
+            </svg>
+          </div>
         </div>
       )}
       {receiptInfo && (
