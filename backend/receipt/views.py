@@ -61,7 +61,7 @@ class ReceiptUploadView(APIView):
                     'error': 'UPLOAD_FAILED'
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            # OCR 처리 (S3에서 다운로드하여 처리)
+            # OCR 처리
             extracted_data = extract_receipt_info(file)  # 파일 객체 직접 전달
 
             with connection.cursor() as cursor:
