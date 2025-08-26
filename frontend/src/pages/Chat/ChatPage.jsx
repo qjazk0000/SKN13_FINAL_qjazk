@@ -299,6 +299,7 @@ function ChatPage() {
           console.log("DEBUG: 채팅 제목 업데이트:", conversationTitle);
         }
 
+        // AI 답변 완료 시 isNew: true로 설정 (TypingEffect 활성화)
         setChats((prevChats) =>
           prevChats.map((chat) =>
             chat.id === selectedChat.id
@@ -311,7 +312,7 @@ function ChatPage() {
                               ...msg,
                               content: aiResponseText,
                               isLoading: false,
-                              isNew: true,
+                              isNew: true, // TypingEffect 활성화
                             }
                           : msg
                       )
@@ -320,13 +321,36 @@ function ChatPage() {
                           ...aiLoadingMessage,
                           content: aiResponseText,
                           isLoading: false,
-                          isNew: true,
+                          isNew: true, // TypingEffect 활성화
                         },
                       ],
                 }
               : chat
           )
         );
+
+        // TypingEffect 완료 후 isNew: false로 변경 (setTimeout 사용)
+        setTimeout(() => {
+          setChats((prevChats) =>
+            prevChats.map((chat) =>
+              chat.id === selectedChat.id
+                ? {
+                    ...chat,
+                    messages: Array.isArray(chat.messages)
+                      ? chat.messages.map((msg) =>
+                          msg.id === aiLoadingMessage.id
+                            ? {
+                                ...msg,
+                                isNew: false, // TypingEffect 비활성화
+                              }
+                            : msg
+                        )
+                      : chat.messages,
+                  }
+                : chat
+            )
+          );
+        }, 100); // 100ms 후 isNew: false로 변경
       } catch (error) {
         console.error("메시지 전송 실패:", error);
         // 에러 메시지 처리

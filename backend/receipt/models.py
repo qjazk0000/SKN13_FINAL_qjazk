@@ -2,72 +2,47 @@
 from django.db import models
 import uuid
 
-class RecJob(models.Model):
-    class Status(models.TextChoices):
-        PENDING = "PENDING"
-        QUEUED = "QUEUED" 
-        RUNNING = "RUNNING"
-        DONE = "DONE"
-        FAILED = "FAILED"
+# class FileInfo(models.Model):
+#     """
+#     파일 업로드 정보 테이블 - DB에 이미 존재하는 테이블 매핑용
+#     """
+#     file_id = models.UUIDField(primary_key=True)
+#     chat_id = models.UUIDField(null=True, blank=True)
+#     file_origin_name = models.CharField(max_length=100)
+#     file_name = models.CharField(max_length=100)
+#     file_path = models.CharField(max_length=500)
+#     file_size = models.BigIntegerField()
+#     file_ext = models.CharField(max_length=10, null=True, blank=True)
+#     uploaded_at = models.DateTimeField()
 
-    job_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user_id = models.UUIDField()  # user_info 테이블의 user_id 참조
-    file_id = models.UUIDField(null=True, blank=True)  # file_info 테이블 참조 (선택적)
-    input_s3_key = models.CharField(max_length=500)
-    result_s3_key = models.CharField(max_length=500, null=True, blank=True)
-    original_filename = models.CharField(max_length=255, null=True, blank=True)
-    model_version = models.CharField(max_length=50, null=True, blank=True)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
-    error_message = models.TextField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    queued_at = models.DateTimeField(null=True, blank=True)
-    started_at = models.DateTimeField(null=True, blank=True)
-    processed_at = models.DateTimeField(null=True, blank=True)
+#     class Meta:
+#         db_table = 'file_info'
+#         managed = False  # Django가 테이블 생성/수정하지 않음
 
-    def __str__(self):
-        return f"RecJob {self.job_id} - {self.status}"
+#         verbose_name = '파일 정보'
+#         verbose_name_plural = '파일 정보 목록'
 
-    class Meta:
-        db_table = 'rec_job'
-        ordering = ['-created_at']
-
-
-class RecResultSummary(models.Model):
-    job_id = models.OneToOneField(RecJob, on_delete=models.CASCADE, primary_key=True, db_column='job_id')
-    store_name = models.CharField(max_length=200, null=True, blank=True)
-    payment_date = models.DateTimeField(null=True, blank=True)
-    card_company = models.CharField(max_length=50, null=True, blank=True)
-    card_number_masked = models.CharField(max_length=64, null=True, blank=True)
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+#     def __str__(self):
+#         return self.file_origin_name
+    
+class ReceiptInfo(models.Model):
+    """
+    영수증 정보 테이블
+    """
+    receipt_id = models.UUIDField(primary_key=True)
+    file_id = models.UUIDField()
+    user_id = models.UUIDField()  # ✅ ForeignKey 아님
+    payment_date = models.DateTimeField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=10, default='KRW')
+    store_name = models.CharField(max_length=200, null=True, blank=True)
     extracted_text = models.TextField(null=True, blank=True)
-    raw_json = models.JSONField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"RecResultSummary {self.job_id}"
+    status = models.CharField(max_length=20, default='pending')
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
 
     class Meta:
-        db_table = 'rec_result_summary'
-
-
-class RecResultItem(models.Model):
-    item_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    job_id = models.ForeignKey(RecJob, on_delete=models.CASCADE, db_column='job_id')
-    name = models.CharField(max_length=300)
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    quantity = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    line_no = models.IntegerField(null=True, blank=True)
-    extra = models.JSONField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"RecResultItem {self.item_id} - {self.name}"
-
-    class Meta:
-        db_table = 'rec_result_item'
-        ordering = ['line_no']
-
+        db_table = 'receipt_info'
+        managed = False
+        verbose_name = '영수증 정보'
+        verbose_name_plural = '영수증 정보 목록'
