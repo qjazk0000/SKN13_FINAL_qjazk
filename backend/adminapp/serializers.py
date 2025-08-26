@@ -1,6 +1,6 @@
 # adminapp/serializers.py
 from rest_framework import serializers
-from .models import ReportedConversation, Receipt
+from .models import ReportedConversation
 
 class UserSearchSerializer(serializers.Serializer):
     """
@@ -51,6 +51,31 @@ class ConversationSearchSerializer(serializers.Serializer):
         help_text="검색할 키워드 입력"
     )
 
+    def validate(self, attrs):
+        """
+        사용자 정의 유효성 검사
+        - 직접입력(period='custom') 선택 시 시작일과 종료일 필수 확인
+        """
+        period = attrs.get('period')
+        start_date = attrs.get('start_date')
+        end_date = attrs.get('end_date')
+        
+        if period == 'custom':
+            if not start_date:
+                raise serializers.ValidationError({
+                    'start_date': '직접입력 시 시작일은 필수입니다.'
+                })
+            if not end_date:
+                raise serializers.ValidationError({
+                    'end_date': '직접입력 시 종료일은 필수입니다.'
+                })
+            if start_date > end_date:
+                raise serializers.ValidationError({
+                    'start_date': '시작일은 종료일보다 클 수 없습니다.'
+                })
+        
+        return attrs
+
 class ReportedConversationSerializer(serializers.ModelSerializer):
     """
     신고된 대화 내역 응답 데이터 시리얼라이저
@@ -62,69 +87,69 @@ class ReportedConversationSerializer(serializers.ModelSerializer):
         fields = '__all__'  # 모든 모델 필드 포함
         read_only_fields = ['report_id', 'created_at']  # 자동 생성 필드는 읽기 전용
 
-class ReceiptSerializer(serializers.ModelSerializer):
+class AdminReceiptSerializer(serializers.Serializer):
     """
-    영수증 목록 응답 데이터 시리얼라이저
+    관리자용 영수증 목록 응답 시리얼라이저 (Raw SQL 결과용)
     - FFC-13: 영수증 이미지 목록 출력
-    - 목록 조회 시 필요한 기본 정보 포함
     """
-    # 프론트엔드가 요구하는 필드들
-    name = serializers.CharField(source='user_info.name', read_only=True)
-    dept = serializers.CharField(source='user_info.dept', read_only=True)
-    created_at = serializers.DateTimeField(source='created_at', read_only=True)
-    amount = serializers.DecimalField(source='amount', max_digits=12, decimal_places=2, read_only=True)
-    status = serializers.CharField(source='status', read_only=True)
-    file_path = serializers.CharField(source='file_info.file_path', read_only=True)
-    receipt_id = serializers.UUIDField(source='receipt_id', read_only=True)
-    user_login_id = serializers.CharField(source='user_info.user_login_id', read_only=True)
-    
-    class Meta:
-        model = Receipt
-        fields = [
-            'receipt_id',    # 영수증 고유 ID
-            'name',          # 사용자 이름
-            'dept',          # 사용자 부서
-            'created_at',    # 생성일
-            'amount',        # 금액
-            'status',        # 상태
-            'file_path',     # 파일 경로
-            'user_login_id'  # 사용자 로그인 ID
-        ]
-        read_only_fields = fields  # 모든 필드 읽기 전용
+    receipt_id = serializers.UUIDField()
+    user_id = serializers.UUIDField()
+    file_name = serializers.CharField(source='file_origin_name')  # file_info 테이블의 file_origin_name
+    uploaded_at = serializers.DateTimeField()
+    status = serializers.CharField()
+    store_name = serializers.CharField(allow_null=True)
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
 
-class ReceiptDetailSerializer(serializers.ModelSerializer):
+class AdminReceiptDetailSerializer(serializers.Serializer):
     """
-    영수증 상세 정보 응답 데이터 시리얼라이저
+    관리자용 영수증 상세 정보 응답 시리얼라이저 (Raw SQL 결과용)
     - FFC-12: 영수증 이미지 출력 (미리보기)
     - FFC-13: 추출텍스트 목록 출력
     """
-    image_url = serializers.SerializerMethodField(
-        help_text="영수증 이미지 URL (미리보기용)"
-    )
-    user_name = serializers.CharField(source='user_info.name', read_only=True)
-    user_dept = serializers.CharField(source='user_info.dept', read_only=True)
-    file_name = serializers.CharField(source='file_info.file_origin_name', read_only=True)
-    
-    class Meta:
-        model = Receipt
-        fields = [
-            'receipt_id',        # 영수증 고유 ID
-            'user_id',           # 사용자 ID
-            'user_name',         # 사용자 이름
-            'user_dept',         # 사용자 부서
-            'image_url',         # 이미지 URL (FFC-12)
-            'file_name',         # 파일명
-            'payment_date',      # 결제일
-            'amount',            # 금액
-            'currency',          # 통화
-            'store_name',        # 상점명
-            'extracted_text',    # 추출된 텍스트 (FFC-13)
-            'status',            # 상태
-            'created_at'         # 생성일
-        ]
+    receipt_id = serializers.UUIDField()
+    user_id = serializers.UUIDField()
+    file_name = serializers.CharField(source='file_origin_name')
+    file_path = serializers.CharField()
+    image_url = serializers.SerializerMethodField()
+    store_name = serializers.CharField(allow_null=True)
+    payment_date = serializers.DateTimeField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    currency = serializers.CharField()
+    extracted_text = serializers.CharField(allow_null=True)
+    extracted_text_preview = serializers.SerializerMethodField()
+    status = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+    def get_image_url(self, obj):
+        """
+        영수증 이미지 URL 생성 메서드
+        - file_path를 기반으로 미디어 URL 생성
+        - FFC-12: 이미지 미리보기 기능 지원
+        """
+        if obj.get('file_path'):
+            return f"/media/{obj['file_path']}"
+        return None
+
+    def get_extracted_text_preview(self, obj):
+        """
+        추출 텍스트 미리보기 생성 메서드
+        - FFC-13: 추출텍스트 목록 출력 지원
+        """
+        extracted_text = obj.get('extracted_text')
+        if extracted_text and len(extracted_text) > 50:
+            return extracted_text[:50] + '...'
+        return extracted_text
+
+class ReceiptPreviewSerializer(serializers.Serializer):
+    """
+    영수증 이미지 미리보기 응답 시리얼라이저 (Raw SQL 결과용)
+    """
+    image_url = serializers.SerializerMethodField()
+    file_name = serializers.CharField(source='file_origin_name')
     
     def get_image_url(self, obj):
-        """파일 경로를 기반으로 이미지 URL 생성"""
-        if hasattr(obj, 'file_info') and obj.file_info.file_path:
-            return obj.file_info.file_path
+        """영수증 이미지 URL 생성"""
+        if obj.get('file_path'):
+            return f"/media/{obj['file_path']}"
         return None

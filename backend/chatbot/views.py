@@ -6,6 +6,7 @@ from rest_framework import generics, status, viewsets
 from .models import Conversation, ChatMessage
 from .serializers import ConversationSerializer, ChatMessageSerializer, ChatQuerySerializer
 from .services.rag_service import rag_answer
+from .services.pipeline import rag_answer_enhanced
 
 
 class ConversationListView(generics.ListAPIView):
@@ -189,11 +190,11 @@ class ChatQueryView(generics.CreateAPIView):
     serializer_class = ChatQuerySerializer
 
     def create(self, request, *args, **kwargs):
-        session_id = kwargs.get('session_id')
+        conversation_id = kwargs.get('conversation_id')
         
         # 디버깅을 위한 로그 추가
         print(f"DEBUG: ChatQueryView.create() 호출됨")
-        print(f"DEBUG: session_id = {session_id}")
+        print(f"DEBUG: conversation_id = {conversation_id}")
         print(f"DEBUG: kwargs = {kwargs}")
         print(f"DEBUG: request.path = {request.path}")
         
@@ -213,7 +214,7 @@ class ChatQueryView(generics.CreateAPIView):
         
         try:
             # 디버깅을 위한 로그 추가
-            print(f"DEBUG: Conversation 조회 시도 - session_id: {session_id}")
+            print(f"DEBUG: Conversation 조회 시도 - conversation_id: {conversation_id}")
             print(f"DEBUG: Conversation 조회 시도 - user_id: {user_id}")
             
             # 데이터베이스에 해당 ID가 존재하는지 확인
@@ -225,23 +226,23 @@ class ChatQueryView(generics.CreateAPIView):
                 if user_id:
                     # JWT 토큰이 있는 경우: user_id와 conversation_id 모두 확인
                     conversation = Conversation.objects.get(
-                        id=session_id,
+                        id=conversation_id,
                         user_id=user_id  # 반드시 본인의 대화방만 접근 가능
                     )
                     print(f"DEBUG: Conversation 조회 성공 (user_id + conversation_id): {conversation}")
                 else:
                     # JWT 토큰이 없는 경우: conversation_id만으로 조회 (개발 단계)
-                    conversation = Conversation.objects.get(id=session_id)
+                    conversation = Conversation.objects.get(id=conversation_id)
                     print(f"DEBUG: Conversation 조회 성공 (conversation_id만): {conversation}")
                     print(f"⚠️ 경고: JWT 토큰이 없어 보안 검증을 건너뜁니다!")
             except Conversation.DoesNotExist:
                 print(f"DEBUG: Conversation.DoesNotExist 예외 발생!")
-                print(f"DEBUG: 조회하려던 session_id: {session_id}")
+                print(f"DEBUG: 조회하려던 conversation_id: {conversation_id}")
                 print(f"DEBUG: 조회하려던 user_id: {user_id}")
                 return Response({
                     'success': False,
                     'message': '대화방을 찾을 수 없습니다',
-                    'errors': {'session_id': '유효하지 않은 세션 ID입니다.'}
+                    'errors': {'conversation_id': '유효하지 않은 대화방 ID입니다.'}
                 }, status=status.HTTP_404_NOT_FOUND
                 )
                 
@@ -273,17 +274,35 @@ class ChatQueryView(generics.CreateAPIView):
             print(f"DEBUG: 첫 질문으로 대화기록 제목 설정: {title}")
 
         try:
-            print(f"DEBUG: RAG 시스템 시작 - 질문: {user_message}")
-            # RAG 시스템을 통한 답변 생성
-            rag = rag_answer(user_message)
-            ai_response = rag["answer"]
-            sources = rag["sources"]
-            print(f"DEBUG: RAG 시스템 완료 - 응답: {ai_response[:100]}...")
+            print(f"DEBUG: 향상된 RAG 시스템 시작 - 질문: {user_message}")
+            # 향상된 RAG 시스템을 통한 답변 생성
+            rag_result = rag_answer_enhanced(user_message)
+            
+            if rag_result.get("rag_used", False):
+                ai_response = rag_result["answer"]
+                sources = rag_result["sources"]
+                print(f"DEBUG: 향상된 RAG 시스템 완료 - 응답: {ai_response[:100]}...")
+                print(f"DEBUG: 사용된 도메인: {rag_result.get('question_type', {}).get('type', 'unknown')}")
+            else:
+                # RAG를 사용하지 않은 경우 (예: 인사말)
+                ai_response = rag_result["answer"]
+                sources = []
+                print(f"DEBUG: RAG 없이 응답 생성 - 응답: {ai_response[:100]}...")
+                
         except Exception as e:
-            print(f"DEBUG: RAG 시스템 실패 - 오류: {str(e)}")
-            # RAG 시스템 실패 시 기본 AI 응답 생성
-            ai_response = f"죄송합니다. RAG 시스템이 실패했습니다. 오류: {str(e)}. 질문: '{user_message}'에 대한 답변을 생성할 수 없습니다."
-            sources = []
+            print(f"DEBUG: 향상된 RAG 시스템 실패 - 오류: {str(e)}")
+            # 향상된 RAG 시스템 실패 시 기존 RAG 시스템으로 fallback
+            try:
+                print(f"DEBUG: 기존 RAG 시스템으로 fallback 시도")
+                rag = rag_answer(user_message)
+                ai_response = rag["answer"]
+                sources = rag["sources"]
+                print(f"DEBUG: 기존 RAG 시스템 fallback 성공")
+            except Exception as fallback_error:
+                print(f"DEBUG: 기존 RAG 시스템도 실패 - 오류: {str(fallback_error)}")
+                # 모든 RAG 시스템 실패 시 기본 AI 응답 생성
+                ai_response = f"죄송합니다. AI 시스템이 일시적으로 응답할 수 없습니다. 잠시 후 다시 시도해 주세요."
+                sources = []
 
         # AI 응답 저장
         ai_msg = ChatMessage.objects.create(

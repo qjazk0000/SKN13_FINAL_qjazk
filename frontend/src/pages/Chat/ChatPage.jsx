@@ -23,6 +23,7 @@ function ChatPage() {
   const [chats, setChats] = useState([]);
   const [receipts, setReceipts] = useState([]);
   const [userName, setUserName] = useState("");
+  const [lockedChatId, setLockedChatId] = useState(null);
 
   const [selectedChatId, setSelectedChatId] = useState(null);
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
@@ -71,7 +72,7 @@ function ChatPage() {
       try {
         const [chatResponse, receiptResponse] = await Promise.all([
           api.get("/chat/list/"),
-          api.get("/receipt/"),
+          // api.get("/receipt/"),
         ]);
         // 백엔드 응답 형태가 배열이 아닐 수도 있으므로 안전하게 파싱
         const chatsData = Array.isArray(chatResponse?.data)
@@ -145,6 +146,8 @@ function ChatPage() {
       setChats((prev) => [newChat, ...prev]);
       setSelectedChatId(newChat.id);
       setSelectedCategory("업무 가이드");
+
+      setLockedChatId(newChat.id);
     } catch (err) {
       console.error("새 채팅 생성 실패:", err);
       alert("새 채팅을 생성하는 데 실패했습니다.");
@@ -273,12 +276,16 @@ function ChatPage() {
         )
       );
 
+      if (lockedChatId === selectedChat.id) {
+        setLockedChatId(null);
+      }
+
       try {
         const response = await api.post(`/chat/${selectedChat.id}/query/`, {
           message: message,
         });
         const aiResponseText = response.data.response;
-        const conversationTitle = response.data.conversation_title;  // 백엔드에서 반환된 제목
+        const conversationTitle = response.data.conversation_title; // 백엔드에서 반환된 제목
 
         // 채팅 제목 업데이트 (첫 질문인 경우)
         if (conversationTitle) {
@@ -289,9 +296,10 @@ function ChatPage() {
                 : chat
             )
           );
-          console.log('DEBUG: 채팅 제목 업데이트:', conversationTitle);
+          console.log("DEBUG: 채팅 제목 업데이트:", conversationTitle);
         }
 
+        // AI 답변 완료 시 isNew: true로 설정 (TypingEffect 활성화)
         setChats((prevChats) =>
           prevChats.map((chat) =>
             chat.id === selectedChat.id
@@ -304,7 +312,7 @@ function ChatPage() {
                               ...msg,
                               content: aiResponseText,
                               isLoading: false,
-                              isNew: true,
+                              isNew: true, // TypingEffect 활성화
                             }
                           : msg
                       )
@@ -313,13 +321,36 @@ function ChatPage() {
                           ...aiLoadingMessage,
                           content: aiResponseText,
                           isLoading: false,
-                          isNew: true,
+                          isNew: true, // TypingEffect 활성화
                         },
                       ],
                 }
               : chat
           )
         );
+
+        // TypingEffect 완료 후 isNew: false로 변경 (setTimeout 사용)
+        setTimeout(() => {
+          setChats((prevChats) =>
+            prevChats.map((chat) =>
+              chat.id === selectedChat.id
+                ? {
+                    ...chat,
+                    messages: Array.isArray(chat.messages)
+                      ? chat.messages.map((msg) =>
+                          msg.id === aiLoadingMessage.id
+                            ? {
+                                ...msg,
+                                isNew: false, // TypingEffect 비활성화
+                              }
+                            : msg
+                        )
+                      : chat.messages,
+                  }
+                : chat
+            )
+          );
+        }, 100); // 100ms 후 isNew: false로 변경
       } catch (error) {
         console.error("메시지 전송 실패:", error);
         // 에러 메시지 처리
@@ -357,7 +388,7 @@ function ChatPage() {
         setIsLoading(false);
       }
     },
-    [selectedChat, isLoading]
+    [selectedChat, isLoading, lockedChatId]
   );
 
   // 로그아웃 핸들러
@@ -399,59 +430,68 @@ function ChatPage() {
   }, []);
 
   // 채팅 삭제 핸들러 추가
-  const handleDeleteChat = useCallback(async (deletedChatId) => {
-    console.log('ChatPage: 채팅 삭제 처리 시작 - ID:', deletedChatId);
-    
-    try {
-      // 로컬 상태에서 삭제된 채팅 제거 (즉시 UI 업데이트)
-      setChats(prevChats => prevChats.filter(chat => chat.id !== deletedChatId));
-      
-      // 현재 선택된 채팅이 삭제된 채팅이라면 선택 해제
-      if (selectedChatId === deletedChatId) {
-        setSelectedChatId(null);
+  const handleDeleteChat = useCallback(
+    async (deletedChatId) => {
+      console.log("ChatPage: 채팅 삭제 처리 시작 - ID:", deletedChatId);
+
+      try {
+        // 로컬 상태에서 삭제된 채팅 제거 (즉시 UI 업데이트)
+        setChats((prevChats) =>
+          prevChats.filter((chat) => chat.id !== deletedChatId)
+        );
+
+        // 현재 선택된 채팅이 삭제된 채팅이라면 선택 해제
+        if (selectedChatId === deletedChatId) {
+          setSelectedChatId(null);
+        }
+
+        console.log("ChatPage: 로컬 상태 업데이트 완료");
+
+        // 백엔드에서 최신 대화기록 다시 조회
+        console.log("ChatPage: 백엔드에서 대화기록 재조회 시작");
+        const chatResponse = await api.get("/chat/list/");
+
+        // 백엔드 응답 형태가 배열이 아닐 수도 있으므로 안전하게 파싱
+        const chatsData = Array.isArray(chatResponse?.data)
+          ? chatResponse.data
+          : Array.isArray(chatResponse?.data?.results)
+          ? chatResponse.data.results
+          : Array.isArray(chatResponse?.data?.data)
+          ? chatResponse.data.data
+          : [];
+
+        // normalizeChat을 사용하여 안전한 스키마로 변환
+        const normalizedChats = chatsData.map(normalizeChat);
+
+        // DB에서 가져온 메시지에 isNew: false 플래그 추가
+        const chatsWithMessageFlags = normalizedChats.map((chat) => ({
+          ...chat,
+          messages: chat.messages.map((message) => ({
+            ...message,
+            isNew: false, // DB에서 가져온 메시지는 타이핑 효과 적용 안함
+          })),
+        }));
+
+        // 최신 대화기록으로 상태 업데이트
+        setChats(chatsWithMessageFlags);
+
+        console.log(
+          "ChatPage: 백엔드에서 대화기록 재조회 완료, 총 채팅 수:",
+          chatsWithMessageFlags.length
+        );
+      } catch (error) {
+        console.error("ChatPage: 대화기록 재조회 중 오류 발생:", error);
+
+        // 오류 발생 시 사용자에게 알림
+        alert(
+          "채팅이 삭제되었지만 대화기록을 새로고침하는 데 실패했습니다. 페이지를 새로고침해주세요."
+        );
       }
-      
-      console.log('ChatPage: 로컬 상태 업데이트 완료');
-      
-      // 백엔드에서 최신 대화기록 다시 조회
-      console.log('ChatPage: 백엔드에서 대화기록 재조회 시작');
-      const chatResponse = await api.get("/chat/list/");
-      
-      // 백엔드 응답 형태가 배열이 아닐 수도 있으므로 안전하게 파싱
-      const chatsData = Array.isArray(chatResponse?.data)
-        ? chatResponse.data
-        : Array.isArray(chatResponse?.data?.results)
-        ? chatResponse.data.results
-        : Array.isArray(chatResponse?.data?.data)
-        ? chatResponse.data.data
-        : [];
-      
-      // normalizeChat을 사용하여 안전한 스키마로 변환
-      const normalizedChats = chatsData.map(normalizeChat);
-      
-      // DB에서 가져온 메시지에 isNew: false 플래그 추가
-      const chatsWithMessageFlags = normalizedChats.map(chat => ({
-        ...chat,
-        messages: chat.messages.map(message => ({
-          ...message,
-          isNew: false  // DB에서 가져온 메시지는 타이핑 효과 적용 안함
-        }))
-      }));
-      
-      // 최신 대화기록으로 상태 업데이트
-      setChats(chatsWithMessageFlags);
-      
-      console.log('ChatPage: 백엔드에서 대화기록 재조회 완료, 총 채팅 수:', chatsWithMessageFlags.length);
-      
-    } catch (error) {
-      console.error('ChatPage: 대화기록 재조회 중 오류 발생:', error);
-      
-      // 오류 발생 시 사용자에게 알림
-      alert('채팅이 삭제되었지만 대화기록을 새로고침하는 데 실패했습니다. 페이지를 새로고침해주세요.');
-    }
-    
-    console.log('ChatPage: 채팅 삭제 완료');
-  }, [selectedChatId]);
+      setLockedChatId((prev) => (prev === deletedChatId ? null : prev));
+      console.log("ChatPage: 채팅 삭제 완료");
+    },
+    [selectedChatId]
+  );
 
   const sidebarList = selectedCategory === "업무 가이드" ? chats : receipts;
 
@@ -473,6 +513,7 @@ function ChatPage() {
         isAdmin={isAdmin}
         onAdminPageClick={handleAdminPageClick}
         onDeleteChat={handleDeleteChat}
+        isNewChatLocked={Boolean(lockedChatId)}
       />
       <div className="flex-grow flex justify-center items-center">
         {selectedCategory === "채팅방" || selectedCategory === "업무 가이드" ? (
