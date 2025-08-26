@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 import api from "../../services/api";
 
@@ -6,9 +6,39 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   const [uploadFile, setUploadFile] = useState(null);
   // const [uploadFiles, setUploadFiles] = useState([]);
   const [receiptInfo, setReceiptInfo] = useState(null);
+  const [editInfo, setEditInfo] = useState(null);
+
   const [reportStart, setReportStart] = useState("");
   const [reportEnd, setReportEnd] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (receiptInfo) {
+      setEditInfo({
+        storeName: receiptInfo.extracted?.storeName || "",
+        transactionDate: receiptInfo.extracted?.transactionDate || "",
+        cardCompany: receiptInfo.extracted?.cardCompany || "",
+        cardNumber: receiptInfo.extracted?.cardNumber || "",
+        transactionAmount: receiptInfo.extracted?.transactionAmount || 0,
+        items: receiptInfo.extracted?.items
+          ? receiptInfo.extracted.items.map((item) => ({ ...item }))
+          : [],
+      });
+    }
+  }, [receiptInfo]);
+
+  const handleEditChange = (field, value) => {
+    setEditInfo((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleItemChange = (idx, field, value) => {
+    setEditInfo((prev) => ({
+      ...prev,
+      items: prev.items.map((item, i) =>
+        i === idx ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -17,11 +47,10 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   };
 
   const handleUpload = async () => {
+    setIsLoading(true);
+
     if (!uploadFile) {
       alert("업로드할 파일을 선택해주세요.");
-    } else {
-      alert(`${uploadFile.name} 파일 업로드 요청`);
-      console.log("영수증 업로드:", uploadFile.name);
     }
 
     try {
@@ -45,6 +74,8 @@ function Receipt({ selectedReceipt, selectedCategory }) {
       alert(
         error.response?.data?.message || "텍스트 추출 중 오류가 발생했습니다."
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -82,18 +113,18 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   };
 
   const handleSave = async () => {
-    if (!receiptInfo) {
+    if (!receiptInfo || !editInfo) {
       alert("저장할 영수증 정보가 없습니다.");
       return;
     }
     try {
       const payload = {
         file_id: receiptInfo.file_id,
-        store_name: receiptInfo.extracted?.storeName || "",
-        payment_date: receiptInfo.extracted?.transactionDate || "",
-        amount: receiptInfo.extracted?.transactionAmount || 0,
-        card_info: receiptInfo.extracted?.cardNumber || "",
-        items: receiptInfo.extracted?.items || [],
+        store_name: editInfo.storeName,
+        payment_date: editInfo.transactionDate,
+        amount: Number(editInfo.transactionAmount),
+        card_info: editInfo.cardNumber,
+        items: editInfo.items,
       };
       const response = await api.post("/receipt/save/", payload);
       if (response.data.success) {
@@ -140,11 +171,40 @@ function Receipt({ selectedReceipt, selectedCategory }) {
           </p>
         </div>
       )}
-      {receiptInfo && (
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center h-[100dvh] text-gray-500 absolute inset-0 bg-white bg-opacity-70 z-50">
+          <div className="text-xl font-bold text-gray-700 mb-2">
+            영수증 업로드 및 변환중...
+          </div>
+          <div className="mt-2 text-gray-400">잠시만 기다려주세요.</div>
+          <div className="mt-6">
+            <svg
+              className="animate-spin h-8 w-8 text-orange-400"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+                fill="none"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8z"
+              />
+            </svg>
+          </div>
+        </div>
+      )}
+      {receiptInfo && editInfo && (
         <div className="flex-1 overflow-y-auto py-4">
           <div className="bg-white rounded-lg shadow-md p-6 max-w-xl mx-auto">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              영수증 정보 확인
+              영수증 정보 편집
             </h2>
             <div className="space-y-3">
               <div className="flex items-center">
@@ -153,79 +213,142 @@ function Receipt({ selectedReceipt, selectedCategory }) {
               </div>
               <div className="flex items-center">
                 <span className="w-32 text-gray-500 font-semibold">결제처</span>
-                <span className="text-gray-700">
-                  {receiptInfo.extracted?.storeName || "-"}
-                </span>
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 flex-1"
+                  value={editInfo.storeName}
+                  onChange={(e) =>
+                    handleEditChange("storeName", e.target.value)
+                  }
+                />
               </div>
               <div className="flex items-center">
                 <span className="w-32 text-gray-500 font-semibold">
                   결제일시
                 </span>
-                <span className="text-gray-700">
-                  {receiptInfo.extracted?.transactionDate || "-"}
-                </span>
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 flex-1"
+                  value={editInfo.transactionDate}
+                  onChange={(e) =>
+                    handleEditChange("transactionDate", e.target.value)
+                  }
+                />
               </div>
               <div className="flex items-center">
                 <span className="w-32 text-gray-500 font-semibold">카드사</span>
-                <span className="text-gray-700">
-                  {receiptInfo.extracted?.cardCompany || "-"}
-                </span>
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 flex-1"
+                  value={editInfo.cardCompany}
+                  onChange={(e) =>
+                    handleEditChange("cardCompany", e.target.value)
+                  }
+                />
               </div>
               <div className="flex items-center">
                 <span className="w-32 text-gray-500 font-semibold">
                   카드번호
                 </span>
-                <span className="text-gray-700">
-                  {receiptInfo.extracted?.cardNumber || "-"}
-                </span>
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 flex-1"
+                  value={editInfo.cardNumber}
+                  onChange={(e) =>
+                    handleEditChange("cardNumber", e.target.value)
+                  }
+                />
               </div>
               <div className="flex items-center">
                 <span className="w-32 text-gray-500 font-semibold">총합계</span>
-                <span className="text-gray-700">
-                  {receiptInfo.extracted?.transactionAmount
-                    ? `${receiptInfo.extracted.transactionAmount.toLocaleString()}원`
-                    : "-"}
-                </span>
+                <input
+                  type="number"
+                  className="border rounded px-2 py-1 flex-1"
+                  value={editInfo.transactionAmount}
+                  onChange={(e) =>
+                    handleEditChange("transactionAmount", e.target.value)
+                  }
+                />
               </div>
-              {/* 품목 정보가 있을 경우 */}
-              {receiptInfo.extracted?.items &&
-                Array.isArray(receiptInfo.extracted.items) && (
-                  <div>
-                    <span className="w-32 text-gray-500 font-semibold">
-                      품목
-                    </span>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full mt-2 text-sm text-left border">
-                        <thead>
-                          <tr className="bg-gray-100">
-                            <th className="px-2 py-1 border">상품명</th>
-                            <th className="px-2 py-1 border">단가</th>
-                            <th className="px-2 py-1 border">수량</th>
-                            <th className="px-2 py-1 border">금액</th>
+              {editInfo.items && Array.isArray(editInfo.items) && (
+                <div>
+                  <span className="w-32 text-gray-500 font-semibold">품목</span>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full mt-2 text-sm text-left border">
+                      <thead>
+                        <tr className="bg-gray-100">
+                          <th className="px-2 py-1 border">상품명</th>
+                          <th className="px-2 py-1 border">단가</th>
+                          <th className="px-2 py-1 border">수량</th>
+                          <th className="px-2 py-1 border">금액</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {editInfo.items.map((item, idx) => (
+                          <tr key={idx}>
+                            <td className="px-2 py-1 border">
+                              <input
+                                type="text"
+                                className="border rounded px-1 py-0.5 w-full"
+                                value={item.productName}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    idx,
+                                    "productName",
+                                    e.target.value
+                                  )
+                                }
+                              />
+                            </td>
+                            <td className="px-2 py-1 border">
+                              <input
+                                type="number"
+                                className="border rounded px-1 py-0.5 w-full"
+                                value={item.unitPrice}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    idx,
+                                    "unitPrice",
+                                    Number(e.target.value)
+                                  )
+                                }
+                              />
+                            </td>
+                            <td className="px-2 py-1 border">
+                              <input
+                                type="number"
+                                className="border rounded px-1 py-0.5 w-full"
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    idx,
+                                    "quantity",
+                                    Number(e.target.value)
+                                  )
+                                }
+                              />
+                            </td>
+                            <td className="px-2 py-1 border">
+                              <input
+                                type="number"
+                                className="border rounded px-1 py-0.5 w-full"
+                                value={item.totalPrice}
+                                onChange={(e) =>
+                                  handleItemChange(
+                                    idx,
+                                    "totalPrice",
+                                    Number(e.target.value)
+                                  )
+                                }
+                              />
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {receiptInfo.extracted.items.map((item, idx) => (
-                            <tr key={idx}>
-                              <td className="px-2 py-1 border">
-                                {item.productName}
-                              </td>
-                              <td className="px-2 py-1 border">
-                                {item.unitPrice.toLocaleString()}원
-                              </td>
-                              <td className="px-2 py-1 border">
-                                {item.quantity}
-                              </td>
-                              <td className="px-2 py-1 border">
-                                {item.totalPrice.toLocaleString()}원
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+                </div>
+              )}
             </div>
             <div className="mt-6 flex justify-center">
               <button
