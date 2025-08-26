@@ -6,7 +6,7 @@ from django.core.files.storage import default_storage
 import boto3
 from botocore.exceptions import ClientError
 import logging
-
+# 11 
 logger = logging.getLogger(__name__)
 
 class S3ReceiptService:
