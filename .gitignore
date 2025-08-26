@@ -12,6 +12,9 @@ __pycache__/
 db.sqlite3
 .env
 .env.*
+.venv
+.venv/*
+
 *.sqlite3
 media/
 staticfiles/
@@ -50,6 +53,9 @@ frontend/yarn-error.log
 *.swp
 docker-compose.override.yml
 
+# qdrant snapshots
+qdrant_snapshots/
+
 # Jupyter 노트북
 *.ipynb
 
@@ -64,6 +70,16 @@ coverage/
 dist/
 *.tgz
 *.zip
+
+#migrations
+backend/receipt/migrations/
+backend/*/migrations/
+
+#receipt services
+backend/receipt/services/
+
+#package-lock
+frontend/package-lock.json
 
 # AWS keypair
 *.pem

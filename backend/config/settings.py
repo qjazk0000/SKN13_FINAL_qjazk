@@ -7,8 +7,11 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# 환경변수 덮어쓰기 필요시 주석을 해제
-#load_dotenv(BASE_DIR.parent / '.env')
+# 환경변수 로드
+# load_dotenv(BASE_DIR.parent / '.env')
+
+# Upstage api key
+UPSTAGE_API_KEY = os.getenv('UPSTAGE_API_KEY')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
@@ -29,6 +32,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'storages',  # S3 파일 스토리지
     'chatbot',
     'receipt',
     'authapp',
@@ -81,7 +85,7 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT', 5432),
         'OPTIONS': {
-            'sslmode': 'require',  # RDS SSL 연결결
+            'sslmode': os.getenv('disable'),  # 기본값은 disable
         }
     }
 }
@@ -225,3 +229,19 @@ CORS_ALLOW_CREDENTIALS = True
 
 # 개발 환경에서 CORS 설정 완화
 CORS_ALLOW_ALL_ORIGINS = True  # 개발 중에만 사용 (프로덕션에서는 제거)
+
+# AWS S3 설정
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME')
+AWS_S3_REGION_NAME = os.getenv('AWS_REGION')
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+AWS_S3_VERIFY = True
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
+
+# S3를 기본 파일 스토리지로 설정 (선택사항)
+# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# S3 정적 파일 스토리지 (선택사항)
+# STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
