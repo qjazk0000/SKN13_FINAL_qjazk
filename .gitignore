@@ -77,3 +77,4 @@ frontend/package-lock.json
 
 # AWS keypair
 *.pem
+frontend/package-lock.json
