@@ -77,4 +77,8 @@ frontend/package-lock.json
 
 # AWS keypair
 *.pem
+<<<<<<< Updated upstream
 frontend/package-lock.json
+=======
+frontend/package-lock.json
+>>>>>>> Stashed changes
