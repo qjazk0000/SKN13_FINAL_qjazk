@@ -6,7 +6,6 @@ import ChatPage from "./pages/Chat/ChatPage";
 import MembersPage from "./pages/Admin/MembersPage";
 import ChatReportsPage from "./pages/Admin/ChatReportsPage";
 import ManageReceipts from "./pages/Admin/ManageReceipts";
-import ErrorBoundary from "./components/ErrorBoundary";
 
 import "./App.css";
 
