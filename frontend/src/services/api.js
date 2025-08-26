@@ -1,7 +1,7 @@
 import axios from "axios";
 import { authService } from "./authService";
 // EC2 backend 서버 URL 설정
-//const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
 // Axios 인스턴스 생성
 // const api = axios.create({
 //     baseURL: API_BASE_URL,
@@ -14,7 +14,8 @@ import { authService } from "./authService";
  * - prod/vercel 등: 환경변수 REACT_APP_API_BASE_URL 사용 가능
  */
 const baseURL =
-  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") || "http://localhost"; // 끝 슬래시 제거된 형태
+  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") ||
+  "http://localhost"; // Django 개발 서버 포트로 수정
 
 const api = axios.create({
   baseURL: `${baseURL}/api`,
