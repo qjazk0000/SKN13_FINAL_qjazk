@@ -3,24 +3,45 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import connection
 from django.http import HttpResponse
-from authapp.decorators import require_auth
+from authapp.utils import extract_token_from_header, get_user_from_token
 from .serializers import (
     ReceiptUploadSerializer,
     ReceiptSaveSerializer,
     ReceiptDownloadSerializer
 )
 from .utils import extract_receipt_info
+from .services import s3_receipt_service
 import csv
 import io
 import uuid
+import os
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class ReceiptUploadView(APIView):
-    @require_auth
     def post(self, request):
+        # 인증 확인
+        token = extract_token_from_header(request)
+        if not token:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 검증 및 사용자 정보 조회
+        user_data = get_user_from_token(token)
+        if not user_data:
+            return Response({
+                'success': False,
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                'error': 'INVALID_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # request 객체에 사용자 정보 추가
+        request.user_id = user_data[0]
         serializer = ReceiptUploadSerializer(data=request.data)
         if not serializer.is_valid():
             return Response({...}, status=status.HTTP_400_BAD_REQUEST)
@@ -30,24 +51,38 @@ class ReceiptUploadView(APIView):
 
         try:
             for f in files:
-                # 업로드된 파일을 임시 경로에 저장
-                tmp_path = f"/tmp/{f.name}"
-                with open(tmp_path, "wb") as tmp:
-                    for chunk in f.chunks():
-                        tmp.write(chunk)
+                # S3에 파일 업로드
+                upload_result = s3_receipt_service.upload_receipt_file(f, request.user_id)
+                
+                if not upload_result['success']:
+                    logger.error(f"파일 업로드 실패: {upload_result['error']}")
+                    continue
 
-                # OCR 처리
-                extracted_data = extract_receipt_info(tmp_path)
+                # OCR 처리 (S3에서 다운로드하여 처리)
+                extracted_data = extract_receipt_info(f)  # 파일 객체 직접 전달
 
                 with connection.cursor() as cursor:
                     file_id = uuid.uuid4()
                     receipt_id = uuid.uuid4()
                     
-                    # file_info 저장
-                    cursor.execute("""INSERT INTO file_info ...""", [...])
+                    # file_info 저장 (S3 키 포함)
+                    cursor.execute("""
+                        INSERT INTO file_info (file_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                    """, [
+                        file_id,
+                        upload_result['original_name'],
+                        upload_result['original_name'],
+                        upload_result['s3_key'],  # S3 키를 file_path에 저장
+                        upload_result['file_size'],
+                        os.path.splitext(upload_result['original_name'])[1]
+                    ])
 
                     # receipt_info 저장
-                    cursor.execute("""INSERT INTO receipt_info ...""", [
+                    cursor.execute("""
+                        INSERT INTO receipt_info (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                    """, [
                         receipt_id,
                         file_id,
                         request.user_id,
@@ -55,13 +90,16 @@ class ReceiptUploadView(APIView):
                         extracted_data.get('총합계', 0),
                         'KRW',
                         extracted_data.get('결제처'),
-                        str(extracted_data)
+                        str(extracted_data),
+                        'pending'
                     ])
 
                     results.append({
                         'receipt_id': str(receipt_id),
                         'file_id': str(file_id),
-                        'file_name': f.name,
+                        'file_name': upload_result['original_name'],
+                        's3_key': upload_result['s3_key'],
+                        'file_url': upload_result['file_url'],
                         'extracted': extracted_data
                     })
 
@@ -83,8 +121,27 @@ class ReceiptSaveView(APIView):
     """
     2. 사용자가 확인 후 최종 저장 → status를 processed로 변경
     """
-    @require_auth
     def post(self, request):
+        # 인증 확인
+        token = extract_token_from_header(request)
+        if not token:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 검증 및 사용자 정보 조회
+        user_data = get_user_from_token(token)
+        if not user_data:
+            return Response({
+                'success': False,
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                'error': 'INVALID_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # request 객체에 사용자 정보 추가
+        request.user_id = user_data[0]
         serializer = ReceiptSaveSerializer(data=request.data)
         if not serializer.is_valid():
             return Response({
@@ -142,8 +199,27 @@ class ReceiptDownloadView(APIView):
     """
     3. CSV 다운로드
     """
-    @require_auth
     def get(self, request):
+        # 인증 확인
+        token = extract_token_from_header(request)
+        if not token:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 검증 및 사용자 정보 조회
+        user_data = get_user_from_token(token)
+        if not user_data:
+            return Response({
+                'success': False,
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                'error': 'INVALID_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # request 객체에 사용자 정보 추가
+        request.user_id = user_data[0]
         serializer = ReceiptDownloadSerializer(data=request.query_params)
         if not serializer.is_valid():
             return Response({
@@ -167,10 +243,25 @@ class ReceiptDownloadView(APIView):
 
             output = io.StringIO()
             writer = csv.writer(output)
-            writer.writerow(['결제처', '결제일시', '총합계', '추출데이터'])
+            writer.writerow(['결제처', '결제일시', '총합계', '추출데이터', '파일링크'])
 
             for row in rows:
-                writer.writerow([row[0], row[1], row[2], row[3]])
+                store_name, payment_date, amount, extracted_text, file_id = row
+                
+                # S3 파일 링크 생성
+                file_link = ""
+                if file_id:
+                    with connection.cursor() as file_cursor:
+                        file_cursor.execute("""
+                            SELECT file_path FROM file_info WHERE file_id = %s
+                        """, [file_id])
+                        file_result = file_cursor.fetchone()
+                        if file_result and file_result[0]:
+                            s3_key = file_result[0]
+                            # Presigned URL 생성 (1시간 유효)
+                            file_link = s3_receipt_service.get_file_presigned_url(s3_key, expires_in=3600) or ""
+                
+                writer.writerow([store_name, payment_date, amount, extracted_text, file_link])
 
             response = HttpResponse(output.getvalue(), content_type='text/csv')
             response['Content-Disposition'] = f'attachment; filename="receipts_{start}_{end}.csv"'
