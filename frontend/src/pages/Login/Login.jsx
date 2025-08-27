@@ -13,7 +13,7 @@ function Login() {
     setIsLoading(true);
 
     try {
-      const data = await authService.login(userLoginId, password);
+      await authService.login(userLoginId, password);
       alert("로그인 되었습니다.");
       window.location.href = "/chat"; // 로그인 성공 후 채팅 페이지로 이동
     } catch (err) {

@@ -10,10 +10,12 @@ from .serializers import (
     ReceiptDownloadSerializer
 )
 from .utils import extract_receipt_info
+from .services import s3_receipt_service
 import csv
 import io
 import uuid
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +25,7 @@ class ReceiptUploadView(APIView):
     1. 영수증 파일 업로드 + OCR 데이터 추출
     - file_info, receipt_info 테이블에 저장
     - status = pending
+    - S3에도 업로드
     """
     @require_auth
     def post(self, request):
@@ -48,12 +51,22 @@ class ReceiptUploadView(APIView):
             payment_date = extracted_data.get('transactionDate', "").split()[0] or None
             amount = extracted_data.get('transactionAmount', 0)
 
+            # S3에 임시 파일 업로드
+            with open(tmp_path, 'rb') as tmp_file:
+                s3_upload_result = s3_receipt_service.upload_receipt_file(tmp_file, request.user_id)
+            
+            if not s3_upload_result['success']:
+                logger.error(f"S3 업로드 실패: {s3_upload_result['error']}")
+                return Response({
+                    'success': False,
+                    'message': f'S3 업로드 실패: {s3_upload_result["error"]}',
+                    'error': 'S3_UPLOAD_FAILED'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             # file_info / receipt_info 저장
             with connection.cursor() as cursor:
                 file_id = uuid.uuid4()
-                receipt_id = uuid.uuid4()
-                
-                # file_info 저장
+                receipt_id = uuid.uuid4()                
                 cursor.execute("""
                     INSERT INTO file_info 
                     (file_id, chat_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
@@ -62,7 +75,7 @@ class ReceiptUploadView(APIView):
                     file_id,
                     f.name,
                     f"receipt_{file_id}",
-                    f"receipts/{file_id}",  # 실제 저장 위치
+                    s3_upload_result['s3_key'],  # S3 키를 file_path에 저장
                     f.size,
                     f.name.split('.')[-1] if '.' in f.name else ''
                 ])
@@ -82,6 +95,11 @@ class ReceiptUploadView(APIView):
                     store_name,
                     str(extracted_data)
                 ])
+            # 임시 파일 삭제
+            try:
+                os.unlink(tmp_path)
+            except Exception as e:
+                logger.warning(f"임시 파일 삭제 실패: {e}")
 
             return Response({
                 'success': True,
@@ -90,12 +108,20 @@ class ReceiptUploadView(APIView):
                     'receipt_id': str(receipt_id),
                     'file_id': str(file_id),
                     'file_name': f.name,
+                    's3_key': s3_upload_result['s3_key'],
+                    'file_url': s3_upload_result['file_url'],
                     'extracted': extracted_data
                 }
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             logger.error(f"파일 업로드/OCR 처리 오류: {str(e)}")
+            # 임시 파일 정리
+            try:
+                if 'tmp_path' in locals():
+                    os.unlink(tmp_path)
+            except:
+                pass
             return Response({
                 'success': False,
                 'message': '파일 업로드 중 오류 발생'
@@ -190,10 +216,25 @@ class ReceiptDownloadView(APIView):
 
             output = io.StringIO()
             writer = csv.writer(output)
-            writer.writerow(['결제처', '결제일시', '총합계', '추출데이터'])
+            writer.writerow(['결제처', '결제일시', '총합계', '추출데이터', '파일링크'])
 
             for row in rows:
-                writer.writerow([row[0], row[1], row[2], row[3]])
+                store_name, payment_date, amount, extracted_text, file_id = row
+                
+                # S3 파일 링크 생성
+                file_link = ""
+                if file_id:
+                    with connection.cursor() as file_cursor:
+                        file_cursor.execute("""
+                            SELECT file_path FROM file_info WHERE file_id = %s
+                        """, [file_id])
+                        file_result = file_cursor.fetchone()
+                        if file_result and file_result[0]:
+                            s3_key = file_result[0]
+                            # Presigned URL 생성 (1시간 유효)
+                            file_link = s3_receipt_service.get_file_presigned_url(s3_key, expires_in=3600) or ""
+                
+                writer.writerow([store_name, payment_date, amount, extracted_text, file_link])
 
             response = HttpResponse(output.getvalue(), content_type='text/csv')
             response['Content-Disposition'] = f'attachment; filename="receipts_{start}_{end}.csv"'

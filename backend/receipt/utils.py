@@ -74,3 +74,4 @@ def extract_receipt_info(image_path: str) -> dict:
     except Exception as e:
         print("결과 파싱 오류:", e)
         return {}
+

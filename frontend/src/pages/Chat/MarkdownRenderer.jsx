@@ -42,7 +42,9 @@ export default function MarkdownRenderer({ content = "" }) {
           overrides: {
             a: {
               component: (props) => (
-                <a {...props} target="_blank" rel="noopener noreferrer" />
+                <a {...props} target="_blank" rel="noopener noreferrer">
+                  {props.children || props.href}
+                </a>
               ),
             },
             code: {
