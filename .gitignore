@@ -70,6 +70,7 @@ dist/
 
 #migrations
 backend/receipt/migrations/
+backend/adminapp/migrations/
 
 #package-lock
 Frontend/package-lock.json
