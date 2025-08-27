@@ -6,24 +6,26 @@ from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 
-# 개선된 시스템 프롬프트
-SYSTEM_PROMPT = """당신은 한국인터넷진흥원의 규정 전문가입니다.
-주어진 문서를 기반으로 정확하고 구체적인 답변을 제공하세요.
+# 프롬프트 로더 직접 구현
+def load_prompt(path: str, *, default: str = "") -> str:
+    """프롬프트 파일을 로드하는 함수"""
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        print(f"WARNING: Failed to load prompt from {path}: {e}")
+        return default
 
-답변 시 다음을 준수하세요:
-1. 규정의 정확한 내용을 인용하고 구체적인 조항 번호나 섹션을 언급
-2. 실무 적용 시 주의사항이나 절차를 포함
-3. 관련 규정이 있다면 함께 제시
-4. 컨텍스트에 없는 내용은 추측하지 말고 '해당 근거를 찾지 못했습니다'라고 답변
-5. 답변 후 참고한 문서명과 페이지를 명시
-
-답변 형식:
-[답변 내용]
-
-참고 문서:
-- [문서명] p.[페이지]
-- [문서명] p.[페이지]
-"""
+# 시스템 프롬프트 로드
+try:
+    prompt_path = '/app/config/system_prompt.md'
+    SYSTEM_PROMPT = load_prompt(prompt_path, 
+                                default="당신은 한국인터넷진흥원의 규정 전문가입니다.")
+except FileNotFoundError:
+    SYSTEM_PROMPT = "당신은 한국인터넷진흥원의 규정 전문가입니다."
+    print("WARNING: system_prompt.md not found, using default prompt")
 
 # QdrantClient를 전역으로 생성 (연결 재사용)
 _qdrant_client = None

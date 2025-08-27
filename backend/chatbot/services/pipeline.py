@@ -11,6 +11,46 @@ from .rag_search import RagSearcher
 from .answerer import make_answer, format_context_for_display, validate_answer_quality
 import datetime
 import re
+import os
+import sys
+
+# 프롬프트 로더 직접 구현
+def load_prompt(path: str, *, default: str = "") -> str:
+    """프롬프트 파일을 로드하는 함수"""
+    if not os.path.exists(path):
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        print(f"WARNING: Failed to load prompt from {path}: {e}")
+        return default
+
+# 전역 프롬프트 변수
+_SYSTEM_PROMPT = None
+_USER_PROMPT = None
+
+def _init_prompts():
+    """프롬프트 초기화 함수"""
+    global _SYSTEM_PROMPT, _USER_PROMPT
+    if _SYSTEM_PROMPT is None:
+        try:
+            system_prompt_path = '/app/config/system_prompt.md'
+            _SYSTEM_PROMPT = load_prompt(system_prompt_path,
+                                         default="당신은 업무 가이드를 제공하는 전문가입니다.")
+        except FileNotFoundError:
+            _SYSTEM_PROMPT = "당신은 업무 가이드를 제공하는 전문가입니다."
+            print("WARNING: system_prompt.md not found, using default prompt")
+    
+    if _USER_PROMPT is None:
+        try:
+            user_prompt_path = '/app/config/user_prompt.md'
+            _USER_PROMPT = load_prompt(user_prompt_path, default="")
+        except FileNotFoundError:
+            _USER_PROMPT = ""
+            print("WARNING: user_prompt.md not found, using default prompt")
+    
+    return _SYSTEM_PROMPT, _USER_PROMPT
 
 def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = None) -> Dict[str, Any]:
     """
