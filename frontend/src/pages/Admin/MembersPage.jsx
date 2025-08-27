@@ -5,6 +5,7 @@ import SearchBar from "./components/SearchBar";
 import DataTable from "./components/DataTable";
 import Pagination from "./components/Pagination";
 import { authService } from "../../services/authService";
+import api from "../../services/api";
 
 function MembersPage() {
   const navigate = useNavigate();
@@ -49,24 +50,9 @@ function MembersPage() {
         throw new Error('로그인이 필요합니다.');
       }
       
-      const response = await fetch(`/api/admin/users/?filter=${encodeURIComponent(filter)}&page=${page}&page_size=10`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await api.get(`/admin/users/?filter=${encodeURIComponent(filter)}&page=${page}&page_size=10`);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`잘못된 응답 형식: ${contentType}. API 엔드포인트를 확인해주세요.`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
       console.log('API 응답:', data); // 디버깅용 로그
       
       if (data.success && data.data) {
