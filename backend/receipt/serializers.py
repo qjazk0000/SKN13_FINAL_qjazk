@@ -1,12 +1,14 @@
 from rest_framework import serializers
 import logging
-
+# 11  
 logger = logging.getLogger(__name__)
 
 class ReceiptUploadSerializer(serializers.Serializer):
     files = serializers.FileField(
+        required=True,
         # child=serializers.FileField(),
         # allow_empty=False,
+
         error_messages={
             'required': '업로드할 파일을 선택해주세요.',
             'blank': '업로드할 파일을 선택해주세요.'
