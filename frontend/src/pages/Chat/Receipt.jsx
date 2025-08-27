@@ -5,6 +5,7 @@ import api from "../../services/api";
 function Receipt({ selectedReceipt, selectedCategory }) {
   const [uploadFile, setUploadFile] = useState(null);
   // const [uploadFiles, setUploadFiles] = useState([]);
+  const [receiptInfo, setReceiptInfo] = useState(null);
   const [reportStart, setReportStart] = useState("");
   const [reportEnd, setReportEnd] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,14 +35,16 @@ function Receipt({ selectedReceipt, selectedCategory }) {
       });
 
       if (response.data.success) {
-        alert("텍스트 추출 성공! 결과 확인하세요.");
-        console.log("서버 응답:", response.data.data);
+        setReceiptInfo(response.data.data);
+        console.log("영수증 처리 내역:", response.data.data);
       } else {
         alert(response.data.message || "텍스트 추출 실패");
       }
     } catch (error) {
       console.error("텍스트 추출 오류:", error);
-      alert(error.response?.data?.message || "텍스트 추출 중 오류가 발생했습니다.");
+      alert(
+        error.response?.data?.message || "텍스트 추출 중 오류가 발생했습니다."
+      );
     }
   };
 
@@ -54,14 +57,17 @@ function Receipt({ selectedReceipt, selectedCategory }) {
     try {
       const response = await api.get("/receipt/download/", {
         params: { start_date: reportStart, end_date: reportEnd },
-        responseType: "blob",   // 파일 다운로드 시 필수
+        responseType: "blob", // 파일 다운로드 시 필수
       });
 
       // 파일 저장
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `receipt_data_${reportStart}_${reportEnd}.csv`);
+      link.setAttribute(
+        "download",
+        `receipt_data_${reportStart}_${reportEnd}.csv`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -69,7 +75,35 @@ function Receipt({ selectedReceipt, selectedCategory }) {
       alert("다운로드 성공!");
     } catch (error) {
       console.error("다운로드 오류:", error);
-      alert(error.response?.data?.message || "다운로드 중 오류가 발생했습니다.");
+      alert(
+        error.response?.data?.message || "다운로드 중 오류가 발생했습니다."
+      );
+    }
+  };
+
+  const handleSave = async () => {
+    if (!receiptInfo) {
+      alert("저장할 영수증 정보가 없습니다.");
+      return;
+    }
+    try {
+      const payload = {
+        file_id: receiptInfo.file_id,
+        store_name: receiptInfo.extracted?.storeName || "",
+        payment_date: receiptInfo.extracted?.transactionDate || "",
+        amount: receiptInfo.extracted?.transactionAmount || 0,
+        card_info: receiptInfo.extracted?.cardNumber || "",
+        items: receiptInfo.extracted?.items || [],
+      };
+      const response = await api.post("/receipt/save/", payload);
+      if (response.data.success) {
+        alert("영수증이 성공적으로 저장되었습니다.");
+      } else {
+        alert(response.data.message || "저장에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("영수증 저장 오류:", error);
+      alert(error.response?.data?.message || "저장 중 오류가 발생했습니다.");
     }
   };
 
@@ -91,19 +125,119 @@ function Receipt({ selectedReceipt, selectedCategory }) {
 
   return (
     <div className="flex flex-col w-full h-[100dvh] bg-gray-100 sm:px-8 md:px-16 lg:px-32 xl:px-60">
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <img
-          src="/images/NAVI.png"
-          alt="NAVI Logo"
-          className="w-24 h-auto mb-4"
-        />
-        <div className="text-xl font-bold text-gray-700">
-          "영수증 처리 도우미"
+      {receiptInfo === null && (
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+          <img
+            src="/images/NAVI.png"
+            alt="NAVI Logo"
+            className="w-24 h-auto mb-4"
+          />
+          <div className="text-xl font-bold text-gray-700">
+            영수증 처리 도우미
+          </div>
+          <p className="mt-4 text-gray-500">
+            영수증 업로드와 보고서 추출 기능을 이용해보세요.
+          </p>
         </div>
-        <p className="mt-4 text-gray-500">
-          영수증 업로드와 보고서 추출 기능을 이용해보세요.
-        </p>
-      </div>
+      )}
+      {receiptInfo && (
+        <div className="flex-1 overflow-y-auto py-4">
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-xl mx-auto">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              영수증 정보 확인
+            </h2>
+            <div className="space-y-3">
+              <div className="flex items-center">
+                <span className="w-32 text-gray-500 font-semibold">파일명</span>
+                <span className="text-gray-700">{receiptInfo.file_name}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-32 text-gray-500 font-semibold">결제처</span>
+                <span className="text-gray-700">
+                  {receiptInfo.extracted?.storeName || "-"}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-32 text-gray-500 font-semibold">
+                  결제일시
+                </span>
+                <span className="text-gray-700">
+                  {receiptInfo.extracted?.transactionDate || "-"}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-32 text-gray-500 font-semibold">카드사</span>
+                <span className="text-gray-700">
+                  {receiptInfo.extracted?.cardCompany || "-"}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-32 text-gray-500 font-semibold">
+                  카드번호
+                </span>
+                <span className="text-gray-700">
+                  {receiptInfo.extracted?.cardNumber || "-"}
+                </span>
+              </div>
+              <div className="flex items-center">
+                <span className="w-32 text-gray-500 font-semibold">총합계</span>
+                <span className="text-gray-700">
+                  {receiptInfo.extracted?.transactionAmount
+                    ? `${receiptInfo.extracted.transactionAmount.toLocaleString()}원`
+                    : "-"}
+                </span>
+              </div>
+              {/* 품목 정보가 있을 경우 */}
+              {receiptInfo.extracted?.items &&
+                Array.isArray(receiptInfo.extracted.items) && (
+                  <div>
+                    <span className="w-32 text-gray-500 font-semibold">
+                      품목
+                    </span>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full mt-2 text-sm text-left border">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="px-2 py-1 border">상품명</th>
+                            <th className="px-2 py-1 border">단가</th>
+                            <th className="px-2 py-1 border">수량</th>
+                            <th className="px-2 py-1 border">금액</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {receiptInfo.extracted.items.map((item, idx) => (
+                            <tr key={idx}>
+                              <td className="px-2 py-1 border">
+                                {item.productName}
+                              </td>
+                              <td className="px-2 py-1 border">
+                                {item.unitPrice.toLocaleString()}원
+                              </td>
+                              <td className="px-2 py-1 border">
+                                {item.quantity}
+                              </td>
+                              <td className="px-2 py-1 border">
+                                {item.totalPrice.toLocaleString()}원
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+            </div>
+            <div className="mt-6 flex justify-center">
+              <button
+                className="px-4 py-2 bg-orange-300 text-white rounded-lg shadow hover:bg-orange-400 transition"
+                onClick={handleSave}
+              >
+                최종 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 메인 콘텐츠: 업로드 & 다운로드 박스 */}
       <div className="flex justify-center flex-shrink-0">
@@ -147,7 +281,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
 
           {/* 영수증 보고서 추출 영역 */}
           <div className="flex flex-1 flex-col gap-2 justify-between items-center p-4">
-            <h3 className="text-lg font-semibold text-gray-800">보고서 추출</h3>
+            <h3 className="text-lg font-semibold text-gray-800">
+              영수증 데이터 추출
+            </h3>
             <input
               type="month"
               value={reportStart}
