@@ -66,9 +66,7 @@ class ReceiptUploadView(APIView):
             # file_info / receipt_info 저장
             with connection.cursor() as cursor:
                 file_id = uuid.uuid4()
-                receipt_id = uuid.uuid4()
-                
-                # file_info 저장 (S3 키 포함)
+                receipt_id = uuid.uuid4()                
                 cursor.execute("""
                     INSERT INTO file_info 
                     (file_id, chat_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
@@ -97,7 +95,6 @@ class ReceiptUploadView(APIView):
                     store_name,
                     str(extracted_data)
                 ])
-
             # 임시 파일 삭제
             try:
                 os.unlink(tmp_path)
@@ -249,7 +246,6 @@ class ReceiptDownloadView(APIView):
                 'success': False,
                 'message': 'CSV 다운로드 중 오류가 발생했습니다.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class ReceiptDetailView(APIView):
     """
