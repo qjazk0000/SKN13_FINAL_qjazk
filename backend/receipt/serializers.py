@@ -8,7 +8,6 @@ class ReceiptUploadSerializer(serializers.Serializer):
         required=True,
         # child=serializers.FileField(),
         # allow_empty=False,
-
         error_messages={
             'required': '업로드할 파일을 선택해주세요.',
             'blank': '업로드할 파일을 선택해주세요.'
