@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { authService } from "../../services/authService";
 
 function Login() {
@@ -6,6 +6,16 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const result = await authService.checkAuthStatus();
+      if (result.status === "authenticated") {
+        window.location.href = "/chat";
+      }
+    };
+    checkAuth();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -64,8 +74,8 @@ function Login() {
             disabled={isLoading}
             className={`w-full p-4 mt-2 bg-orange-300 text-white font-bold text-lg rounded-lg shadow-lg transition-colors duration-200 ${
               isLoading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "hover:bg-orange-400"
+                ? "bg-gray-400 cursor-not-allowed"
+                : "hover:bg-orange-400"
             }`}
           >
             {isLoading ? "로그인 중..." : "로그인"}
