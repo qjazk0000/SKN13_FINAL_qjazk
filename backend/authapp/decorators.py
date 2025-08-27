@@ -10,20 +10,7 @@ logger = logging.getLogger(__name__)
 def require_auth(view_func):
     """인증이 필요한 API에 사용하는 데코레이터"""
     @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        # request 객체가 제대로 전달되었는지 확인
-        logger.info(f"request 객체 타입: {type(request)}")
-        logger.info(f"request 객체 속성들: {dir(request)}")
-        logger.info(f"request 객체 내용: {request}")
-        
-        if not hasattr(request, 'method'):
-            logger.error("request 객체에 method 속성이 없습니다")
-            return Response({
-                'success': False,
-                'message': '잘못된 요청입니다.',
-                'error': 'INVALID_REQUEST'
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
+    def wrapper(self, request, *args, **kwargs):
         logger.info(f"인증 요청: {request.method} {request.path}")
         
         # Authorization 헤더 확인
@@ -57,7 +44,7 @@ def require_auth(view_func):
         request.user_id = user_data[0]
         request.username = user_data[1]
         
-        return view_func(request, *args, **kwargs)
+        return view_func(self, request, *args, **kwargs)
     
     return wrapper
 
@@ -65,19 +52,6 @@ def require_admin(view_func):
     """관리자 권한이 필요한 API에 사용하는 데코레이터"""
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        # request 객체가 제대로 전달되었는지 확인
-        logger.info(f"require_admin - request 객체 타입: {type(request)}")
-        logger.info(f"require_admin - request 객체 속성들: {dir(request)}")
-        logger.info(f"require_admin - request 객체 내용: {request}")
-        
-        if not hasattr(request, 'method'):
-            logger.error("request 객체에 method 속성이 없습니다")
-            return Response({
-                'success': False,
-                'message': '잘못된 요청입니다.',
-                'error': 'INVALID_REQUEST'
-            }, status=status.HTTP_400_BAD_REQUEST)
-            
         # 먼저 인증 확인
         token = extract_token_from_header(request)
         if not token:
