@@ -18,7 +18,7 @@ function DataTable({ columns, data }) {
             <tr key={rowIndex} className="hover:bg-gray-50">
               {columns.map((col, colIndex) => (
                 <td key={colIndex} className="border p-2">
-                  {row[col.accessor]}
+                  {col.cell ? col.cell(row[col.accessor], row) : row[col.accessor]}
                 </td>
               ))}
             </tr>
