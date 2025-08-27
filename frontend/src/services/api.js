@@ -12,7 +12,7 @@ import axios from "axios";
  */
 const baseURL =
   process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://localhost"; // Django 개발 서버 포트로 수정
+  "http://localhost:8001"; // Django 개발 서버 포트로 수정
 
 const api = axios.create({
   baseURL: `${baseURL}/api`,
