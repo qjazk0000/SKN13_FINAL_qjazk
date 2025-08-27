@@ -13,15 +13,17 @@ class ReceiptUploadSerializer(serializers.Serializer):
         }
     )
 
+from rest_framework import serializers
+
 class ReceiptSaveSerializer(serializers.Serializer):
     file_id = serializers.UUIDField(required=True, error_messages={
         'required': '파일 ID 오류.'
     })
     store_name = serializers.CharField(required=False, allow_blank=True)
-    payment_date = serializers.DateTimeField(required=False)
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
+    payment_date = serializers.CharField()  # 문자열로 받아서 View에서 normalize_date() 처리
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     card_info = serializers.CharField(required=False, allow_blank=True)
-    items = serializers.ListField(child=serializers.DictField(), required=False)
+    items = serializers.ListField(required=False)
 
     def validate(self, data):
         """
