@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 import api from "../../services/api";
+import CustomModal from "./CustomModal";
 
 function Receipt({ selectedReceipt, selectedCategory }) {
   const [uploadFile, setUploadFile] = useState(null);
@@ -11,6 +12,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   const [reportStart, setReportStart] = useState("");
   const [reportEnd, setReportEnd] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
 
   useEffect(() => {
     if (receiptInfo) {
@@ -353,13 +355,27 @@ function Receipt({ selectedReceipt, selectedCategory }) {
             <div className="mt-6 flex justify-center">
               <button
                 className="px-4 py-2 bg-orange-300 text-white rounded-lg shadow hover:bg-orange-400 transition"
-                onClick={handleSave}
+                onClick={() => setSaveModalOpen(true)}
               >
                 최종 저장
               </button>
             </div>
           </div>
         </div>
+      )}
+      {saveModalOpen && (
+        <CustomModal
+          open={saveModalOpen}
+          title="영수증 저장"
+          message="영수증 정보를 최종 저장하시겠습니까?"
+          confirmText="저장하기"
+          cancelText="취소하기"
+          onConfirm={() => {
+            handleSave();
+            setSaveModalOpen(false);
+          }}
+          onCancel={() => setSaveModalOpen(false)}
+        />
       )}
 
       {/* 메인 콘텐츠: 업로드 & 다운로드 박스 */}
