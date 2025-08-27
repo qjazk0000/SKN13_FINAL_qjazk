@@ -1,10 +1,40 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { authService } from "../../../services/authService";
 
 
-function AdminSidebar({ userName, onUserNameClick, onLogout, selectedTab, onTabSelect, onChatPageClick }) {
+function AdminSidebar({ userName, selectedTab, onTabSelect, onChatPageClick }) {
+  const navigate = useNavigate();
   const initials = userName?.[0] || "A";
   const displayName = userName || "관리자";
+
+  // 마이페이지 이동 핸들러
+  const handleUserNameClick = () => {
+    navigate("/mypage");
+  };
+
+  // 로그아웃 핸들러
+  const handleLogout = async () => {
+    try {
+      // 백엔드에 로그아웃 요청 (토큰 무효화)
+      const response = await authService.logout();
+
+      // 백엔드 응답 확인
+      if (response && response.success) {
+        console.log("백엔드 로그아웃 성공:", response.message);
+      }
+    } catch (error) {
+      console.error("백엔드 로그아웃 실패:", error);
+      // 백엔드 실패해도 계속 진행
+    } finally {
+      // 성공/실패와 관계없이 로컬 로그아웃 처리
+      localStorage.clear();
+
+      // 명시적으로 루트 페이지로만 이동 (로그인 화면)
+      console.log("로그아웃 완료, 루트 페이지(/)로 이동");
+      window.location.href = "/"; // 강제로 루트 페이지로 이동
+    }
+  };
 
   // 현재 선택된 탭에 따른 스타일 클래스 반환
   const getTabClass = (tabName) => {
@@ -76,7 +106,7 @@ function AdminSidebar({ userName, onUserNameClick, onLogout, selectedTab, onTabS
               <div className="min-w-0">
                 <button
                   type="button"
-                  onClick={onUserNameClick}
+                  onClick={handleUserNameClick}
                   className="text-m font-bold truncate hover:text-blue-300 transition cursor-pointer"
                   title="마이페이지로 이동"
                 >
@@ -88,7 +118,7 @@ function AdminSidebar({ userName, onUserNameClick, onLogout, selectedTab, onTabS
             {/* 로그아웃 버튼 */}
             <button
               type="button"
-              onClick={onLogout}
+              onClick={handleLogout}
               className="p-2 rounded-md hover:bg-gray-700 transition"
               aria-label="로그아웃"
               title="로그아웃"
