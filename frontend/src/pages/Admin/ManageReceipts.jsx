@@ -27,6 +27,17 @@ function ManageReceipts() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // 이미지 미리보기 토글 상태
+  const [previewStates, setPreviewStates] = useState({});
+
+  // 이미지 미리보기 토글 함수
+  const togglePreview = (receiptId) => {
+    setPreviewStates(prev => ({
+      ...prev,
+      [receiptId]: !prev[receiptId]
+    }));
+  };
+
   // 페이지 로드 시 사용자 정보와 영수증 목록 조회
   useEffect(() => {
     loadUserInfo();
@@ -119,7 +130,7 @@ function ManageReceipts() {
             created_at: "2024-01-15T10:00:00",
             amount: 50000,
             status: "승인완료",
-            file_path: "https://example.com/receipt1.pdf",
+            file_path: "https://example.com/receipt1.jpg",
             receipt_id: "1",
             user_login_id: "hong"
           },
@@ -153,14 +164,71 @@ function ManageReceipts() {
     { 
       header: "영수증 보기", 
       accessor: "file_path",
-      cell: (value) => (
-        <button
-          onClick={() => window.open(value, '_blank')}
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm"
-        >
-          보기
-        </button>
-      )
+      cell: (value, row) => {
+        if (!value) return <span className="text-gray-400">파일 없음</span>;
+        
+        // 파일 확장자 확인
+        const fileExt = value.split('.').pop()?.toLowerCase();
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExt);
+        const receiptId = row.receipt_id;
+        const isPreviewOpen = previewStates[receiptId];
+        
+        if (isImage) {
+          return (
+            <div className="space-y-2">
+              <div className="flex justify-center">
+                <button
+                  onClick={() => togglePreview(receiptId)}
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm transition-colors"
+                >
+                  {isPreviewOpen ? '접기' : '미리보기'}
+                </button>
+              </div>
+              
+              {/* 이미지 미리보기 토글 */}
+              {isPreviewOpen && (
+                <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex justify-center">
+                    <img
+                      src={value}
+                      alt="영수증 이미지"
+                      className="max-w-full max-h-64 object-contain rounded shadow-sm"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                    <div className="hidden text-center text-gray-500">
+                      <p>이미지를 불러올 수 없습니다</p>
+                      <a 
+                        href={value} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline"
+                      >
+                        새 창에서 보기
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        } else {
+          return (
+            <div className="flex justify-center">
+              <a
+                href={value}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm transition-colors"
+              >
+                열기
+              </a>
+            </div>
+          );
+        }
+      }
     }
   ];
 
