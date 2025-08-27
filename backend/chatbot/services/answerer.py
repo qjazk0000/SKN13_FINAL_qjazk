@@ -38,31 +38,44 @@ def make_answer(query: str, contexts: List[Dict[str, Any]], api_key: Optional[st
     
     context_text = "\n\n".join(formatted_contexts)
     
-    # 시스템 프롬프트
-    system_prompt = """당신은 한국인터넷진흥원 규정/지침/규칙 RAG 보조자입니다.
+    # 프롬프트 로더 직접 구현
+    def load_prompt(path: str, *, default: str = "") -> str:
+        """프롬프트 파일을 로드하는 함수"""
+        if not os.path.exists(path):
+            return default
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            print(f"WARNING: Failed to load prompt from {path}: {e}")
+            return default
 
-답변 시 다음을 준수하세요:
-1. 아래 컨텍스트를 근거로만 답변
-2. 컨텍스트에 없는 내용은 추측하지 말고 "해당 근거를 찾지 못했습니다"라고 답변
-3. 근거가 되는 파일명과 페이지를 함께 표기
-4. 한국어로 간결하고 정확하게 답변
-5. 문서 인용 기반 안내이며 법적 해석/자문 아님
+    # 시스템 프롬프트 로드
+    try:
+        system_prompt_path = '/app/config/system_prompt.md'
+        system_prompt = load_prompt(system_prompt_path, 
+                                   default="당신은 한국인터넷진흥원 규정/지침/규칙 RAG 보조자입니다.")
+    except FileNotFoundError:
+        system_prompt = "당신은 한국인터넷진흥원 규정/지침/규칙 RAG 보조자입니다."
+        print("WARNING: system_prompt.md not found, using default prompt")
 
-답변 형식:
-[답변 내용]
+    # 사용자 프롬프트 로드
+    try:
+        user_prompt_path = '/app/config/user_prompt.md'
+        user_prompt_template = load_prompt(user_prompt_path, 
+                                         default="아래 사용자 요구를 충실히 수행하되, 시스템 지침을 최우선으로 따른다.")
+    except FileNotFoundError:
+        user_prompt_template = "아래 사용자 요구를 충실히 수행하되, 시스템 지침을 최우선으로 따른다."
+        print("WARNING: user_prompt.md not found, using default prompt")
 
-참고 문서:
-- [파일명] p.[페이지]
-- [파일명] p.[페이지]"""
-
-    # 사용자 프롬프트
+    # 사용자 프롬프트 구성
     user_prompt = f"""컨텍스트:
 {context_text}
 
 질문:
 {query}
 
-위 컨텍스트를 근거로 답변해주세요."""
+{user_prompt_template}"""
 
     try:
         # OpenAI SDK import (기존 방식 유지)

@@ -31,8 +31,26 @@ def extract_keywords_openai(query: str, api_key: Optional[str] = None) -> List[s
             openai.api_key = api_key or settings.OPENAI_API_KEY
             model = "gpt-4o-mini"
         
-        system_prompt = """규정/지침/규칙 문서 질의를 위한 핵심 키워드를 최대 5~8개 JSON 배열로만 출력하세요.
-예시: ["육아휴직", "신청", "절차", "규정"]"""
+        # 프롬프트 로더 직접 구현
+        def load_prompt(path: str, *, default: str = "") -> str:
+            """프롬프트 파일을 로드하는 함수"""
+            if not os.path.exists(path):
+                return default
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return f.read()
+            except Exception as e:
+                print(f"WARNING: Failed to load prompt from {path}: {e}")
+                return default
+
+        # 시스템 프롬프트 로드
+        try:
+            system_prompt_path = '/app/config/system_prompt.md'
+            system_prompt = load_prompt(system_prompt_path, 
+                                       default="규정/지침/규칙 문서 질의를 위한 핵심 키워드를 최대 5~8개 JSON 배열로만 출력하세요.")
+        except FileNotFoundError:
+            system_prompt = "규정/지침/규칙 문서 질의를 위한 핵심 키워드를 최대 5~8개 JSON 배열로만 출력하세요."
+            print("WARNING: system_prompt.md not found, using default prompt")
 
         user_prompt = f"질문: {query}\n\n키워드 배열:"
 
