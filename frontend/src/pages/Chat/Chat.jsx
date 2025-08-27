@@ -10,7 +10,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
   const messageEndRef = useRef(null);
   const sessionStartAtRef = useRef(Date.now());
 
-  // ✅ chat이 undefined일 때도 안전하게 처리
+  // chat이 undefined일 때도 안전하게 처리
   const safeMessages =
     chat && Array.isArray(chat.messages) ? chat.messages : [];
 
@@ -29,7 +29,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
-      e.preventDefault(); // Enter 키를 눌렀을 때 줄바꿈 방지
+      e.preventDefault();
       handleSend();
     }
   };
@@ -120,11 +120,11 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
                   )}
                 </div>
                 {/* 신고하기 버튼 */}
-                {message.sender_type === "ai" && (
+                {message.sender_type === "ai" && !message.isLoading && (
                   <button
                     className="ml-2 self-end text-xs text-gray-500 underline"
                     onClick={() => {
-                      // 여기에 신고 로직 추가
+                      // todo: 여기에 신고하기 핸들러 추가
                       alert(`메시지 ${message.id} 신고하기 눌림`);
                     }}
                   >
