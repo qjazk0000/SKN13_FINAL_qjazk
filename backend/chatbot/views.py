@@ -1,13 +1,14 @@
 # chatbot/views.py
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from authapp.utils import verify_token, get_user_from_token
+from rest_framework.views import APIView
 from rest_framework import generics, status, viewsets
+from authapp.utils import verify_token, get_user_from_token
 from .models import Conversation, ChatMessage
 from .serializers import ConversationSerializer, ChatMessageSerializer, ChatQuerySerializer
 from .services.rag_service import rag_answer
 from .services.pipeline import rag_answer_enhanced
-
+from django.http import JsonResponse
 
 class ConversationListView(generics.ListAPIView):
 
@@ -342,3 +343,13 @@ class ChatStatusView(generics.RetrieveAPIView):
                 {"error": "대화방을 찾을 수 없습니다."},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class ChatReportView(APIView):
+    def post(self, request, chat_id):
+        try:
+            message = ChatMessage.objects.get(id=chat_id)
+            message.report = 'Y'
+            message.save()
+            return Response({'status': 'success'}, status=status.HTTP_200_OK)
+        except ChatMessage.DoesNotExist:
+            return Response({'status': 'fail', 'error': '메시지 없음'}, status=status.HTTP_404_NOT_FOUND)
