@@ -27,6 +27,9 @@ class ReceiptUploadView(APIView):
     - status = pending
     - S3에도 업로드
     """
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = []      # 권한 검사는 데코레이터에서 수행
+    
     @require_auth
     def post(self, request):
         serializer = ReceiptUploadSerializer(data=request.data)
@@ -132,6 +135,9 @@ class ReceiptSaveView(APIView):
     """
     2. 사용자가 확인 후 최종 저장 → status를 processed로 변경
     """
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = []      # 권한 검사는 데코레이터에서 수행
+    
     @require_auth
     def post(self, request):
         serializer = ReceiptSaveSerializer(data=request.data)
@@ -191,6 +197,9 @@ class ReceiptDownloadView(APIView):
     """
     3. CSV 다운로드
     """
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = []      # 권한 검사는 데코레이터에서 수행
+    
     @require_auth
     def get(self, request):
         serializer = ReceiptDownloadSerializer(data=request.query_params)
