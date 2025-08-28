@@ -51,7 +51,7 @@ def require_auth(view_func):
 def require_admin(view_func):
     """관리자 권한이 필요한 API에 사용하는 데코레이터"""
     @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
+    def wrapper(self, request, *args, **kwargs):
         # 먼저 인증 확인
         token = extract_token_from_header(request)
         if not token:
@@ -84,6 +84,6 @@ def require_admin(view_func):
         request.user_id = user_data[0]
         request.username = user_data[1]
         
-        return view_func(request, *args, **kwargs)
+        return view_func(self, request, *args, **kwargs)
     
     return wrapper

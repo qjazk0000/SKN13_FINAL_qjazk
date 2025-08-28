@@ -17,6 +17,7 @@ import uuid
 import logging
 from datetime import datetime
 import os
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -340,13 +341,19 @@ def normalize_date(date_str):
 
     date_str = date_str.strip()
 
+    # 1) 괄호 안의 요일(한글/영문) 제거: (월), (Tue), (수)
+    date_str = re.sub(r'\([^)]*\)', '', date_str).strip()
+
     # 시도할 포맷들
     formats = [
         "%Y-%m-%d %H:%M:%S",  # 2024-02-13 08:23:13
+        "%Y-%m-%d %H:%M",     # 2024-02-13 08:23
         "%Y-%m-%d",           # 2024-02-13
         "%Y/%m/%d",           # 2024/01/24
         "%Y.%m.%d",           # 2024.01.24
         "%Y%m%d",             # 20240213
+        "%Y-%m%d",            # 2024-0213
+        "%Y%m-%d",            # 202402-13
     ]
 
     for fmt in formats:
