@@ -4,13 +4,15 @@ import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TypingEffect from "./TypingEffect";
+import api from "../../services/api";
+import axios from "axios";
 
 function Chat({ chat, onSendMessage, isLoading = false }) {
   const [text, setText] = useState("");
   const messageEndRef = useRef(null);
   const sessionStartAtRef = useRef(Date.now());
 
-  // ✅ chat이 undefined일 때도 안전하게 처리
+  // chat이 undefined일 때도 안전하게 처리
   const safeMessages =
     chat && Array.isArray(chat.messages) ? chat.messages : [];
 
@@ -29,8 +31,29 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
-      e.preventDefault(); // Enter 키를 눌렀을 때 줄바꿈 방지
+      e.preventDefault();
       handleSend();
+    }
+  };
+
+  const handleReport = async (messageId) => {
+    try {
+      const response = await api.post(
+        `/chat/${messageId}/report/`,
+        {},
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (response.data.status === "success") {
+        alert("신고가 접수되었습니다.");
+      } else {
+        alert("신고 처리에 실패했습니다.");
+      }
+    } catch (error) {
+      alert("신고 중 오류가 발생했습니다.");
     }
   };
 
@@ -120,11 +143,11 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
                   )}
                 </div>
                 {/* 신고하기 버튼 */}
-                {message.sender_type === "ai" && (
+                {message.sender_type === "ai" && !message.isLoading && (
                   <button
                     className="ml-2 self-end text-xs text-gray-500 underline"
                     onClick={() => {
-                      // 여기에 신고 로직 추가
+                      handleReport(message.id);
                       alert(`메시지 ${message.id} 신고하기 눌림`);
                     }}
                   >
