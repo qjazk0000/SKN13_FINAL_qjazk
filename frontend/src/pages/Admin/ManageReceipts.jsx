@@ -93,18 +93,8 @@ function ManageReceipts() {
       
       const response = await api.get(`/admin/receipts/?${params.toString()}`);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`잘못된 응답 형식: ${contentType}. API 엔드포인트를 확인해주세요.`);
-      }
-
-      const data = await response.json();
-      console.log('API 응답:', data);
-      console.log('영수증 데이터:', data.data?.receipts);
+      const data = response.data;
+      console.log('API 응답:', data); // 디버깅용 로그
       
       if (data.success && data.data) {
         const receiptsData = data.data.receipts || [];
