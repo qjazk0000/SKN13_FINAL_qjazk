@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from django.conf import settings
 from django.db import connection
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ REFRESH_TOKEN_LIFETIME = timedelta(days=7)      # 7일
 def create_access_token(user_data):
     """액세스 토큰 생성"""
     payload = {
+        'jti': str(uuid.uuid4()),  # 고유 식별자
         'token_type': 'access',
         'user_id': str(user_data.user_id),        # CustomUser 객체의 속성으로 접근
         'username': user_data.username,           # user_login_id
@@ -34,6 +36,7 @@ def create_access_token(user_data):
 def create_refresh_token(user_data):
     """리프레시 토큰 생성"""
     payload = {
+        'jti': str(uuid.uuid4()),  # 고유 식별자
         'token_type': 'refresh',
         'user_id': str(user_data.user_id),        # CustomUser 객체의 속성으로 접근
         'username': user_data.username,           # user_login_id
@@ -60,8 +63,7 @@ def get_user_from_token(token):
     """토큰에서 사용자 정보 추출"""
     try:
         payload = verify_token(token)
-        if not payload:
-            logger.warning("토큰 검증 실패 - payload가 None")
+        if not payload or payload.get("token_type") not in ("access", "refresh"):
             return None
         
         logger.info(f"토큰 payload: {payload}")
