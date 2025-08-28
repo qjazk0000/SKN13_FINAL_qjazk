@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import connection
-from authapp.utils import extract_token_from_header, get_user_from_token
+from authapp.utils import verify_token
 import os
 
 from .serializers import (
@@ -46,20 +46,50 @@ class AdminUsersView(APIView):
     관리자용 회원 조회 API
     GET /api/admin/users?filter={field}:{value}
     """
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = []      # 권한 검사는 뷰 내부에서 직접 수행
     
     def get(self, request):
+        print("DEBUG: AdminUsersView.get() 메서드가 호출되었습니다!")
+        
         # Authorization 헤더에서 토큰 추출
-        token = extract_token_from_header(request)
-        if not token:
+        auth_header = request.headers.get('Authorization')
+        print(f"DEBUG: AdminUsersView - Authorization 헤더: {auth_header}")
+        
+        if not auth_header:
+            print("DEBUG: AdminUsersView - Authorization 헤더가 없음")
             return Response({
                 'success': False,
                 'message': '인증 토큰이 필요합니다.',
                 'error': 'MISSING_TOKEN'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
+        try:
+            token_type, token = auth_header.split(' ')
+            print(f"DEBUG: AdminUsersView - 토큰 타입: {token_type}, 토큰: {token[:20]}...")
+            
+            if token_type.lower() != 'bearer':
+                print("DEBUG: AdminUsersView - 잘못된 토큰 타입")
+                return Response({
+                    'success': False,
+                    'message': '올바른 토큰 형식이 아닙니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError:
+            print("DEBUG: AdminUsersView - 토큰 파싱 실패")
+            return Response({
+                'success': False,
+                'message': '토큰 형식이 올바르지 않습니다.',
+                'error': 'INVALID_TOKEN_FORMAT'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
         # 토큰 검증
-        user_data = get_user_from_token(token)
-        if not user_data:
+        print("DEBUG: AdminUsersView - 토큰 검증 시작")
+        payload = verify_token(token)
+        print(f"DEBUG: AdminUsersView - 토큰 검증 결과: {payload}")
+        
+        if not payload:
+            print("DEBUG: AdminUsersView - 토큰 검증 실패")
             return Response({
                 'success': False,
                 'message': '토큰이 만료되었거나 유효하지 않습니다.',
@@ -67,12 +97,53 @@ class AdminUsersView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # 관리자 권한 확인 (auth='Y')
-        if user_data[8] != 'Y':  # user_data[8]은 auth 필드
+        user_id = payload.get('user_id')
+        print(f"DEBUG: AdminUsersView - 추출된 user_id: {user_id}")
+        
+        if not user_id:
+            print("DEBUG: AdminUsersView - user_id가 없음")
             return Response({
                 'success': False,
-                'message': '관리자 권한이 필요합니다.',
-                'error': 'ADMIN_REQUIRED'
-            }, status=status.HTTP_403_FORBIDDEN)
+                'message': '사용자 정보를 찾을 수 없습니다.',
+                'error': 'USER_NOT_FOUND'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 데이터베이스에서 사용자 정보 조회하여 관리자 권한 확인
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT auth FROM user_info 
+                    WHERE user_id = %s AND use_yn = 'Y'
+                """, [user_id])
+                
+                user_data = cursor.fetchone()
+                print(f"DEBUG: AdminUsersView - DB 조회 결과: {user_data}")
+                
+                if not user_data:
+                    print("DEBUG: AdminUsersView - 사용자를 찾을 수 없음")
+                    return Response({
+                        'success': False,
+                        'message': '사용자를 찾을 수 없습니다.',
+                        'error': 'USER_NOT_FOUND'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+                
+                if user_data[0] != 'Y':  # auth 필드 확인
+                    print(f"DEBUG: AdminUsersView - 관리자 권한 없음: {user_data[0]}")
+                    return Response({
+                        'success': False,
+                        'message': '관리자 권한이 필요합니다.',
+                        'error': 'ADMIN_REQUIRED'
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                print("DEBUG: AdminUsersView - 관리자 권한 확인 성공")
+        except Exception as e:
+            print(f"DEBUG: AdminUsersView - 사용자 권한 확인 중 오류: {e}")
+            logger.error(f"사용자 권한 확인 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '사용자 권한 확인 중 오류가 발생했습니다.',
+                'error': 'PERMISSION_CHECK_ERROR'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         try:
             # 필터 파라미터 파싱
@@ -158,6 +229,9 @@ class AdminUsersView(APIView):
 
 
 class AdminReceiptsView(APIView):
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = []      # 권한 검사는 뷰 내부에서 직접 수행
+    
     def _parse_items_info(self, extracted_text):
         """
         추출된 텍스트에서 품목 정보를 파싱하여 반환
@@ -256,18 +330,46 @@ class AdminReceiptsView(APIView):
             return []
     
     def get(self, request):
+        print("DEBUG: AdminReceiptsView.get() 메서드가 호출되었습니다!")
+        
         # Authorization 헤더에서 토큰 추출
-        token = extract_token_from_header(request)
-        if not token:
+        auth_header = request.headers.get('Authorization')
+        print(f"DEBUG: AdminReceiptsView - Authorization 헤더: {auth_header}")
+        
+        if not auth_header:
+            print("DEBUG: AdminReceiptsView - Authorization 헤더가 없음")
             return Response({
                 'success': False,
                 'message': '인증 토큰이 필요합니다.',
                 'error': 'MISSING_TOKEN'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
+        try:
+            token_type, token = auth_header.split(' ')
+            print(f"DEBUG: AdminReceiptsView - 토큰 타입: {token_type}, 토큰: {token[:20]}...")
+            
+            if token_type.lower() != 'bearer':
+                print("DEBUG: AdminReceiptsView - 잘못된 토큰 타입")
+                return Response({
+                    'success': False,
+                    'message': '올바른 토큰 형식이 아닙니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError:
+            print("DEBUG: AdminReceiptsView - 토큰 파싱 실패")
+            return Response({
+                'success': False,
+                'message': '토큰 형식이 올바르지 않습니다.',
+                'error': 'INVALID_TOKEN_FORMAT'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
         # 토큰 검증
-        user_data = get_user_from_token(token)
-        if not user_data:
+        print("DEBUG: AdminReceiptsView - 토큰 검증 시작")
+        payload = verify_token(token)
+        print(f"DEBUG: AdminReceiptsView - 토큰 검증 결과: {payload}")
+        
+        if not payload:
+            print("DEBUG: AdminReceiptsView - 토큰 검증 실패")
             return Response({
                 'success': False,
                 'message': '토큰이 만료되었거나 유효하지 않습니다.',
@@ -275,12 +377,52 @@ class AdminReceiptsView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # 관리자 권한 확인 (auth='Y')
-        if user_data[8] != 'Y':  # user_data[8]은 auth 필드
+        user_id = payload.get('user_id')
+        print(f"DEBUG: AdminReceiptsView - 추출된 user_id: {user_id}")
+        
+        if not user_id:
+            print("DEBUG: AdminReceiptsView - user_id가 없음")
             return Response({
                 'success': False,
-                'message': '관리자 권한이 필요합니다.',
-                'error': 'ADMIN_REQUIRED'
-            }, status=status.HTTP_403_FORBIDDEN)
+                'message': '사용자 정보를 찾을 수 없습니다.',
+                'error': 'USER_NOT_FOUND'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT auth FROM user_info 
+                    WHERE user_id = %s AND use_yn = 'Y'
+                """, [user_id])
+                
+                user_data = cursor.fetchone()
+                print(f"DEBUG: AdminReceiptsView - DB 조회 결과: {user_data}")
+                
+                if not user_data:
+                    print("DEBUG: AdminReceiptsView - 사용자를 찾을 수 없음")
+                    return Response({
+                        'success': False,
+                        'message': '사용자를 찾을 수 없습니다.',
+                        'error': 'USER_NOT_FOUND'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+                
+                if user_data[0] != 'Y':  # auth 필드 확인
+                    print(f"DEBUG: AdminReceiptsView - 관리자 권한 없음: {user_data[0]}")
+                    return Response({
+                        'success': False,
+                        'message': '관리자 권한이 필요합니다.',
+                        'error': 'ADMIN_REQUIRED'
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                print("DEBUG: AdminReceiptsView - 관리자 권한 확인 성공")
+        except Exception as e:
+            print(f"DEBUG: AdminReceiptsView - 사용자 권한 확인 중 오류: {e}")
+            logger.error(f"사용자 권한 확인 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '사용자 권한 확인 중 오류가 발생했습니다.',
+                'error': 'PERMISSION_CHECK_ERROR'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         try:
             # 쿼리 파라미터 파싱
