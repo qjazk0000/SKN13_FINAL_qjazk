@@ -41,8 +41,13 @@ function ManageReceipts() {
 
   // 페이지 로드 시 사용자 정보와 영수증 목록 조회
   useEffect(() => {
-    loadUserInfo();
-    fetchReceipts();
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      loadUserInfo();
+      fetchReceipts();
+    } else {
+      console.log('토큰이 없어 API 호출을 건너뜁니다.');
+    }
   }, []);
 
   // 사용자 정보 로드
@@ -60,13 +65,15 @@ function ManageReceipts() {
   // 영수증 목록 조회
   const fetchReceipts = async (page = 1) => {
     try {
+      // 토큰 체크
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.log('토큰이 없어 API 호출을 건너뜁니다.');
+        return;
+      }
+
       setIsLoading(true);
       setError("");
-      
-      const token = authService.getToken();
-      if (!token) {
-        throw new Error('로그인이 필요합니다.');
-      }
       
       // 쿼리 파라미터 구성
       const params = new URLSearchParams();
@@ -93,8 +100,14 @@ function ManageReceipts() {
       
       const response = await api.get(`/admin/receipts/?${params.toString()}`);
 
-      const data = response.data;
-      console.log('API 응답:', data); // 디버깅용 로그
+      // Axios 응답 처리 (response.ok는 fetch() API의 속성)
+      console.log('API 응답:', response);
+      console.log('응답 상태:', response.status);
+      console.log('응답 헤더:', response.headers);
+      
+      const data = response.data;  // Axios에서는 response.data
+      console.log('API 응답 데이터:', data);
+      console.log('영수증 데이터:', data.data?.receipts);
       
       if (data.success && data.data) {
         const receiptsData = data.data.receipts || [];
