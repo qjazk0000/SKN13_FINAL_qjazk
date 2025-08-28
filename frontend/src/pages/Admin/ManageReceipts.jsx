@@ -193,15 +193,38 @@ function ManageReceipts() {
     { 
       header: "금액", 
       accessor: "amount",
-      // cell: (value) => {
-      //   if (!value || value === null || value === undefined) return "정보 없음";
+      cell: (value) => {
+        // null, undefined, 빈 문자열 체크
+        if (value === null || value === undefined || value === '') {
+          return "정보 없음";
+        }
         
-      //   // 숫자로 변환 시도
-      //   const numValue = Number(value);
-      //   if (isNaN(numValue)) return "정보 없음";
+        // 문자열로 변환
+        const stringValue = String(value);
         
-      //   return new Intl.NumberFormat('ko-KR').format(numValue) + "원";
-      // }
+        // 이미 "원"이 포함된 포맷된 문자열인지 확인
+        if (stringValue.includes('원')) {
+          // "원" 제거하고 쉼표 제거 후 숫자 추출
+          const cleanValue = stringValue.replace(/[원,]/g, '');
+          const numValue = parseFloat(cleanValue);
+          
+          if (isNaN(numValue)) {
+            return "정보 없음";
+          }
+          
+          // 한국어 숫자 포맷으로 다시 변환
+          return new Intl.NumberFormat('ko-KR').format(numValue) + "원";
+        } else {
+          // 일반 숫자 문자열인 경우
+          const numValue = parseFloat(stringValue);
+          
+          if (isNaN(numValue)) {
+            return "정보 없음";
+          }
+          
+          return new Intl.NumberFormat('ko-KR').format(numValue) + "원";
+        }
+      }
     },
     { 
       header: "상태", 
