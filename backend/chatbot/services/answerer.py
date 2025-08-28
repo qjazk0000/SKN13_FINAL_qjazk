@@ -5,6 +5,7 @@ OpenAI를 사용하여 컨텍스트 기반 답변을 생성합니다.
 """
 
 from typing import List, Dict, Any, Optional
+import os
 from django.conf import settings
 
 def make_answer(query: str, contexts: List[Dict[str, Any]], api_key: Optional[str] = None) -> str:
