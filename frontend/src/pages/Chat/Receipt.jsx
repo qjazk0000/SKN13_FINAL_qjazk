@@ -15,13 +15,12 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   useEffect(() => {
     if (receiptInfo) {
       setEditInfo({
-        storeName: receiptInfo.extracted?.storeName || "",
-        transactionDate: receiptInfo.extracted?.transactionDate || "",
-        cardCompany: receiptInfo.extracted?.cardCompany || "",
-        cardNumber: receiptInfo.extracted?.cardNumber || "",
-        transactionAmount: receiptInfo.extracted?.transactionAmount || 0,
-        items: receiptInfo.extracted?.items
-          ? receiptInfo.extracted.items.map((item) => ({ ...item }))
+        결제처: receiptInfo.extracted?.결제처 || "",
+        결제일시: receiptInfo.extracted?.결제일시 || "",
+        총합계: receiptInfo.extracted?.총합계 || 0,
+        카드정보: receiptInfo.extracted?.카드정보 || "",
+        품목: receiptInfo.extracted?.품목
+          ? receiptInfo.extracted.품목.map((item) => ({ ...item }))
           : [],
       });
     }
@@ -34,7 +33,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   const handleItemChange = (idx, field, value) => {
     setEditInfo((prev) => ({
       ...prev,
-      items: prev.items.map((item, i) =>
+      품목: prev.품목.map((item, i) =>
         i === idx ? { ...item, [field]: value } : item
       ),
     }));
@@ -42,7 +41,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      setUploadFile(e.target.files[0]); // 첫 번째 파일만 저장
+      setUploadFile(e.target.files[0]);
     }
   };
 
@@ -58,9 +57,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
       formData.append("files", uploadFile);
 
       const response = await api.post("/receipt/upload/", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       if (response.data.success) {
@@ -88,10 +85,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
     try {
       const response = await api.get("/receipt/download/", {
         params: { start_date: reportStart, end_date: reportEnd },
-        responseType: "blob", // 파일 다운로드 시 필수
+        responseType: "blob",
       });
 
-      // 파일 저장
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -120,11 +116,16 @@ function Receipt({ selectedReceipt, selectedCategory }) {
     try {
       const payload = {
         file_id: receiptInfo.file_id,
-        store_name: editInfo.storeName,
-        payment_date: editInfo.transactionDate,
-        amount: Number(editInfo.transactionAmount),
-        card_info: editInfo.cardNumber,
-        items: editInfo.items,
+        store_name: editInfo.결제처,
+        payment_date: editInfo.결제일시,
+        amount: Number(editInfo.총합계),
+        card_info: editInfo.카드정보,
+        items: editInfo.품목.map((item) => ({
+          품명: item.품명,
+          단가: Number(item.단가),
+          수량: Number(item.수량),
+          금액: Number(item.금액)
+        }))
       };
       const response = await api.post("/receipt/save/", payload);
       if (response.data.success) {
@@ -216,9 +217,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                 <input
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.storeName}
+                  value={editInfo.결제처}
                   onChange={(e) =>
-                    handleEditChange("storeName", e.target.value)
+                    handleEditChange("결제처", e.target.value)
                   }
                 />
               </div>
@@ -229,33 +230,20 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                 <input
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.transactionDate}
+                  value={editInfo.결제일시}
                   onChange={(e) =>
-                    handleEditChange("transactionDate", e.target.value)
+                    handleEditChange("결제일시", e.target.value)
                   }
                 />
               </div>
               <div className="flex items-center">
-                <span className="w-32 text-gray-500 font-semibold">카드사</span>
+                <span className="w-32 text-gray-500 font-semibold">카드번호</span>
                 <input
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.cardCompany}
+                  value={editInfo.카드정보}
                   onChange={(e) =>
-                    handleEditChange("cardCompany", e.target.value)
-                  }
-                />
-              </div>
-              <div className="flex items-center">
-                <span className="w-32 text-gray-500 font-semibold">
-                  카드번호
-                </span>
-                <input
-                  type="text"
-                  className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.cardNumber}
-                  onChange={(e) =>
-                    handleEditChange("cardNumber", e.target.value)
+                    handleEditChange("카드정보", e.target.value)
                   }
                 />
               </div>
@@ -264,39 +252,35 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                 <input
                   type="number"
                   className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.transactionAmount}
+                  value={editInfo.총합계}
                   onChange={(e) =>
-                    handleEditChange("transactionAmount", e.target.value)
+                    handleEditChange("총합계", e.target.value)
                   }
                 />
               </div>
-              {editInfo.items && Array.isArray(editInfo.items) && (
+              {editInfo.품목 && Array.isArray(editInfo.품목) && (
                 <div>
                   <span className="w-32 text-gray-500 font-semibold">품목</span>
                   <div className="overflow-x-auto">
                     <table className="min-w-full mt-2 text-sm text-left border">
                       <thead>
                         <tr className="bg-gray-100">
-                          <th className="px-2 py-1 border">상품명</th>
+                          <th className="px-2 py-1 border">품명</th>
                           <th className="px-2 py-1 border">단가</th>
                           <th className="px-2 py-1 border">수량</th>
                           <th className="px-2 py-1 border">금액</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {editInfo.items.map((item, idx) => (
+                        {editInfo.품목.map((item, idx) => (
                           <tr key={idx}>
                             <td className="px-2 py-1 border">
                               <input
                                 type="text"
                                 className="border rounded px-1 py-0.5 w-full"
-                                value={item.productName}
+                                value={item.품명}
                                 onChange={(e) =>
-                                  handleItemChange(
-                                    idx,
-                                    "productName",
-                                    e.target.value
-                                  )
+                                  handleItemChange(idx, "품명", e.target.value)
                                 }
                               />
                             </td>
@@ -304,13 +288,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                               <input
                                 type="number"
                                 className="border rounded px-1 py-0.5 w-full"
-                                value={item.unitPrice}
+                                value={item.단가}
                                 onChange={(e) =>
-                                  handleItemChange(
-                                    idx,
-                                    "unitPrice",
-                                    Number(e.target.value)
-                                  )
+                                  handleItemChange(idx, "단가", Number(e.target.value))
                                 }
                               />
                             </td>
@@ -318,13 +298,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                               <input
                                 type="number"
                                 className="border rounded px-1 py-0.5 w-full"
-                                value={item.quantity}
+                                value={item.수량}
                                 onChange={(e) =>
-                                  handleItemChange(
-                                    idx,
-                                    "quantity",
-                                    Number(e.target.value)
-                                  )
+                                  handleItemChange(idx, "수량", Number(e.target.value))
                                 }
                               />
                             </td>
@@ -332,13 +308,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                               <input
                                 type="number"
                                 className="border rounded px-1 py-0.5 w-full"
-                                value={item.totalPrice}
+                                value={item.금액}
                                 onChange={(e) =>
-                                  handleItemChange(
-                                    idx,
-                                    "totalPrice",
-                                    Number(e.target.value)
-                                  )
+                                  handleItemChange(idx, "금액", Number(e.target.value))
                                 }
                               />
                             </td>
