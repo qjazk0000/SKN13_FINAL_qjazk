@@ -182,9 +182,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-
     ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [],  # Django 인증 시스템 비활성화
+    # 'DEFAULT_AUTHENTICATION_CLASSES': []
 }
 
 

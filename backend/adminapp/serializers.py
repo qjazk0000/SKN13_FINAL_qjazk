@@ -1,6 +1,9 @@
 # adminapp/serializers.py
 from rest_framework import serializers
 from .models import ReportedConversation
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserSearchSerializer(serializers.Serializer):
     """
@@ -94,11 +97,17 @@ class AdminReceiptSerializer(serializers.Serializer):
     """
     receipt_id = serializers.UUIDField()
     user_id = serializers.UUIDField()
+    name = serializers.CharField(allow_null=True)  # 사용자 이름
+    dept = serializers.CharField(allow_null=True)  # 사용자 부서
     file_name = serializers.CharField(source='file_origin_name')  # file_info 테이블의 file_origin_name
-    uploaded_at = serializers.DateTimeField()
+    file_path = serializers.CharField(allow_null=True)
+    created_at = serializers.DateTimeField()
     status = serializers.CharField()
     store_name = serializers.CharField(allow_null=True)
+    payment_date = serializers.DateTimeField(allow_null=True)
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    extracted_text = serializers.CharField(allow_null=True)
+    items_info = serializers.ListField(child=serializers.CharField(), allow_empty=True)
 
 class AdminReceiptDetailSerializer(serializers.Serializer):
     """
