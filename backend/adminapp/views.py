@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import connection
-from authapp.utils import extract_token_from_header, get_user_from_token
+from authapp.utils import verify_token
 import os
 
 from .serializers import (
@@ -29,8 +29,16 @@ def generate_s3_public_url(s3_key):
     bucket_name = os.getenv('AWS_S3_BUCKET_NAME', 'skn.dopamine-navi.bucket')
     region = os.getenv('AWS_REGION', 'ap-northeast-2')
     
-    # S3 공개 URL 형식: https://bucket-name.s3.region.amazonaws.com/key
-    s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
+    # S3 공개 URL 형식
+    # 버킷 이름에 점(.)이 포함된 경우: https://s3.region.amazonaws.com/bucket-name/key
+    # 버킷 이름에 점이 없는 경우: https://bucket-name.s3.region.amazonaws.com/key
+    if '.' in bucket_name:
+        # 버킷 이름에 점이 포함된 경우 (SSL 인증서 문제 방지)
+        s3_url = f"https://s3.{region}.amazonaws.com/{bucket_name}/{s3_key}"
+    else:
+        # 버킷 이름에 점이 없는 경우
+        s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
+    
     return s3_url
 
 class AdminUsersView(APIView):
@@ -38,20 +46,50 @@ class AdminUsersView(APIView):
     관리자용 회원 조회 API
     GET /api/admin/users?filter={field}:{value}
     """
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = []      # 권한 검사는 뷰 내부에서 직접 수행
     
     def get(self, request):
+        print("DEBUG: AdminUsersView.get() 메서드가 호출되었습니다!")
+        
         # Authorization 헤더에서 토큰 추출
-        token = extract_token_from_header(request)
-        if not token:
+        auth_header = request.headers.get('Authorization')
+        print(f"DEBUG: AdminUsersView - Authorization 헤더: {auth_header}")
+        
+        if not auth_header:
+            print("DEBUG: AdminUsersView - Authorization 헤더가 없음")
             return Response({
                 'success': False,
                 'message': '인증 토큰이 필요합니다.',
                 'error': 'MISSING_TOKEN'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
+        try:
+            token_type, token = auth_header.split(' ')
+            print(f"DEBUG: AdminUsersView - 토큰 타입: {token_type}, 토큰: {token[:20]}...")
+            
+            if token_type.lower() != 'bearer':
+                print("DEBUG: AdminUsersView - 잘못된 토큰 타입")
+                return Response({
+                    'success': False,
+                    'message': '올바른 토큰 형식이 아닙니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError:
+            print("DEBUG: AdminUsersView - 토큰 파싱 실패")
+            return Response({
+                'success': False,
+                'message': '토큰 형식이 올바르지 않습니다.',
+                'error': 'INVALID_TOKEN_FORMAT'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
         # 토큰 검증
-        user_data = get_user_from_token(token)
-        if not user_data:
+        print("DEBUG: AdminUsersView - 토큰 검증 시작")
+        payload = verify_token(token)
+        print(f"DEBUG: AdminUsersView - 토큰 검증 결과: {payload}")
+        
+        if not payload:
+            print("DEBUG: AdminUsersView - 토큰 검증 실패")
             return Response({
                 'success': False,
                 'message': '토큰이 만료되었거나 유효하지 않습니다.',
@@ -59,12 +97,53 @@ class AdminUsersView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # 관리자 권한 확인 (auth='Y')
-        if user_data[8] != 'Y':  # user_data[8]은 auth 필드
+        user_id = payload.get('user_id')
+        print(f"DEBUG: AdminUsersView - 추출된 user_id: {user_id}")
+        
+        if not user_id:
+            print("DEBUG: AdminUsersView - user_id가 없음")
             return Response({
                 'success': False,
-                'message': '관리자 권한이 필요합니다.',
-                'error': 'ADMIN_REQUIRED'
-            }, status=status.HTTP_403_FORBIDDEN)
+                'message': '사용자 정보를 찾을 수 없습니다.',
+                'error': 'USER_NOT_FOUND'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 데이터베이스에서 사용자 정보 조회하여 관리자 권한 확인
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT auth FROM user_info 
+                    WHERE user_id = %s AND use_yn = 'Y'
+                """, [user_id])
+                
+                user_data = cursor.fetchone()
+                print(f"DEBUG: AdminUsersView - DB 조회 결과: {user_data}")
+                
+                if not user_data:
+                    print("DEBUG: AdminUsersView - 사용자를 찾을 수 없음")
+                    return Response({
+                        'success': False,
+                        'message': '사용자를 찾을 수 없습니다.',
+                        'error': 'USER_NOT_FOUND'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+                
+                if user_data[0] != 'Y':  # auth 필드 확인
+                    print(f"DEBUG: AdminUsersView - 관리자 권한 없음: {user_data[0]}")
+                    return Response({
+                        'success': False,
+                        'message': '관리자 권한이 필요합니다.',
+                        'error': 'ADMIN_REQUIRED'
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                print("DEBUG: AdminUsersView - 관리자 권한 확인 성공")
+        except Exception as e:
+            print(f"DEBUG: AdminUsersView - 사용자 권한 확인 중 오류: {e}")
+            logger.error(f"사용자 권한 확인 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '사용자 권한 확인 중 오류가 발생했습니다.',
+                'error': 'PERMISSION_CHECK_ERROR'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         try:
             # 필터 파라미터 파싱
@@ -139,7 +218,9 @@ class AdminUsersView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
+            import traceback
             logger.error(f"회원 목록 조회 중 오류: {e}")
+            logger.error(f"상세 오류: {traceback.format_exc()}")
             return Response({
                 'success': False,
                 'message': '회원 목록 조회 중 오류가 발생했습니다.',
@@ -148,19 +229,147 @@ class AdminUsersView(APIView):
 
 
 class AdminReceiptsView(APIView):
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = []      # 권한 검사는 뷰 내부에서 직접 수행
+    
+    def _parse_items_info(self, extracted_text):
+        """
+        추출된 텍스트에서 품목 정보를 파싱하여 반환
+        """
+        try:
+            import json
+            import ast
+            import re
+            
+            logger.info(f"_parse_items_info 호출됨, extracted_text: {extracted_text}")
+            logger.info(f"extracted_text 타입: {type(extracted_text)}")
+            
+            if not extracted_text:
+                logger.info("extracted_text가 비어있음")
+                return []
+            
+            data = None
+            
+            # extracted_text가 문자열인 경우 파싱
+            if isinstance(extracted_text, str):
+                logger.info("문자열 형태의 extracted_text 파싱 시도")
+                
+                # 먼저 JSON으로 파싱 시도
+                try:
+                    data = json.loads(extracted_text)
+                    logger.info(f"JSON 파싱 성공: {data}")
+                except json.JSONDecodeError as e:
+                    logger.info(f"JSON 파싱 실패: {e}")
+                    
+                    # JSON 실패 시 ast.literal_eval로 파싱 시도 (Python 딕셔너리 형태)
+                    try:
+                        data = ast.literal_eval(extracted_text)
+                        logger.info(f"ast.literal_eval 파싱 성공: {data}")
+                    except (ValueError, SyntaxError) as e:
+                        logger.info(f"ast.literal_eval 파싱 실패: {e}")
+                        
+                        # 정규표현식으로 '품목' 키와 배열 추출 시도
+                        try:
+                            # '품목': [...] 패턴 찾기
+                            pattern = r"'품목':\s*\[(.*?)\]"
+                            match = re.search(pattern, extracted_text, re.DOTALL)
+                            if match:
+                                items_str = match.group(1)
+                                logger.info(f"정규표현식으로 추출된 items_str: {items_str}")
+                                
+                                # 간단한 파싱으로 품목 정보 추출
+                                items = []
+                                # {'productName': '...', 'quantity': ...} 패턴 찾기
+                                item_pattern = r"\{'productName':\s*'([^']+)',\s*'quantity':\s*(\d+)[^}]*\}"
+                                item_matches = re.findall(item_pattern, items_str)
+                                
+                                for product_name, quantity in item_matches:
+                                    items.append({
+                                        'productName': product_name,
+                                        'quantity': int(quantity)
+                                    })
+                                
+                                data = {'품목': items}
+                                logger.info(f"정규표현식으로 파싱된 데이터: {data}")
+                            else:
+                                logger.error(f"정규표현식으로도 파싱 실패: {extracted_text}")
+                                return []
+                        except Exception as e:
+                            logger.error(f"정규표현식 파싱 오류: {e}")
+                            return []
+            else:
+                data = extracted_text
+                logger.info(f"이미 딕셔너리 형태: {data}")
+            
+            if not data:
+                logger.error("파싱된 데이터가 없음")
+                return []
+            
+            # '품목' 키에서 품목 정보 추출
+            items = data.get('품목', [])
+            logger.info(f"추출된 품목 배열: {items}")
+            
+            if not items:
+                logger.info("품목 배열이 비어있음")
+                return []
+            
+            # 품목명과 갯수를 문자열로 포맷팅
+            formatted_items = []
+            for item in items:
+                product_name = item.get('productName', '')
+                quantity = item.get('quantity', 1)
+                if product_name:
+                    formatted_items.append(f"{product_name} x{quantity}")
+            
+            logger.info(f"최종 포맷된 품목 목록: {formatted_items}")
+            return formatted_items
+            
+        except Exception as e:
+            logger.error(f"품목 정보 파싱 오류: {str(e)}")
+            logger.error(f"extracted_text 전체 내용: {extracted_text}")
+            return []
+    
     def get(self, request):
+        print("DEBUG: AdminReceiptsView.get() 메서드가 호출되었습니다!")
+        
         # Authorization 헤더에서 토큰 추출
-        token = extract_token_from_header(request)
-        if not token:
+        auth_header = request.headers.get('Authorization')
+        print(f"DEBUG: AdminReceiptsView - Authorization 헤더: {auth_header}")
+        
+        if not auth_header:
+            print("DEBUG: AdminReceiptsView - Authorization 헤더가 없음")
             return Response({
                 'success': False,
                 'message': '인증 토큰이 필요합니다.',
                 'error': 'MISSING_TOKEN'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
+        try:
+            token_type, token = auth_header.split(' ')
+            print(f"DEBUG: AdminReceiptsView - 토큰 타입: {token_type}, 토큰: {token[:20]}...")
+            
+            if token_type.lower() != 'bearer':
+                print("DEBUG: AdminReceiptsView - 잘못된 토큰 타입")
+                return Response({
+                    'success': False,
+                    'message': '올바른 토큰 형식이 아닙니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError:
+            print("DEBUG: AdminReceiptsView - 토큰 파싱 실패")
+            return Response({
+                'success': False,
+                'message': '토큰 형식이 올바르지 않습니다.',
+                'error': 'INVALID_TOKEN_FORMAT'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
         # 토큰 검증
-        user_data = get_user_from_token(token)
-        if not user_data:
+        print("DEBUG: AdminReceiptsView - 토큰 검증 시작")
+        payload = verify_token(token)
+        print(f"DEBUG: AdminReceiptsView - 토큰 검증 결과: {payload}")
+        
+        if not payload:
+            print("DEBUG: AdminReceiptsView - 토큰 검증 실패")
             return Response({
                 'success': False,
                 'message': '토큰이 만료되었거나 유효하지 않습니다.',
@@ -168,12 +377,52 @@ class AdminReceiptsView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # 관리자 권한 확인 (auth='Y')
-        if user_data[8] != 'Y':  # user_data[8]은 auth 필드
+        user_id = payload.get('user_id')
+        print(f"DEBUG: AdminReceiptsView - 추출된 user_id: {user_id}")
+        
+        if not user_id:
+            print("DEBUG: AdminReceiptsView - user_id가 없음")
             return Response({
                 'success': False,
-                'message': '관리자 권한이 필요합니다.',
-                'error': 'ADMIN_REQUIRED'
-            }, status=status.HTTP_403_FORBIDDEN)
+                'message': '사용자 정보를 찾을 수 없습니다.',
+                'error': 'USER_NOT_FOUND'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT auth FROM user_info 
+                    WHERE user_id = %s AND use_yn = 'Y'
+                """, [user_id])
+                
+                user_data = cursor.fetchone()
+                print(f"DEBUG: AdminReceiptsView - DB 조회 결과: {user_data}")
+                
+                if not user_data:
+                    print("DEBUG: AdminReceiptsView - 사용자를 찾을 수 없음")
+                    return Response({
+                        'success': False,
+                        'message': '사용자를 찾을 수 없습니다.',
+                        'error': 'USER_NOT_FOUND'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+                
+                if user_data[0] != 'Y':  # auth 필드 확인
+                    print(f"DEBUG: AdminReceiptsView - 관리자 권한 없음: {user_data[0]}")
+                    return Response({
+                        'success': False,
+                        'message': '관리자 권한이 필요합니다.',
+                        'error': 'ADMIN_REQUIRED'
+                    }, status=status.HTTP_403_FORBIDDEN)
+                
+                print("DEBUG: AdminReceiptsView - 관리자 권한 확인 성공")
+        except Exception as e:
+            print(f"DEBUG: AdminReceiptsView - 사용자 권한 확인 중 오류: {e}")
+            logger.error(f"사용자 권한 확인 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '사용자 권한 확인 중 오류가 발생했습니다.',
+                'error': 'PERMISSION_CHECK_ERROR'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         try:
             # 쿼리 파라미터 파싱
@@ -195,7 +444,8 @@ class AdminReceiptsView(APIView):
                     r.status,
                     f.file_path,
                     r.receipt_id,
-                    u.user_login_id
+                    u.user_login_id,
+                    r.extracted_text
                 FROM receipt_info r
                 JOIN user_info u ON r.user_id = u.user_id
                 JOIN file_info f ON r.file_id = f.file_id
@@ -246,6 +496,9 @@ class AdminReceiptsView(APIView):
             # 응답 데이터 구성
             receipt_list = []
             for receipt in receipts:
+                # 품목 정보 파싱
+                items_info = self._parse_items_info(receipt[8])  # extracted_text는 인덱스 8
+                
                 receipt_list.append({
                     'name': receipt[0] or '',
                     'dept': receipt[1] or '',
@@ -254,7 +507,9 @@ class AdminReceiptsView(APIView):
                     'status': receipt[4] or '',
                     'file_path': generate_s3_public_url(receipt[5]) if receipt[5] else '',
                     'receipt_id': str(receipt[6]),
-                    'user_login_id': receipt[7] or ''
+                    'user_login_id': receipt[7] or '',
+                    'extracted_text': receipt[8] or '',
+                    'items_info': items_info
                 })
             
             total_pages = (total_count + page_size - 1) // page_size
@@ -424,6 +679,103 @@ class ReceiptManagementView(APIView):
     - 영수증 이미지, 파일명, 업로드 일시 정보 제공
     """
     
+    def _parse_items_info(self, extracted_text):
+        """
+        추출된 텍스트에서 품목 정보를 파싱하여 반환
+        """
+        try:
+            import json
+            import ast
+            import re
+            
+            logger.info(f"_parse_items_info 호출됨, extracted_text: {extracted_text}")
+            logger.info(f"extracted_text 타입: {type(extracted_text)}")
+            
+            if not extracted_text:
+                logger.info("extracted_text가 비어있음")
+                return []
+            
+            data = None
+            
+            # extracted_text가 문자열인 경우 파싱
+            if isinstance(extracted_text, str):
+                logger.info("문자열 형태의 extracted_text 파싱 시도")
+                
+                # 먼저 JSON으로 파싱 시도
+                try:
+                    data = json.loads(extracted_text)
+                    logger.info(f"JSON 파싱 성공: {data}")
+                except json.JSONDecodeError as e:
+                    logger.info(f"JSON 파싱 실패: {e}")
+                    
+                    # JSON 실패 시 ast.literal_eval로 파싱 시도 (Python 딕셔너리 형태)
+                    try:
+                        data = ast.literal_eval(extracted_text)
+                        logger.info(f"ast.literal_eval 파싱 성공: {data}")
+                    except (ValueError, SyntaxError) as e:
+                        logger.info(f"ast.literal_eval 파싱 실패: {e}")
+                        
+                        # 정규표현식으로 '품목' 키와 배열 추출 시도
+                        try:
+                            # '품목': [...] 패턴 찾기
+                            pattern = r"'품목':\s*\[(.*?)\]"
+                            match = re.search(pattern, extracted_text, re.DOTALL)
+                            if match:
+                                items_str = match.group(1)
+                                logger.info(f"정규표현식으로 추출된 items_str: {items_str}")
+                                
+                                # 간단한 파싱으로 품목 정보 추출
+                                items = []
+                                # {'productName': '...', 'quantity': ...} 패턴 찾기
+                                item_pattern = r"\{'productName':\s*'([^']+)',\s*'quantity':\s*(\d+)[^}]*\}"
+                                item_matches = re.findall(item_pattern, items_str)
+                                
+                                for product_name, quantity in item_matches:
+                                    items.append({
+                                        'productName': product_name,
+                                        'quantity': int(quantity)
+                                    })
+                                
+                                data = {'품목': items}
+                                logger.info(f"정규표현식으로 파싱된 데이터: {data}")
+                            else:
+                                logger.error(f"정규표현식으로도 파싱 실패: {extracted_text}")
+                                return []
+                        except Exception as e:
+                            logger.error(f"정규표현식 파싱 오류: {e}")
+                            return []
+            else:
+                data = extracted_text
+                logger.info(f"이미 딕셔너리 형태: {data}")
+            
+            if not data:
+                logger.error("파싱된 데이터가 없음")
+                return []
+            
+            # '품목' 키에서 품목 정보 추출
+            items = data.get('품목', [])
+            logger.info(f"추출된 품목 배열: {items}")
+            
+            if not items:
+                logger.info("품목 배열이 비어있음")
+                return []
+            
+            # 품목명과 갯수를 문자열로 포맷팅
+            formatted_items = []
+            for item in items:
+                product_name = item.get('productName', '')
+                quantity = item.get('quantity', 1)
+                if product_name:
+                    formatted_items.append(f"{product_name} x{quantity}")
+            
+            logger.info(f"최종 포맷된 품목 목록: {formatted_items}")
+            return formatted_items
+            
+        except Exception as e:
+            logger.error(f"품목 정보 파싱 오류: {str(e)}")
+            logger.error(f"extracted_text 전체 내용: {extracted_text}")
+            return []
+    
     @admin_required
     def get(self, request):
         """
@@ -433,17 +785,38 @@ class ReceiptManagementView(APIView):
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
-                    SELECT receipt_id, user_id, file_name, uploaded_at, is_verified 
-                    FROM receipt_info 
-                    ORDER BY uploaded_at DESC
+                    SELECT r.receipt_id, r.user_id, r.store_name, r.payment_date, r.amount, 
+                           r.extracted_text, r.status, r.created_at, r.updated_at,
+                           f.file_origin_name, f.file_path,
+                           u.name, u.dept
+                    FROM receipt_info r
+                    LEFT JOIN file_info f ON r.file_id = f.file_id
+                    LEFT JOIN user_info u ON r.user_id = u.user_id
+                    ORDER BY r.created_at DESC
                 """)
                 columns = [col[0] for col in cursor.description]
                 receipts = [dict(zip(columns, row)) for row in cursor.fetchall()]
                 
-                serializer = AdminReceiptSerializer(receipts, many=True) #ReceiptSerializer(receipts, many=True)
+                # 디버깅: 원본 데이터 확인
+                logger.info(f"조회된 영수증 개수: {len(receipts)}")
+                for i, receipt in enumerate(receipts):
+                    logger.info(f"영수증 {i+1} 원본 데이터: {receipt}")
+                    logger.info(f"영수증 {i+1} extracted_text: {receipt.get('extracted_text')}")
+                
+                # 품목 정보를 직접 처리하여 추가
+                for receipt in receipts:
+                    receipt['items_info'] = self._parse_items_info(receipt.get('extracted_text'))
+                    # 테스트용으로 하드코딩된 값 추가
+                    receipt['test_items'] = ['테스트 품목1 x2', '테스트 품목2 x1']
+                    logger.info(f"처리된 영수증: {receipt}")
+                
+                # Serializer 없이 직접 반환하여 테스트
                 return Response({
                     'success': True,
-                    'data': serializer.data
+                    'data': {
+                        'receipts': receipts,  # serializer.data 대신 원본 데이터 직접 반환
+                        'total_pages': 1
+                    }
                 })
                 
         except Exception as e:

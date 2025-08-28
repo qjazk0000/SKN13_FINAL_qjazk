@@ -345,4 +345,19 @@
 
 .retry-button:hover {
   background: #0056b3;
+}
+
+/* ========================================
+   관리자 영수증 관리 페이지 - ManageReceipts.jsx
+   ======================================== */
+
+/* 영수증 미리보기 테이블 셀 스타일 */
+.receipt-preview-cell {
+  min-height: 60px;        /* 기본 높이: 버튼이 잘 보이도록 */
+  vertical-align: top;     /* 내용을 셀 상단에 정렬 */
+}
+
+/* 영수증 미리보기가 열린 상태의 셀 높이 */
+.receipt-preview-cell.expanded {
+  min-height: 300px;       /* 확장 높이: 이미지가 잘 보이도록 */
 } 
