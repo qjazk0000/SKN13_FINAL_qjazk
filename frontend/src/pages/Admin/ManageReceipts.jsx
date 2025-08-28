@@ -109,9 +109,18 @@ function ManageReceipts() {
 
       const data = await response.json();
       console.log('API 응답:', data);
+      console.log('영수증 데이터:', data.data?.receipts);
       
       if (data.success && data.data) {
-        setReceipts(data.data.receipts || []);
+        const receiptsData = data.data.receipts || [];
+        console.log('처리할 영수증 데이터:', receiptsData);
+        receiptsData.forEach((receipt, index) => {
+          console.log(`영수증 ${index + 1}:`, receipt);
+          console.log(`영수증 ${index + 1} items_info:`, receipt.items_info);
+          console.log(`영수증 ${index + 1} extracted_text:`, receipt.extracted_text);
+        });
+        
+        setReceipts(receiptsData);
         setTotalPages(data.data.total_pages || 1);
         setCurrentPage(page);
       } else {
@@ -228,6 +237,27 @@ function ManageReceipts() {
             </div>
           );
         }
+      }
+    },
+    { 
+      header: "품목 및 갯수", 
+      accessor: "items_info",
+      cell: (value, row) => {
+        if (!value || value.length === 0) {
+          return <span className="text-gray-400">품목 정보 없음</span>;
+        }
+        
+        return (
+          <div className="max-w-xs">
+            <div className="space-y-1">
+              {value.map((item, index) => (
+                <div key={index} className="text-sm bg-gray-100 px-2 py-1 rounded">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
       }
     }
   ];
