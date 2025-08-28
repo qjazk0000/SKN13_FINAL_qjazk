@@ -29,8 +29,15 @@ def generate_s3_public_url(s3_key):
     bucket_name = os.getenv('AWS_S3_BUCKET_NAME', 'skn.dopamine-navi.bucket')
     region = os.getenv('AWS_REGION', 'ap-northeast-2')
     
-    # S3 공개 URL 형식: https://bucket-name.s3.region.amazonaws.com/key
-    s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
+    # S3 공개 URL 형식
+    # 버킷 이름에 점(.)이 포함된 경우: https://s3.region.amazonaws.com/bucket-name/key
+    # 버킷 이름에 점이 없는 경우: https://bucket-name.s3.region.amazonaws.com/key
+    if '.' in bucket_name:
+        # 버킷 이름에 점이 포함된 경우 (SSL 인증서 문제 방지)
+        s3_url = f"https://s3.{region}.amazonaws.com/{bucket_name}/{s3_key}"
+    else:
+        # 버킷 이름에 점이 없는 경우
+        s3_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
     return s3_url
 
 class AdminUsersView(APIView):
@@ -139,7 +146,9 @@ class AdminUsersView(APIView):
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
+            import traceback
             logger.error(f"회원 목록 조회 중 오류: {e}")
+            logger.error(f"상세 오류: {traceback.format_exc()}")
             return Response({
                 'success': False,
                 'message': '회원 목록 조회 중 오류가 발생했습니다.',
