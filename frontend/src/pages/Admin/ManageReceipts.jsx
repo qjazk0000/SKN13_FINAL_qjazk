@@ -6,6 +6,7 @@ import SearchBar from "./components/SearchBar.jsx";
 import DataTable from "./components/DataTable.jsx";
 import Pagination from "./components/Pagination.jsx";
 import { authService } from "../../services/authService";
+import api from "../../services/api";
 
 function ManageReceipts() {
   const navigate = useNavigate();
@@ -90,25 +91,10 @@ function ManageReceipts() {
         }
       }
       
-      const response = await fetch(`/api/admin/receipts/?${params.toString()}`, {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await api.get(`/admin/receipts/?${params.toString()}`);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error(`잘못된 응답 형식: ${contentType}. API 엔드포인트를 확인해주세요.`);
-      }
-
-      const data = await response.json();
-      console.log('API 응답:', data);
+      const data = response.data;
+      console.log('API 응답:', data); // 디버깅용 로그
       
       if (data.success && data.data) {
         setReceipts(data.data.receipts || []);
@@ -124,28 +110,9 @@ function ManageReceipts() {
       // 개발 환경에서만 더미 데이터 표시
       if (process.env.NODE_ENV === 'development') {
         setReceipts([
-          {
-            name: "홍길동",
-            dept: "개발팀",
-            created_at: "2024-01-15T10:00:00",
-            amount: 50000,
-            status: "승인완료",
-            file_path: "https://example.com/receipt1.jpg",
-            receipt_id: "1",
-            user_login_id: "hong"
-          },
-          {
-            name: "김철수",
-            dept: "영업팀",
-            created_at: "2024-01-14T14:30:00",
-            amount: 75000,
-            status: "승인대기",
-            file_path: "https://example.com/receipt2.pdf",
-            receipt_id: "2",
-            user_login_id: "kim"
-          }
+          { name: "홍길동", dept: "개발", created_at: "2024-01-01", amount: "50000", status: "승인", file_path: "sample1.jpg" },
+          { name: "김철수", dept: "영업", created_at: "2024-01-02", amount: "30000", status: "대기", file_path: "sample2.jpg" },
         ]);
-        setTotalPages(1);
       } else {
         setReceipts([]);
       }
