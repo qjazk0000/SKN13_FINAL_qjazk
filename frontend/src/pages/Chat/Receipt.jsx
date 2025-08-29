@@ -126,12 +126,15 @@ function Receipt({ selectedReceipt, selectedCategory }) {
           품명: item.품명,
           단가: Number(item.단가),
           수량: Number(item.수량),
-          금액: Number(item.금액)
-        }))
+          금액: Number(item.금액),
+        })),
       };
       const response = await api.post("/receipt/save/", payload);
       if (response.data.success) {
         alert("영수증이 성공적으로 저장되었습니다.");
+        setReceiptInfo(null);
+        setEditInfo(null);
+        setUploadFile(null);
       } else {
         alert(response.data.message || "저장에 실패했습니다.");
       }
@@ -220,9 +223,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
                   value={editInfo.결제처}
-                  onChange={(e) =>
-                    handleEditChange("결제처", e.target.value)
-                  }
+                  onChange={(e) => handleEditChange("결제처", e.target.value)}
                 />
               </div>
               <div className="flex items-center">
@@ -233,20 +234,18 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
                   value={editInfo.결제일시}
-                  onChange={(e) =>
-                    handleEditChange("결제일시", e.target.value)
-                  }
+                  onChange={(e) => handleEditChange("결제일시", e.target.value)}
                 />
               </div>
               <div className="flex items-center">
-                <span className="w-32 text-gray-500 font-semibold">카드번호</span>
+                <span className="w-32 text-gray-500 font-semibold">
+                  카드번호
+                </span>
                 <input
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
                   value={editInfo.카드정보}
-                  onChange={(e) =>
-                    handleEditChange("카드정보", e.target.value)
-                  }
+                  onChange={(e) => handleEditChange("카드정보", e.target.value)}
                 />
               </div>
               <div className="flex items-center">
@@ -255,9 +254,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                   type="number"
                   className="border rounded px-2 py-1 flex-1"
                   value={editInfo.총합계}
-                  onChange={(e) =>
-                    handleEditChange("총합계", e.target.value)
-                  }
+                  onChange={(e) => handleEditChange("총합계", e.target.value)}
                 />
               </div>
               {editInfo.품목 && Array.isArray(editInfo.품목) && (
@@ -292,7 +289,11 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                                 className="border rounded px-1 py-0.5 w-full"
                                 value={item.단가}
                                 onChange={(e) =>
-                                  handleItemChange(idx, "단가", Number(e.target.value))
+                                  handleItemChange(
+                                    idx,
+                                    "단가",
+                                    Number(e.target.value)
+                                  )
                                 }
                               />
                             </td>
@@ -302,7 +303,11 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                                 className="border rounded px-1 py-0.5 w-full"
                                 value={item.수량}
                                 onChange={(e) =>
-                                  handleItemChange(idx, "수량", Number(e.target.value))
+                                  handleItemChange(
+                                    idx,
+                                    "수량",
+                                    Number(e.target.value)
+                                  )
                                 }
                               />
                             </td>
@@ -312,7 +317,11 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                                 className="border rounded px-1 py-0.5 w-full"
                                 value={item.금액}
                                 onChange={(e) =>
-                                  handleItemChange(idx, "금액", Number(e.target.value))
+                                  handleItemChange(
+                                    idx,
+                                    "금액",
+                                    Number(e.target.value)
+                                  )
                                 }
                               />
                             </td>
