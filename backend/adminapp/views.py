@@ -439,9 +439,9 @@ class AdminReceiptsView(APIView):
                 SELECT 
                     u.name,
                     u.dept,
-                    rj.created_at,
+                    r.created_at,
                     rs.total_amount as amount,
-                    rj.status,
+                    r.status,
                     f.file_path,
                     r.receipt_id,
                     u.user_login_id,
@@ -1017,4 +1017,50 @@ class AdminReceiptDetailView(APIView):
             return Response({
                 'success': False,
                 'message': '영수증 상세 조회 중 오류 발생'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ReceiptPreviewView(APIView):
+    """
+    영수증 이미지 미리보기 API
+    - 특정 영수증의 이미지 URL 제공
+    """
+    
+    @admin_required
+    def get(self, request, receipt_id):
+        """
+        영수증 이미지 미리보기
+        - 입력: receipt_id (경로 파라미터)
+        - 출력: 영수증 이미지 URL
+        """
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT fi.file_origin_name, fi.file_path
+                    FROM receipt_info ri
+                    JOIN file_info fi ON ri.file_id = fi.file_id
+                    WHERE ri.receipt_id = %s
+                """, [receipt_id])
+                
+                row = cursor.fetchone()
+                if not row:
+                    return Response({
+                        'success': False,
+                        'message': '영수증을 찾을 수 없습니다'
+                    }, status=status.HTTP_404_NOT_FOUND)
+                
+                columns = [col[0] for col in cursor.description]
+                file_info = dict(zip(columns, row))
+                
+                # 이미지 미리보기 시리얼라이저 사용
+                serializer = ReceiptPreviewSerializer(file_info)
+                return Response({
+                    'success': True,
+                    'data': serializer.data
+                })
+                
+        except Exception as e:
+            logger.error(f"영수증 미리보기 오류: {str(e)}")
+            return Response({
+                'success': False,
+                'message': '영수증 미리보기 중 오류 발생'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

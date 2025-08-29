@@ -7,7 +7,6 @@ import SearchBar from "./components/SearchBar.jsx";
 import DataTable from "./components/DataTable.jsx";
 import Pagination from "./components/Pagination.jsx";
 import { authService } from "../../services/authService";
-import api from "../../services/api";
 
 function ManageReceipts() {
   const navigate = useNavigate();

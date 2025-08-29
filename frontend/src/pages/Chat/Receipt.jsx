@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
-import ReceiptUpload from "../../components/ReceiptUpload";
 import api from "../../services/api";
 import CustomModal from "./CustomModal";
 
@@ -356,18 +355,20 @@ function Receipt({ selectedReceipt, selectedCategory }) {
         <div className="flex bg-white rounded-lg w-full max-w-4xl p-4">
           {/* 영수증 업로드 영역 */}
           <div className="flex flex-1 flex-col justify-between items-center p-4 border-b md:border-b-0 md:border-r border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">
               영수증 업로드
             </h3>
-            
-            {/* ReceiptUpload 컴포넌트 사용 */}
-            <div className="w-full">
-              <ReceiptUpload 
-                onUploadSuccess={handleUploadSuccess}
-                onUploadError={handleUploadError}
+            {/* 파일 선택 UI */}
+            <label
+              htmlFor="file-upload"
+              className="flex items-center justify-center p-2 border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-50 transition-colors w-full h-16"
+            >
+              <input
+                id="file-upload"
+                type="file"
+                className="hidden"
+                onChange={handleFileChange}
               />
-            </div>
-            <label>
               {uploadFile ? (
                 <span className="text-gray-700 font-semibold text-center">
                   {uploadFile.name}
@@ -408,7 +409,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
             />
             <button
               onClick={handleDownload}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow-lg hover:bg-gray-300 transition-colors w-full justify-center mt-4"
+              className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow-lg hover:bg-gray-300 transition-colors w-full justify-center"
             >
               <ArrowDownTrayIcon className="h-5 w-5" />
               <span>다운로드</span>

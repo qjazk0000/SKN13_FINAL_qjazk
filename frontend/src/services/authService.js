@@ -33,7 +33,7 @@ export const authService = {
         }
     },
 
-    async checkAuthStatus() {  // 로그인 상태 확인인
+    async checkAuthStatus() {  // 로그인 상태 확인
         try {
             // JWT 토큰이 있는지 확인
             const token = localStorage.getItem('access_token');
@@ -82,11 +82,9 @@ export const authService = {
         }
     },
 
-    // 사용자 프로필 조회
-    async getUserProfile() {  // 사용자 프로필 조회
+    async getUserProfile() {
         try {
             const response = await api.get('/auth/profile/');
-            
             if (response.data.success) {
                 return response.data.data;  // 사용자 정보 반환
             } else {
@@ -98,7 +96,7 @@ export const authService = {
     },
 
     // 사용자 프로필 수정
-    async updateUserProfile(userData) {  // 사용자 프로필 수정
+    async updateUserProfile(userData) {
         try {
             const response = await api.put('/auth/profile/', userData);
             
@@ -113,7 +111,7 @@ export const authService = {
     },
 
     // 비밀번호 변경
-    async changePassword(passwordData) {  // 비밀번호 변경
+    async changePassword(passwordData) {
         try {
             const response = await api.post('/user/password-change/', {
                 current_password: passwordData.currentPassword,
@@ -130,9 +128,8 @@ export const authService = {
             throw new Error('비밀번호 변경에 실패했습니다: ' + error.message);
         }
     },
-
-    // 로그인 후 유저 정보 표시시
-    getCurrentUser() {  // 현재 로그인한 사용자 정보 가져오기
+    // 현재 로그인한 사용자 정보 가져오기
+    getCurrentUser() {
         try {
             const userStr = localStorage.getItem('user');
             return userStr ? JSON.parse(userStr) : null;
@@ -160,6 +157,7 @@ export const authService = {
 
 
     updateCurrentUser(userData) {  // 사용자 정보 업데이트 (로컬 스토리지)
+
         try {
             localStorage.setItem('user', JSON.stringify(userData));
         } catch (error) {

@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TypingEffect from "./TypingEffect";
 import api from "../../services/api";
-import axios from "axios";
 
 function Chat({ chat, onSendMessage, isLoading = false }) {
   const [text, setText] = useState("");

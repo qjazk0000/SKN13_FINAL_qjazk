@@ -6,8 +6,6 @@ import AdminSidebar from "./components/AdminSidebar.jsx";
 import SearchBar from "./components/SearchBar";
 import DataTable from "./components/DataTable";
 import Pagination from "./components/Pagination";
-import { authService } from "../../services/authService";
-import api from "../../services/api";
 
 function MembersPage() {
   const navigate = useNavigate();

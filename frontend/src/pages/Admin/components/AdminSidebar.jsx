@@ -59,11 +59,6 @@ function AdminSidebar({ userName, selectedTab, onTabSelect, onChatPageClick }) {
             className={`flex items-center px-4 py-2 rounded-md cursor-pointer transition ${getTabClass("chat-reports")}`}
             onClick={() => onTabSelect("chat-reports")}
           >
-          </div>
-          <div
-            className={`flex items-center px-4 py-2 rounded-md cursor-pointer transition ${getTabClass("chat-reports")}`}
-            onClick={() => onTabSelect("chat-reports")}
-          >
             채팅 신고 내역
           </div>
           <div
