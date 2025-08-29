@@ -316,8 +316,8 @@ class AdminReceiptsView(APIView):
             # 품목명과 갯수를 문자열로 포맷팅
             formatted_items = []
             for item in items:
-                product_name = item.get('품명', '')
-                quantity = item.get('수량', 1)
+                product_name = item.get('productName', '')
+                quantity = item.get('quantity', 1)
                 if product_name:
                     formatted_items.append(f"{product_name} x{quantity}")
             
