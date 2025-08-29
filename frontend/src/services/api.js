@@ -23,15 +23,29 @@ const api = axios.create({
 // 요청 인터셉터
 api.interceptors.request.use(
   (config) => {
-    console.log("API 요청 인터셉터 실행:", config.method?.toUpperCase(), config.url);
+    console.log("=== API 요청 인터셉터 시작 ===");
+    console.log("요청 URL:", config.url);
+    console.log("요청 메서드:", config.method?.toUpperCase());
+    console.log("기존 헤더:", config.headers);
     
     // JWT 토큰이 있으면 헤더에 추가
     const token = localStorage.getItem("access_token");
+    console.log("로컬스토리지에서 가져온 토큰:", token ? `${token.substring(0, 20)}...` : "없음");
+
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers = {
+        ...config.headers,
+        'Authorization': `Bearer ${token}`
+      };
+      console.log("토큰 추가됨:", config.headers.Authorization);
+    } else {
+      console.log("토큰이 없어서 헤더에 추가하지 않음");
     }
     
-    console.log("최종 요청 설정:", config);
+    console.log("=== 최종 요청 설정 ===");
+    console.log("최종 헤더:", config.headers);
+    console.log("=== API 요청 인터셉터 종료 ===");
+    
     return config;
   },
   (error) => {

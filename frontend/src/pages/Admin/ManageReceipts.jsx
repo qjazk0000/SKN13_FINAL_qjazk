@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from '../../services/api';
 import AdminSidebar from "./components/AdminSidebar.jsx";
 import DateSelectBar from "./components/DateSelectBar.jsx";
 import SearchBar from "./components/SearchBar.jsx";
 import DataTable from "./components/DataTable.jsx";
 import Pagination from "./components/Pagination.jsx";
 import { authService } from "../../services/authService";
-import api from "../../services/api";
 
 function ManageReceipts() {
   const navigate = useNavigate();
@@ -75,7 +75,6 @@ function ManageReceipts() {
       setIsLoading(true);
       setError("");
       
-      // 쿼리 파라미터 구성
       const params = new URLSearchParams();
       params.append('page', page.toString());
       params.append('page_size', '10');
@@ -122,7 +121,7 @@ function ManageReceipts() {
         setTotalPages(data.data.total_pages || 1);
         setCurrentPage(page);
       } else {
-        throw new Error(data.message || 'API 응답 오류');
+        throw new Error(response.data.message || 'API 응답 오류');
       }
     } catch (error) {
       console.error("영수증 목록 조회 실패:", error);

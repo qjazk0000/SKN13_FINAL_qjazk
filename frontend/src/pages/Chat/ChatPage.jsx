@@ -203,7 +203,7 @@ function ChatPage() {
 
   // 관리자 페이지로 이동 핸들러
   const handleAdminPageClick = useCallback(() => {
-    navigate("/admin/members");
+    navigate('/admin/members');
   }, [navigate]);
 
   // 채팅 선택 핸들러

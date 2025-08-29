@@ -31,6 +31,7 @@ services:
       - RAG_TOP_K=5
     depends_on:
       - qdrant
+    command: python manage.py runserver 0.0.0.0:8000
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -47,8 +48,9 @@ services:
       - QDRANT__STORAGE__SNAPSHOTS_PATH=/qdrant/snapshots
     restart: unless-stopped
 
+
 volumes:
   static_volume:
   media_volume:
   qdrant_storage:
-
+ 
