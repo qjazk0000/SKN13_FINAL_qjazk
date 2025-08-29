@@ -7,6 +7,10 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# logs 폴더 생성
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
+
 # 환경변수 로드
 # load_dotenv(BASE_DIR.parent / '.env')
 
@@ -130,8 +134,10 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': '/app/django.log',
+            'filename': BASE_DIR / 'django.log',
             'formatter': 'verbose',
+            'mode': 'a',
+            'encoding': 'utf-8',
         },
     },
     'root': {
@@ -150,6 +156,11 @@ LOGGING = {
             'propagate': False,
         },
         'chatbot.views': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'adminapp': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': False,

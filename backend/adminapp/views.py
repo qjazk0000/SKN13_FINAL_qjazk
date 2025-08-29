@@ -440,7 +440,7 @@ class AdminReceiptsView(APIView):
                     u.name,
                     u.dept,
                     r.created_at,
-                    rs.total_amount as amount,
+                    r.amount as amount,
                     r.status,
                     f.file_path,
                     r.receipt_id,
@@ -605,7 +605,7 @@ class ConversationReportView(APIView):
     """
     신고된 대화 내역 조회 API
     - 기간 선택: 전체/오늘/일주일/직접입력
-    - 검색 유형: 채팅ID/사용자ID/세션ID
+    - 검색 유형: 부서/이름/직급/사용자입력/LLM응답/신고타입/신고사유
     """
     
     @admin_required
@@ -615,59 +615,316 @@ class ConversationReportView(APIView):
         - 입력: period, start_date, end_date, search_type, search_keyword
         - 출력: 필터링된 신고 목록
         """
-        serializer = ConversationSearchSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response({
-                'success': False,
-                'errors': serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            period = serializer.validated_data['period']
-            search_type = serializer.validated_data['search_type']
-            keyword = serializer.validated_data.get('search_keyword', '')
+            # 쿼리 파라미터 파싱
+            period = request.data.get('period', 'all')
+            start_date = request.data.get('start_date')
+            end_date = request.data.get('end_date')
+            search_type = request.data.get('search_type', 'all')
+            search_keyword = request.data.get('search_keyword', '')
+            page = int(request.data.get('page', 1))
+            page_size = int(request.data.get('page_size', 10))
             
             with connection.cursor() as cursor:
-                query = "SELECT * FROM reported_conversation WHERE 1=1"
+                # 기본 쿼리 - chat_history, chat_report, user_info JOIN
+                base_query = """
+                    SELECT
+                        u.dept,
+                        u.naem,
+                        u.rank,
+                        ch.content as user_input,
+                        ch.content as llm_response,
+                        ch.created_at as chat_date,
+                        cr.error_type,
+                        cr.reason,
+                        cr.crated_at as reported_at,
+                        cr.remark,
+                        cr.report_id,
+                        ch.chat_id
+                    FROM chat_report cr
+                    JOIN chat_history ch ON cr.chat_id = ch.chat_id
+                    JOIN user_info u ON cr.reorted_by = u.user_id
+                    WHERE 1=1
+                """
+                count_query = """
+                    SELECT COUNT(*)
+                    FROM chat_report cr
+                    JOIN chat_history ch ON cr.chat_id = ch.chat_id
+                    JOIN user_info u ON cr.reorted_by = u.user_id
+                    WHERE 1=1
+                """
                 params = []
                 
                 # 기간 필터링
                 if period == 'today':
-                    query += " AND DATE(created_at) = CURRENT_DATE"  # 오늘 데이터
+                    base_query += " AND DATE(cr.created_at) = CURRENT_DATE"
+                    count_query += " AND DATE(cr.created_at) = CURRENT_DATE"
                 elif period == 'week':
-                    query += " AND created_at >= DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY)"  # 최근 1주일
-                elif period == 'custom' and serializer.validated_data.get('start_date'):
-                    query += " AND DATE(created_at) BETWEEN %s AND %s"  # 사용자 지정 기간
-                    params.extend([
-                        serializer.validated_data['start_date'],
-                        serializer.validated_data.get('end_date', serializer.validated_data['start_date'])
-                    ])
+                    base_query += " AND cr.created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                    count_query += " AND cr.created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                elif period == 'custom' and start_date:
+                    base_query += " AND DATE(cr.created_at) BETWEEN %s AND %s"
+                    count_query += " AND DATE(cr.created_at) BETWEEN %s AND %s"
+                    params.extend([start_date, end_date or start_date])
                 
                 # 검색 타입 적용
-                if keyword:
-                    if search_type == 'chat_id':
-                        query += " AND chat_id LIKE %s"  # 채팅 ID 검색
-                    elif search_type == 'user_id':
-                        query += " AND user_id LIKE %s"  # 사용자 ID 검색
-                    elif search_type == 'session_id':
-                        query += " AND session_id LIKE %s"  # 세션 ID 검색
-                    params.append(f'%{keyword}%')
+                if search_keyword:
+                    if search_type == 'dept':
+                        base_query += " AND u.dept ILIKE %s"
+                        count_query += " AND u.dept ILIKE %s"
+                    elif search_type == 'name':
+                        base_query += " AND u.name ILIKE %s"
+                        count_query += " AND u.name ILIKE %s"
+                    elif search_type == 'rank':
+                        base_query += " AND u.rank ILIKE %s"
+                        count_query += " AND u.rank ILIKE %s"
+                    elif search_type == 'user_input':
+                        base_query += " AND ch.content ILIKE %s"
+                        count_query += " AND ch.content ILIKE %s"
+                    elif search_type == 'llm_response':
+                        base_query += " AND ch.content ILIKE %s"
+                        count_query += " AND ch.content ILIKE %s"
+                    elif search_type == 'error_type':
+                        base_query += " AND cr.error_type ILIKE %s"
+                        count_query += " AND cr.error_type ILIKE %s"
+                    elif search_type == 'reason':
+                        base_query += " AND cr.reason ILIKE %s"
+                        count_query += " AND cr.reason ILIKE %s"
+                    params.append(f'%{search_keyword}%')
                 
-                query += " ORDER BY created_at DESC"  # 최신순 정렬
-                cursor.execute(query, params)
-                columns = [col[0] for col in cursor.description]
-                reports = [dict(zip(columns, row)) for row in cursor.fetchall()]
-                
-                return Response({
-                    'success': True,
-                    'data': reports
+                            # 전체 개수 조회
+            cursor.execute(count_query, params)
+            total_count = cursor.fetchone()[0]
+            
+            # 페이지네이션 적용
+            offset = (page - 1) * page_size
+            base_query += " ORDER BY cr.created_at DESC LIMIT %s OFFSET %s"
+            params.extend([page_size, offset])
+            
+            # 실제 데이터 조회
+            cursor.execute(base_query, params)
+            columns = [col[0] for col in cursor.description]
+            reports = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            
+            # 데이터 포맷팅
+            formatted_reports = []
+            for report in reports:
+                formatted_reports.append({
+                    'dept': report['dept'] or '',
+                    'name': report['name'] or '',
+                    'rank': report['rank'] or '',
+                    'user_input': report['user_input'] or '',
+                    'llm_response': report['llm_response'] or '',
+                    'chat_date': report['chat_date'].isoformat() if report['chat_date'] else '',
+                    'error_type': report['error_type'] or '',
+                    'reason': report['reason'] or '',
+                    'reported_at': report['reported_at'].isoformat() if report['reported_at'] else '',
+                    'remark': report['remark'] or '',
+                    'report_id': str(report['report_id']),
+                    'chat_id': str(report['chat_id'])
                 })
+            
+            total_pages = (total_count + page_size - 1) // page_size
+            
+            return Response({
+                'success': True,
+                'message': '신고 대화 목록을 성공적으로 조회했습니다.',
+                'data': {
+                    'reports': formatted_reports,
+                    'total_count': total_count,
+                    'total_pages': total_pages,
+                    'current_page': page,
+                    'page_size': page_size
+                }
+            })
                 
         except Exception as e:
             logger.error(f"신고 대화 검색 오류: {str(e)}")
+            import traceback
+            logger.error(f"상세 오류: {traceback.format_exc()}")
             return Response({
                 'success': False,
-                'message': '신고 대화 검색 중 오류 발생'
+                'message': '신고 대화 검색 중 오류 발생',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    authentication_classes = []
+    permission_classes = []
+
+    @admin_required
+    def get(self, request):
+        try:
+            # 쿼리 파라미터 파싱
+            page = int(request.GET.get('page', 1))
+            page_size = int(request.GET.get('page_size', 10))
+            start_date = request.GET.get('start_date', '')
+            end_date = request.GET.get('end_date')
+            search_type = request.GET.get('search_type')
+            search_keyword = request.GET.get('search_keyword')
+            
+            with connection.cursor() as cursor:
+                # 기본 쿼리 - chat_history, chat_report, user_info JOIN
+                base_query = """
+                    SELECT 
+                        u.dept,
+                        u.name,
+                        u.rank,
+                        ch.content as user_input,
+                        ch.content as llm_response,
+                        ch.created_at as chat_date,
+                        cr.error_type,
+                        cr.reason,
+                        cr.created_at as reported_at,
+                        cr.remark,
+                        cr.report_id,
+                        ch.chat_id
+                    FROM chat_report cr
+                    JOIN chat_history ch ON cr.chat_id = ch.chat_id
+                    JOIN user_info u ON cr.reported_by = u.user_id
+                    WHERE 1=1
+                """
+                count_query = """
+                    SELECT COUNT(*)
+                    FROM chat_report cr
+                    JOIN chat_history ch ON cr.chat_id = ch.chat_id
+                    JOIN user_info u ON cr.reported_by = u.user_id
+                    WHERE 1=1
+                """
+                params = []
+                
+                # 날짜 필터 적용
+                if start_date:
+                    base_query += " AND DATE(cr.created_at) >= %s"
+                    count_query += " AND DATE(cr.created_at) >= %s"
+                    params.append(start_date)
+                
+                if end_date:
+                    base_query += " AND DATE(cr.created_at) <= %s"
+                    count_query += " AND DATE(cr.created_at) <= %s"
+                    params.append(end_date)
+                
+                # 검색 필터 적용 - 프론트엔드에서 전송하는 파라미터들 처리
+                # 1. search_type과 search_keyword 방식 (기존)
+                if search_type and search_keyword:
+                    if search_type == 'dept':
+                        base_query += " AND u.dept ILIKE %s"
+                        count_query += " AND u.dept ILIKE %s"
+                    elif search_type == 'name':
+                        base_query += " AND u.name ILIKE %s"
+                        count_query += " AND u.name ILIKE %s"
+                    elif search_type == 'rank':
+                        base_query += " AND u.rank ILIKE %s"
+                        count_query += " AND u.rank ILIKE %s"
+                    elif search_type == 'user_input':
+                        base_query += " AND ch.content ILIKE %s"
+                        count_query += " AND ch.content ILIKE %s"
+                    elif search_type == 'llm_response':
+                        base_query += " AND ch.content ILIKE %s"
+                        count_query += " AND ch.content ILIKE %s"
+                    elif search_type == 'error_type':
+                        base_query += " AND cr.error_type ILIKE %s"
+                        count_query += " AND cr.error_type ILIKE %s"
+                    elif search_type == 'reason':
+                        base_query += " AND cr.reason ILIKE %s"
+                        count_query += " AND cr.reason ILIKE %s"
+                    params.append(f'%{search_keyword}%')
+                
+                # 2. 개별 파라미터 방식 (프론트엔드에서 전송하는 방식)
+                dept = request.GET.get('dept', '')
+                name = request.GET.get('name', '')
+                rank = request.GET.get('rank', '')
+                error_type = request.GET.get('error_type', '')
+                remark = request.GET.get('remark', '')
+                
+                if dept:
+                    base_query += " AND u.dept ILIKE %s"
+                    count_query += " AND u.dept ILIKE %s"
+                    params.append(f'%{dept}%')
+                
+                if name:
+                    base_query += " AND u.name ILIKE %s"
+                    count_query += " AND u.name ILIKE %s"
+                    params.append(f'%{name}%')
+                
+                if rank:
+                    base_query += " AND u.rank ILIKE %s"
+                    count_query += " AND u.rank ILIKE %s"
+                    params.append(f'%{rank}%')
+                
+                if error_type:
+                    # 한국어 값을 영어 enum 값으로 변환
+                    error_type_mapping = {
+                        "불완전": "incomplete",
+                        "환각": "hallucination",
+                        "사실 오류": "fact_error",
+                        "무관련": "irrelevant",
+                        "기타": "other"
+                    }
+                    
+                    # 한국어 값이면 영어로 변환, 아니면 그대로 사용
+                    english_error_type = error_type_mapping.get(error_type, error_type)
+                    
+                    base_query += " AND cr.error_type = %s"
+                    count_query += " AND cr.error_type = %s"
+                    params.append(english_error_type)
+                
+                if remark:
+                    base_query += " AND cr.remark ILIKE %s"
+                    count_query += " AND cr.remark ILIKE %s"
+                    params.append(f'%{remark}%')
+                
+                # 전체 개수 조회
+                cursor.execute(count_query, params)
+                total_count = cursor.fetchone()[0]
+                
+                # 페이지네이션 적용
+                offset = (page - 1) * page_size
+                base_query += " ORDER BY cr.created_at DESC LIMIT %s OFFSET %s"
+                params.extend([page_size, offset])
+                
+                # 실제 데이터 조회
+                cursor.execute(base_query, params)
+                columns = [col[0] for col in cursor.description]
+                reports = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
+                # 데이터 포맷팅
+                formatted_reports = []
+                for report in reports:
+                    formatted_reports.append({
+                        'dept': report['dept'] or '',
+                        'name': report['name'] or '',
+                        'rank': report['rank'] or '',
+                        'user_input': report['user_input'] or '',
+                        'llm_response': report['llm_response'] or '',
+                        'chat_date': report['chat_date'].isoformat() if report['chat_date'] else '',
+                        'error_type': report['error_type'] or '',
+                        'reason': report['reason'] or '',
+                        'reported_at': report['reported_at'].isoformat() if report['reported_at'] else '',
+                        'remark': report['remark'] or '',
+                        'report_id': str(report['report_id']),
+                        'chat_id': str(report['chat_id'])
+                    })
+                
+                total_pages = (total_count + page_size - 1) // page_size
+                
+                return Response({
+                    'success': True,
+                    'message': '신고 대화 목록을 성공적으로 조회했습니다.',
+                    'data': {
+                        'reports': formatted_reports,
+                        'total_count': total_count,
+                        'total_pages': total_pages,
+                        'current_page': page,
+                        'page_size': page_size
+                    }
+                })
+                
+        except Exception as e:
+            logger.error(f"신고 대화 목록 조회 오류: {str(e)}")
+            return Response({
+                'success': False,
+                'message': '신고 대화 목록 조회 중 오류 발생',
+                'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 ######################################

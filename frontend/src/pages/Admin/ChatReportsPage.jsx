@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 import dayjs from "dayjs";
@@ -14,36 +14,9 @@ function ChatReportsPage() {
 
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchType, setSearchType] = useState("chat_id");
+  const [searchType, setSearchType] = useState("dept");
 
-  const [members] = useState([
-    {
-      chat_id: "chat0101",
-      dept: "개발팀",
-      name: "김철수",
-      rank: "사원",
-      user_input: "추석 상여금 알려줘",
-      llm_response: "추석 상여금에 대한 응답입니다.",
-      chat_date: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-      error_type: "hallucination",
-      reason: "추석 상여금 관련 없는 응답",
-      reported_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-      remark: "검토 중"
-    },
-    {
-      chat_id: "chat0102",
-      dept: "영업팀",
-      name: "이영희",
-      rank: "대리",
-      user_input: "연차 신청 방법",
-      llm_response: "연차 신청 방법에 대한 응답입니다.",
-      chat_date: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-      error_type: "incomplete",
-      reason: "불완전 응답",
-      reported_at: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-      remark: "처리완료"
-    }
-  ]);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTab, setSelectedTab] = useState("chat-reports");  
   // 사용자 정보 상태 (실제로는 API에서 가져와야 함)
@@ -84,11 +57,11 @@ function ChatReportsPage() {
   const fetchChatReports = async (page = 1) => {
     try {
       // 토큰 체크
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        console.log("토큰이 없어 API 호출을 건너뜁니다.");
-        return;
-      }
+      // const token = localStorage.getItem("access_token");
+      // if (!token) {
+      //   console.log("토큰이 없어 API 호출을 건너뜁니다.");
+      //   return;
+      // }
 
       setIsLoading(true);
       setError("");
@@ -104,24 +77,31 @@ function ChatReportsPage() {
         params.append("end_date", endDate);
       }
 
-      if (searchTerm.trim()) {
+      // 검색 조건 처리
+      const trimmedSearchTerm = searchTerm.trim();
+      
+      if (trimmedSearchTerm) {
         if (searchType === 'dept') {
-          params.append("dept", searchTerm.trim());
+          params.append("dept", trimmedSearchTerm);
         } else if (searchType === 'name') {
-          params.append("name", searchTerm.trim());
+          params.append("name", trimmedSearchTerm);
         } else if (searchType === 'rank') {
-          params.append("rank", searchTerm.trim());
+          params.append("rank", trimmedSearchTerm);
         } else if (searchType === 'error_type') {
-          params.append("error_type", searchTerm.trim());
-        } 
+          params.append("error_type", trimmedSearchTerm);
+        } else if (searchType === 'reason') {
+          params.append("reason", trimmedSearchTerm);
+        } else if (searchType === 'remark') {
+          params.append("remark", trimmedSearchTerm);
+        }
       }
       
-      const response = await api.get(`/admin/chat-reports/?${params.toString()}`);
-      const data = response.data;
-      if (data.success && data.data) {
-        const chatReportsData = data.data.chat_reports || [];
-        setChatData(chatReportsData);
-        setTotalPages(data.data.total_pages);
+      const response = await api.get(`/admin/conversations/reports/?${params.toString()}`);
+
+      if (response.data.success) {
+        // 백엔드 검색 결과 사용
+        setChatData(response.data.data.reports);
+        setTotalPages(response.data.data.total_pages);
         setCurrentPage(page);
       } else {
         throw new Error(response.data.message || 'API 응답 오류');
@@ -157,7 +137,7 @@ function ChatReportsPage() {
     },
     {
       header: "LLM 응답",
-      accessor: "response",
+      accessor: "llm_response",
       cell: (value) => value || "정보 없음"
     },
     {
@@ -191,22 +171,22 @@ function ChatReportsPage() {
     },
     {
       header: "신고 사유",
-      accessor: "error_reason",
+      accessor: "reason",
       cell: (value) => value || "정보 없음"
     },
     {
       header: "신고 일시",
-      accessor: "report_date",
+      accessor: "reported_at",
       cell: (value) => {
         if (!value) return "정보 없음";
         const date = new Date(value);
-        return date.toLocaleString('ko-KR'), {
+        return date.toLocaleString('ko-KR', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
           hour: '2-digit',
           minute: '2-digit'
-        }
+        });
       }
     },
     {
@@ -292,13 +272,31 @@ function ChatReportsPage() {
     setFeedbackMode("");
   };
 
-  const searchOptions = [
-    { value: "dept", label: "부서명" },
-    { value: "name", label: "이름" },
-    { value: "rank", label: "직급" },
-    { value: "error_type", label: "신고 유형" },
-    { value: "remark", label: "처리 상태" }
-  ];
+          const searchOptions = [
+            { value: "dept", label: "부서명" },
+            { value: "name", label: "이름" },
+            { value: "rank", label: "직급" },
+            { value: "error_type", label: "신고 유형" },
+            { value: "remark", label: "비고" }
+        ];
+
+        // 신고 유형 한글-영어 매핑
+        const errorTypeMapping = {
+            "불완전": "incomplete",
+            "환각": "hallucination",
+            "사실 오류": "fact_error", 
+            "무관련": "irrelevant",
+            "기타": "other"
+        };
+
+        // 신고 유형 선택 옵션 (한국어)
+        const errorTypeOptions = [
+            { value: "불완전", label: "불완전" },
+            { value: "환각", label: "환각" },
+            { value: "사실 오류", label: "사실 오류" },
+            { value: "무관련", label: "무관련" },
+            { value: "기타", label: "기타" }
+        ];
 
   const handleDateChange = (start, end) => {
     setStartDate(start);
@@ -306,15 +304,28 @@ function ChatReportsPage() {
     fetchChatReports(1);
   };
 
-   const handleSearch = () => {
-    console.log(`검색 유형: ${searchType}, 검색어: ${searchTerm}`);
+     const handleSearch = () => {
+    if (!searchTerm.trim()) {
+      alert("검색어를 입력해주세요.");
+      return;
+    }
+    
+    setCurrentPage(1);
+    fetchChatReports(1);
+  };
+
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setSearchType("dept");
+    setStartDate("");
+    setEndDate("");
     setCurrentPage(1);
     fetchChatReports(1);
   };
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
-    // TODO: API 호출로 페이지 데이터 불러오기
+    fetchChatReports(page);
   };
 
 
@@ -361,20 +372,56 @@ function ChatReportsPage() {
           searchType={searchType}
           setSearchType={setSearchType}
           searchOptions={searchOptions}
+          onClearSearch={handleClearSearch}
+          errorTypeOptions={errorTypeOptions}
         />
-        <DataTable columns={columns} data={members} />
-        <Pagination
-          currentPage={currentPage}
-          totalPages={5}
-          onPageChange={handlePageChange}
-        />
+        
+        {isLoading && (
+          <div className="text-center py-8">
+            <p className="text-gray-500">데이터를 불러오는 중...</p>
+          </div>
+        )}
+        
+        {error && (
+          <div className="text-center py-8">
+            <p className="text-red-500">{error}</p>
+          </div>
+        )}
+        
+        {!isLoading && !error && chatData.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500">신고 내역이 없습니다.</p>
+          </div>
+        )}
+        
+        {!isLoading && !error && chatData.length > 0 && (
+          <>
+            {/* 검색 결과 요약 */}
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-800">
+                총 <span className="font-medium">{chatData.length}</span>건의 신고 내역을 찾았습니다.
+              </p>
+            </div>
+            
+            <DataTable columns={columns} data={chatData} />
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </>
+        )}
          {/* 피드백 모달 */}
         {isFeedbackModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              {/* 모달 제목 동적 처리 */}
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">
-                  {feedbackMode === "view" ? "피드백 보기" : "피드백 작성"}
+                <h2 className="text-xl font-semibold">
+                  {feedbackMode === "view"
+                    ? (currentFeedback ? "검토 완료" : "검토 중")
+                    : "피드백 작성"
+                  }
                 </h2>
                 <button
                   onClick={handleCloseFeedbackModal}
@@ -385,45 +432,50 @@ function ChatReportsPage() {
               </div>
 
               {feedbackMode === "view" ? (
-                // 피드백 보기 모드
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    피드백 내용
-                  </label>
-                  <div className="border border-gray-300 rounded-md p-3 bg-gray-50 min-h-[100px] whitespace-pre-wrap">
-                    {currentFeedback}
+                <div>
+                  {currentFeedback ? (
+                    <div>
+                      <p className="text-gray-600 mb-4">피드백 내용:</p>
+                      <div className="bg-gray-50 p-4 rounded-lg border">
+                        <p className="whitespace-pre-wrap">{currentFeedback}</p>
+                      </div>
+                    </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-lg">피드백을 입력해주세요.</p>
+                    <p className="text-gray-500 text-sm mt-2">아직 검토가 진행 중입니다.</p>
                   </div>
-                </div>
-              ) : (
-                // 피드백 작성 모드
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    피드백 작성
-                  </label>
-                  <textarea
-                    value={feedbackContent}
-                    onChange={(e) => setFeedbackContent(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-3 min-h-[100px] resize-none"
-                    placeholder="피드백 내용을 입력해주세요..."
-                  />
-                </div>
-              )}
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  피드백 작성
+                </label>
+                <textarea
+                  value={feedbackContent}
+                  onChange={(e) => setFeedbackContent(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="피드백 내용을 입력해주세요..."
+                />
+              </div>
+            )}
 
-              <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-3 mt-6">
+              {feedbackMode === "write" && (
                 <button
-                  onClick={handleCloseFeedbackModal}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                onClick={handleSaveFeedback}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500"
+                >
+                  저장
+                </button>
+              )}
+              <button
+                onClick={handleCloseFeedbackModal}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 focus:ring-2 focus:ring-gray-500"
                 >
                   닫기
                 </button>
-                {feedbackMode === "write" && (
-                  <button
-                    onClick={handleSaveFeedback}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    저장
-                  </button>
-                )}
               </div>
             </div>
           </div>
