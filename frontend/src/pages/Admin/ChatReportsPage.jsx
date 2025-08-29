@@ -93,15 +93,15 @@ function ChatReportsPage() {
 
   return (
     <div className="flex">
-      <AdminSidebar 
+      <div className="w-64 bg-gray-800 text-white flex-shrink-0 h-screen">
+        <AdminSidebar 
         userName={userName}
-
-
         selectedTab={selectedTab}
         onTabSelect={handleTabSelect}
         onChatPageClick={handleChatPageClick}
       />
-      <div className="flex-1 p-6">
+      </div>
+      <div className="flex-1 overflow-y-auto p-6">
         <h1 className="text-2xl font-bold mb-4">대화 신고 내역</h1>
         <DateSelectBar />
         <SearchBar
