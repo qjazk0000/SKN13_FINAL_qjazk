@@ -155,21 +155,6 @@ function ManageReceipts() {
       cell: (value) => value || "정보 없음"
     },
     { 
-      header: "제출일자", 
-      accessor: "created_at",
-      cell: (value) => {
-        if (!value) return "정보 없음";
-        const date = new Date(value);
-        return date.toLocaleString('ko-KR', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      }
-    },
-    { 
       header: "금액", 
       accessor: "amount",
       cell: (value) => {
@@ -310,6 +295,22 @@ function ManageReceipts() {
           </div>
         );
       }
+    },
+    { 
+      header: "제출일자", 
+      accessor: "created_at",
+      cell: (value) => {
+        if (!value) return "정보 없음";
+        const date = new Date(value);
+        return date.toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
     }
   ];
 
@@ -394,7 +395,7 @@ function ManageReceipts() {
   const formattedReceipts = receipts.map(receipt => ({
     ...receipt,
     amount: formatAmount(receipt.amount),
-    created_at: formatDate(receipt.created_at),
+    // created_at: formatDate(receipt.created_at),
     previewOpen: previewStates[receipt.receipt_id] || false
   }));
 

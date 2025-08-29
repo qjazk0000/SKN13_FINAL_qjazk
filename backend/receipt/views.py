@@ -18,6 +18,7 @@ import logging
 from datetime import datetime
 import os
 import re
+import calendar
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +108,11 @@ class ReceiptUploadView(APIView):
                 ])
 
                 # receipt_info 저장 (status = pending)
+                now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 cursor.execute("""
                     INSERT INTO receipt_info 
                     (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', NOW(), NOW())
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
                 """, [
                     receipt_id,
                     file_id,
@@ -119,7 +121,9 @@ class ReceiptUploadView(APIView):
                     amount,
                     'KRW',
                     store_name,
-                    str(normalized_extracted)   # 한글화된 OCR 데이터 저장
+                    str(normalized_extracted),   # 한글화된 OCR 데이터 저장
+                    now_str,
+                    now_str
                 ])
             # 임시 파일 삭제
             try:
@@ -249,8 +253,11 @@ class ReceiptDownloadView(APIView):
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        start = serializer.validated_data['start_date'] + '-01'
-        end = serializer.validated_data['end_date'] + '-01'
+        start_year, start_month = map(int, serializer.validated_data['start_date'].split('-'))
+        end_year, end_month = map(int, serializer.validated_data['end_date'].split('-'))
+        start = f"{start_year}-{start_month:02d}-01"
+        last_day = calendar.monthrange(end_year, end_month)[1]  # 마지막 날짜(예: 28, 29, 30, 31)
+        end = f"{end_year}-{end_month:02d}-{last_day:02d}"
 
         try:
             with connection.cursor() as cursor:
