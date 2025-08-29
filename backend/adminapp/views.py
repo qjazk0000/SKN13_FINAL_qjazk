@@ -5,6 +5,12 @@ from django.db import connection
 from authapp.utils import verify_token
 import os
 
+import openpyxl
+from django.http import HttpResponse
+import io
+import traceback
+from datetime import datetime
+
 from .serializers import (
     UserSearchSerializer,
     ConversationSearchSerializer,
@@ -534,69 +540,6 @@ class AdminReceiptsView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-######################################
-# 회원 관리 기능
-######################################
-class UserManagementView(APIView):
-    """
-    관리자용 회원 조회 및 검색 API
-    - 검색 유형: 전체/부서/이름/ID/직급/이메일
-    - 검색어 입력 필드 지원
-    """
-    
-    @admin_required
-    def post(self, request):
-        """
-        회원 검색 처리
-        - 입력: search_type, search_keyword
-        - 출력: 검색된 회원 목록
-        """
-        serializer = UserSearchSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response({
-                'success': False,
-                'errors': serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            search_type = serializer.validated_data['search_type']
-            keyword = serializer.validated_data.get('search_keyword', '')
-            
-            with connection.cursor() as cursor:
-                # 기본 쿼리 (모든 회원)
-                query = "SELECT * FROM user_info WHERE 1=1"
-                params = []
-                
-                # 검색 타입에 따른 조건 추가
-                if search_type != 'all' and keyword:
-                    if search_type == 'dept':
-                        query += " AND dept LIKE %s"  # 부서명 검색
-                    elif search_type == 'name':
-                        query += " AND name LIKE %s"  # 이름 검색
-                    elif search_type == 'id':
-                        query += " AND user_login_id LIKE %s"  # 로그인 ID 검색
-                    elif search_type == 'rank':
-                        query += " AND rank LIKE %s"  # 직급 검색
-                    elif search_type == 'email':
-                        query += " AND email LIKE %s"  # 이메일 검색
-                    params.append(f'%{keyword}%')  # 부분 일치 검색
-                
-                # 쿼리 실행
-                cursor.execute(query, params)
-                columns = [col[0] for col in cursor.description]  # 컬럼명 추출
-                users = [dict(zip(columns, row)) for row in cursor.fetchall()]  # 딕셔너리 변환
-                
-                return Response({
-                    'success': True,
-                    'data': users  # 검색 결과 반환
-                })
-                
-        except Exception as e:
-            logger.error(f"회원 검색 오류: {str(e)}")
-            return Response({
-                'success': False,
-                'message': '회원 검색 중 오류 발생'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 ######################################
 # 대화 신고 내역 관리
@@ -670,161 +613,6 @@ class ConversationReportView(APIView):
                 'message': '신고 대화 검색 중 오류 발생'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-######################################
-# 영수증 관리
-######################################
-class ReceiptManagementView(APIView):
-    """
-    영수증 목록 조회 API
-    - 영수증 이미지, 파일명, 업로드 일시 정보 제공
-    """
-    
-    def _parse_items_info(self, extracted_text):
-        """
-        추출된 텍스트에서 품목 정보를 파싱하여 반환
-        """
-        try:
-            import json
-            import ast
-            import re
-            
-            logger.info(f"_parse_items_info 호출됨, extracted_text: {extracted_text}")
-            logger.info(f"extracted_text 타입: {type(extracted_text)}")
-            
-            if not extracted_text:
-                logger.info("extracted_text가 비어있음")
-                return []
-            
-            data = None
-            
-            # extracted_text가 문자열인 경우 파싱
-            if isinstance(extracted_text, str):
-                logger.info("문자열 형태의 extracted_text 파싱 시도")
-                
-                # 먼저 JSON으로 파싱 시도
-                try:
-                    data = json.loads(extracted_text)
-                    logger.info(f"JSON 파싱 성공: {data}")
-                except json.JSONDecodeError as e:
-                    logger.info(f"JSON 파싱 실패: {e}")
-                    
-                    # JSON 실패 시 ast.literal_eval로 파싱 시도 (Python 딕셔너리 형태)
-                    try:
-                        data = ast.literal_eval(extracted_text)
-                        logger.info(f"ast.literal_eval 파싱 성공: {data}")
-                    except (ValueError, SyntaxError) as e:
-                        logger.info(f"ast.literal_eval 파싱 실패: {e}")
-                        
-                        # 정규표현식으로 '품목' 키와 배열 추출 시도
-                        try:
-                            # '품목': [...] 패턴 찾기
-                            pattern = r"'품목':\s*\[(.*?)\]"
-                            match = re.search(pattern, extracted_text, re.DOTALL)
-                            if match:
-                                items_str = match.group(1)
-                                logger.info(f"정규표현식으로 추출된 items_str: {items_str}")
-                                
-                                # 간단한 파싱으로 품목 정보 추출
-                                items = []
-                                # {'productName': '...', 'quantity': ...} 패턴 찾기
-                                item_pattern = r"\{'productName':\s*'([^']+)',\s*'quantity':\s*(\d+)[^}]*\}"
-                                item_matches = re.findall(item_pattern, items_str)
-                                
-                                for product_name, quantity in item_matches:
-                                    items.append({
-                                        'productName': product_name,
-                                        'quantity': int(quantity)
-                                    })
-                                
-                                data = {'품목': items}
-                                logger.info(f"정규표현식으로 파싱된 데이터: {data}")
-                            else:
-                                logger.error(f"정규표현식으로도 파싱 실패: {extracted_text}")
-                                return []
-                        except Exception as e:
-                            logger.error(f"정규표현식 파싱 오류: {e}")
-                            return []
-            else:
-                data = extracted_text
-                logger.info(f"이미 딕셔너리 형태: {data}")
-            
-            if not data:
-                logger.error("파싱된 데이터가 없음")
-                return []
-            
-            # '품목' 키에서 품목 정보 추출
-            items = data.get('품목', [])
-            logger.info(f"추출된 품목 배열: {items}")
-            
-            if not items:
-                logger.info("품목 배열이 비어있음")
-                return []
-            
-            # 품목명과 갯수를 문자열로 포맷팅
-            formatted_items = []
-            for item in items:
-                product_name = item.get('productName', '')
-                quantity = item.get('quantity', 1)
-                if product_name:
-                    formatted_items.append(f"{product_name} x{quantity}")
-            
-            logger.info(f"최종 포맷된 품목 목록: {formatted_items}")
-            return formatted_items
-            
-        except Exception as e:
-            logger.error(f"품목 정보 파싱 오류: {str(e)}")
-            logger.error(f"extracted_text 전체 내용: {extracted_text}")
-            return []
-    
-    @admin_required
-    def get(self, request):
-        """
-        영수증 전체 목록 조회
-        - 출력: 영수증 기본 정보 목록
-        """
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT r.receipt_id, r.user_id, r.store_name, r.payment_date, r.amount, 
-                           r.extracted_text, r.status, r.created_at, r.updated_at,
-                           f.file_origin_name, f.file_path,
-                           u.name, u.dept
-                    FROM receipt_info r
-                    LEFT JOIN file_info f ON r.file_id = f.file_id
-                    LEFT JOIN user_info u ON r.user_id = u.user_id
-                    ORDER BY r.created_at DESC
-                """)
-                columns = [col[0] for col in cursor.description]
-                receipts = [dict(zip(columns, row)) for row in cursor.fetchall()]
-                
-                # 디버깅: 원본 데이터 확인
-                logger.info(f"조회된 영수증 개수: {len(receipts)}")
-                for i, receipt in enumerate(receipts):
-                    logger.info(f"영수증 {i+1} 원본 데이터: {receipt}")
-                    logger.info(f"영수증 {i+1} extracted_text: {receipt.get('extracted_text')}")
-                
-                # 품목 정보를 직접 처리하여 추가
-                for receipt in receipts:
-                    receipt['items_info'] = self._parse_items_info(receipt.get('extracted_text'))
-                    # 테스트용으로 하드코딩된 값 추가
-                    receipt['test_items'] = ['테스트 품목1 x2', '테스트 품목2 x1']
-                    logger.info(f"처리된 영수증: {receipt}")
-                
-                # Serializer 없이 직접 반환하여 테스트
-                return Response({
-                    'success': True,
-                    'data': {
-                        'receipts': receipts,  # serializer.data 대신 원본 데이터 직접 반환
-                        'total_pages': 1
-                    }
-                })
-                
-        except Exception as e:
-            logger.error(f"영수증 목록 조회 오류: {str(e)}")
-            return Response({
-                'success': False,
-                'message': '영수증 목록 조회 중 오류 발생'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class AdminReceiptDetailView(APIView):
     """
@@ -916,4 +704,201 @@ class ReceiptPreviewView(APIView):
             return Response({
                 'success': False,
                 'message': '영수증 미리보기 중 오류 발생'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class AdminReceiptsDownloadView(APIView):
+    """
+    관리자용 영수증 목록 Excel 다운로드 API
+    GET /api/admin/receipts/download
+    """
+    authentication_classes = []  # 커스텀 JWT 인증 사용
+    permission_classes = []
+
+    def get(self, request):
+        print("DEBUG: AdminReceiptsDownloadView.get() 메서드 호출됨")
+
+        # --- 1) Authorization 헤더 확인 ---
+        auth_header = request.headers.get('Authorization')
+        print(f"DEBUG: Authorization 헤더: {auth_header}")
+
+        if not auth_header:
+            print("DEBUG: 토큰 없음")
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            token_type, token = auth_header.split(' ')
+            print(f"DEBUG: 토큰 타입={token_type}, 토큰 앞부분={token[:20]}...")
+            if token_type.lower() != 'bearer':
+                print("DEBUG: 잘못된 토큰 타입")
+                return Response({
+                    'success': False,
+                    'message': '올바른 토큰 형식이 아닙니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError:
+            print("DEBUG: 토큰 파싱 실패")
+            return Response({
+                'success': False,
+                'message': '토큰 형식이 올바르지 않습니다.',
+                'error': 'INVALID_TOKEN_FORMAT'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # --- 2) 토큰 검증 ---
+        payload = verify_token(token)
+        print(f"DEBUG: verify_token 결과: {payload}")
+
+        if not payload:
+            print("DEBUG: 토큰 검증 실패")
+            return Response({
+                'success': False,
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                'error': 'INVALID_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        user_id = payload.get('user_id')
+        print(f"DEBUG: 추출된 user_id: {user_id}")
+
+        if not user_id:
+            return Response({
+                'success': False,
+                'message': '사용자 정보를 찾을 수 없습니다.',
+                'error': 'USER_NOT_FOUND'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # --- 3) 관리자 권한 확인 ---
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT auth FROM user_info 
+                    WHERE user_id = %s AND use_yn = 'Y'
+                """, [user_id])
+                user_data = cursor.fetchone()
+                print(f"DEBUG: DB 조회 결과: {user_data}")
+
+                if not user_data:
+                    return Response({
+                        'success': False,
+                        'message': '사용자를 찾을 수 없습니다.',
+                        'error': 'USER_NOT_FOUND'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+
+                if user_data[0] != 'Y':
+                    return Response({
+                        'success': False,
+                        'message': '관리자 권한이 필요합니다.',
+                        'error': 'ADMIN_REQUIRED'
+                    }, status=status.HTTP_403_FORBIDDEN)
+
+                print("DEBUG: 관리자 권한 확인 성공")
+
+        except Exception as e:
+            print(f"DEBUG: 사용자 권한 확인 중 오류: {e}")
+            logger.error(f"사용자 권한 확인 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '사용자 권한 확인 중 오류가 발생했습니다.',
+                'error': 'PERMISSION_CHECK_ERROR'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # --- 4) Excel 생성 및 응답 ---
+        try:
+            start_date = request.GET.get('start_date')
+            end_date = request.GET.get('end_date')
+            name_filter = request.GET.get('name')
+            dept_filter = request.GET.get('dept')
+
+            base_query = """
+                SELECT
+                    u.dept,
+                    u.name,
+                    r.amount,
+                    r.extracted_text,
+                    r.created_at
+                FROM receipt_info r
+                JOIN user_info u ON r.user_id = u.user_id
+                JOIN file_info f ON r.file_id = f.file_id
+                WHERE r.status = 'processed'
+            """
+            params = []
+            if start_date:
+                base_query += " AND r.created_at >= %s"
+                params.append(start_date)
+            if end_date:
+                base_query += " AND r.created_at <= %s"
+                params.append(end_date + ' 23:59:59')
+            if name_filter:
+                base_query += " AND u.name ILIKE %s"
+                params.append(f'%{name_filter}%')
+            if dept_filter:
+                base_query += " AND u.dept ILIKE %s"
+                params.append(f'%{dept_filter}%')
+            base_query += " ORDER BY r.created_at DESC"
+
+            with connection.cursor() as cursor:
+                cursor.execute(base_query, params)
+                receipts = cursor.fetchall()
+
+            # 엑셀 생성
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Receipts"
+            headers = [
+                "부서", "이름", "금액", "추출데이터", "업로드일시"
+            ]
+            ws.append(headers)
+
+            # 부서(A), 이름(B) 컬럼 너비 직접 지정
+            ws.column_dimensions['A'].width = 10  # 부서
+            ws.column_dimensions['B'].width = 10  # 이름
+
+            for i, receipt in enumerate(receipts):
+                # file_url = generate_s3_public_url(receipt[5]) if receipt[5] else ""
+                print(f"DEBUG: receipt[{i}] 길이: {len(receipt)}, 내용: {receipt}")
+                ws.append([
+                    receipt[0] or '',
+                    receipt[1] or '',
+                    float(receipt[2]) if receipt[2] else 0,
+                    receipt[3] or '',
+                    receipt[4].isoformat() if receipt[4] else ''
+                ])
+
+            # 컬럼 너비 자동 조정
+            for col in ws.columns:
+                max_length = 0
+                column = col[0].column_letter
+                for cell in col:
+                    try:
+                        if cell.value:
+                            max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+
+                if column not in ['A', 'B']:
+                    ws.column_dimensions[column].width = max_length + 2
+
+            # 메모리 버퍼에 저장
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            filename = f"admin_receipts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            response = HttpResponse(
+                output.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except Exception as e:
+            logger.error(f"영수증 Excel 다운로드 오류: {e}")
+            logger.error(traceback.format_exc())
+            return Response({
+                'success': False,
+                'message': '영수증 Excel 다운로드 중 오류가 발생했습니다.',
+                'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

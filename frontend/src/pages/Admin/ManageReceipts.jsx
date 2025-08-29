@@ -145,13 +145,13 @@ function ManageReceipts() {
   // 테이블 컬럼 정의
   const columns = [
     { 
-      header: "이름", 
-      accessor: "name",
+      header: "부서", 
+      accessor: "dept",
       cell: (value) => value || "정보 없음"
     },
     { 
-      header: "부서", 
-      accessor: "dept",
+      header: "이름", 
+      accessor: "name",
       cell: (value) => value || "정보 없음"
     },
     { 
@@ -399,6 +399,43 @@ function ManageReceipts() {
     previewOpen: previewStates[receipt.receipt_id] || false
   }));
 
+  // 엑셀 다운로드 핸들러
+  const handleExcelDownload = async () => {
+    try {
+      // 쿼리 파라미터 구성 (필터, 날짜 등)
+      const params = new URLSearchParams();
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+      if (searchTerm.trim()) {
+        if (searchType === 'status') params.append('reported_yn', searchTerm.trim());
+        else if (searchType === 'name') params.append('name', searchTerm.trim());
+        else if (searchType === 'dept') params.append('dept', searchTerm.trim());
+      }
+
+      // 엑셀 다운로드 API 호출
+      const token = localStorage.getItem('access_token');
+      const response = await api.get(`/admin/receipts/download?${params.toString()}`, {
+        responseType: 'blob',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      // 파일 다운로드 처리
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', '영수증목록.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("엑셀 다운로드 실패:", error);
+      alert("엑셀 다운로드 중 오류가 발생했습니다.");
+    }
+  };
+
   return (
     <div className="flex">
       <AdminSidebar 
@@ -440,6 +477,16 @@ function ManageReceipts() {
           />
         </div>
         
+        {/* 엑셀 다운로드 버튼 */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleExcelDownload}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded shadow transition-colors"
+          >
+            엑셀 다운로드
+          </button>
+        </div>
+
         {/* 로딩 상태 */}
         {isLoading ? (
           <div className="flex justify-center items-center py-8">
