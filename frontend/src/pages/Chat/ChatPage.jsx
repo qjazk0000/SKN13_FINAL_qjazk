@@ -104,14 +104,14 @@ function ChatPage() {
         setChats(chatsWithMessageFlags);
         setReceipts(receiptsData);
 
-        if (selectedCategory === "업무 가이드" && chatsData.length > 0) {
-          setSelectedChatId(chatsData[0].id);
-        } else if (
-          selectedCategory === "영수증 처리" &&
-          receiptsData.length > 0
-        ) {
-          setSelectedReceiptId(receiptsData[0].id);
-        }
+        // if (selectedCategory === "업무 가이드" && chatsData.length > 0) {
+        //   setSelectedChatId(chatsData[0].id);
+        // } else if (
+        //   selectedCategory === "영수증 처리" &&
+        //   receiptsData.length > 0
+        // ) {
+        //   setSelectedReceiptId(receiptsData[0].receipt_id);
+        // }
       } catch (error) {
         console.error("데이터 로드 실패:", error);
         // 실패해도 UI는 동작 가능하게 빈 배열 유지
