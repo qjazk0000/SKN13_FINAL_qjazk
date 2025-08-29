@@ -1,6 +1,5 @@
 // ChatPage.jsx
 // todo: 실제 API 엔드포인트에 맞게 수정
-import axios from "axios";
 import api from "../../services/api";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -93,6 +92,7 @@ function ChatPage() {
         const normalizedChats = chatsData.map(normalizeChat);
 
         // DB에서 가져온 메시지에 isNew: false 플래그 추가
+        // info: 여기서 isNew 필드를 수정하기 때문에 채팅 목록이 바뀔 때마다 메시지가 다시 스트리밍됨
         const chatsWithMessageFlags = normalizedChats.map((chat) => ({
           ...chat,
           messages: chat.messages.map((message) => ({
@@ -194,6 +194,7 @@ function ChatPage() {
       setIsLoading(false);
     }
   }, []);
+  // console.log(receipts);
 
   // 마이페이지 이동 핸들러
   const handleUserNameClick = useCallback(() => {
@@ -432,8 +433,6 @@ function ChatPage() {
   // 채팅 삭제 핸들러 추가
   const handleDeleteChat = useCallback(
     async (deletedChatId) => {
-      console.log("ChatPage: 채팅 삭제 처리 시작 - ID:", deletedChatId);
-
       try {
         // 로컬 상태에서 삭제된 채팅 제거 (즉시 UI 업데이트)
         setChats((prevChats) =>
@@ -445,10 +444,7 @@ function ChatPage() {
           setSelectedChatId(null);
         }
 
-        console.log("ChatPage: 로컬 상태 업데이트 완료");
-
         // 백엔드에서 최신 대화기록 다시 조회
-        console.log("ChatPage: 백엔드에서 대화기록 재조회 시작");
         const chatResponse = await api.get("/chat/list/");
 
         // 백엔드 응답 형태가 배열이 아닐 수도 있으므로 안전하게 파싱
@@ -474,14 +470,8 @@ function ChatPage() {
 
         // 최신 대화기록으로 상태 업데이트
         setChats(chatsWithMessageFlags);
-
-        console.log(
-          "ChatPage: 백엔드에서 대화기록 재조회 완료, 총 채팅 수:",
-          chatsWithMessageFlags.length
-        );
       } catch (error) {
         console.error("ChatPage: 대화기록 재조회 중 오류 발생:", error);
-
         // 오류 발생 시 사용자에게 알림
         alert(
           "채팅이 삭제되었지만 대화기록을 새로고침하는 데 실패했습니다. 페이지를 새로고침해주세요."

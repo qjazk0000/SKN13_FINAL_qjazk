@@ -1,6 +1,9 @@
 # adminapp/serializers.py
 from rest_framework import serializers
 from .models import ReportedConversation
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserSearchSerializer(serializers.Serializer):
     """
@@ -92,15 +95,19 @@ class AdminReceiptSerializer(serializers.Serializer):
     관리자용 영수증 목록 응답 시리얼라이저 (Raw SQL 결과용)
     - FFC-13: 영수증 이미지 목록 출력
     """
-    # 프론트엔드가 요구하는 필드들 - Raw SQL JOIN 결과에서 가져옴
-    receipt_id = serializers.UUIDField(help_text="영수증 고유 ID")
-    name = serializers.CharField(help_text="사용자 이름")
-    dept = serializers.CharField(help_text="사용자 부서")
-    created_at = serializers.DateTimeField(help_text="생성일")
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="금액")
-    status = serializers.CharField(help_text="상태")
-    file_path = serializers.CharField(help_text="파일 경로")
-    user_login_id = serializers.CharField(help_text="사용자 로그인 ID")
+    receipt_id = serializers.UUIDField()
+    user_id = serializers.UUIDField()
+    name = serializers.CharField(allow_null=True)  # 사용자 이름
+    dept = serializers.CharField(allow_null=True)  # 사용자 부서
+    file_name = serializers.CharField(source='file_origin_name')  # file_info 테이블의 file_origin_name
+    file_path = serializers.CharField(allow_null=True)
+    created_at = serializers.DateTimeField()
+    status = serializers.CharField()
+    store_name = serializers.CharField(allow_null=True)
+    payment_date = serializers.DateTimeField(allow_null=True)
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    extracted_text = serializers.CharField(allow_null=True)
+    items_info = serializers.ListField(child=serializers.CharField(), allow_empty=True)
 
 class AdminReceiptDetailSerializer(serializers.Serializer):
     """

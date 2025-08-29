@@ -14,9 +14,8 @@ function ChatReportsPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchType, setSearchType] = useState("chat_id");
-  const now = dayjs().format("YYYY-MM-DD HH:mm:ss");
 
-  const [members, setMembers] = useState([
+  const [members] = useState([
     { 
         chat_id: "chat0101", 
         user_id: "dept0101", 
@@ -37,7 +36,7 @@ function ChatReportsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTab, setSelectedTab] = useState("chat-reports");  
   // 사용자 정보 상태 (실제로는 API에서 가져와야 함)
-  const [userName, setUserName] = useState("관리자");
+  const [userName] = useState("관리자");
 
 
   const columns = [
@@ -67,17 +66,6 @@ function ChatReportsPage() {
     // TODO: API 호출로 페이지 데이터 불러오기
   };
 
-  // 사용자명 클릭 핸들러
-  const handleUserNameClick = () => {
-    console.log("마이페이지로 이동");
-    // TODO: 마이페이지로 이동하는 로직 구현
-  };
-
-  // 로그아웃 핸들러
-  const handleLogout = () => {
-    console.log("로그아웃");
-    // TODO: 로그아웃 로직 구현
-  };
 
   // 탭 선택 핸들러
   const handleTabSelect = (tabName) => {
@@ -108,8 +96,8 @@ function ChatReportsPage() {
     <div className="flex">
       <AdminSidebar 
         userName={userName}
-        onUserNameClick={handleUserNameClick}
-        onLogout={handleLogout}
+
+
         selectedTab={selectedTab}
         onTabSelect={handleTabSelect}
         onChatPageClick={handleChatPageClick}

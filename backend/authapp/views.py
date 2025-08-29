@@ -175,6 +175,9 @@ class LogoutView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserProfileView(APIView):
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = []      # 권한 검사는 뷰 내부에서 직접 수행
+    
     def get(self, request):
         try:
             logger.info(f"UserProfileView GET 요청 시작")

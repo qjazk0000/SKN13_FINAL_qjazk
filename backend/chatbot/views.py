@@ -1,13 +1,14 @@
 # chatbot/views.py
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from authapp.utils import verify_token, get_user_from_token
+from rest_framework.views import APIView
 from rest_framework import generics, status, viewsets
+from authapp.utils import verify_token, get_user_from_token
 from .models import Conversation, ChatMessage
 from .serializers import ConversationSerializer, ChatMessageSerializer, ChatQuerySerializer
 from .services.rag_service import rag_answer
 from .services.pipeline import rag_answer_enhanced
-
+from django.http import JsonResponse
 
 class ConversationListView(generics.ListAPIView):
 
@@ -23,16 +24,31 @@ class ConversationListView(generics.ListAPIView):
         auth_header = self.request.headers.get('Authorization')
         user_id = None
         
+        print(f"DEBUG: ConversationListView - Authorization 헤더: {auth_header}")
+        
         if auth_header:
             try:
                 token_type, token = auth_header.split(' ')
+                print(f"DEBUG: ConversationListView - 토큰 타입: {token_type}, 토큰: {token[:20]}...")
+                
                 if token_type.lower() == 'bearer':
+                    from authapp.utils import verify_token
                     payload = verify_token(token)
+                    print(f"DEBUG: ConversationListView - 토큰 검증 결과: {payload}")
+                    
                     if payload:
                         user_id = payload.get('user_id')
                         print(f"DEBUG: ConversationListView - JWT에서 추출한 user_id: {user_id}")
+                    else:
+                        print(f"DEBUG: ConversationListView - 토큰 검증 실패")
+                else:
+                    print(f"DEBUG: ConversationListView - 잘못된 토큰 타입: {token_type}")
             except Exception as e:
                 print(f"DEBUG: ConversationListView - JWT 파싱 실패: {str(e)}")
+                import traceback
+                print(f"DEBUG: ConversationListView - 상세 오류: {traceback.format_exc()}")
+        else:
+            print(f"DEBUG: ConversationListView - Authorization 헤더가 없음")
         
         if user_id:
             # user_id로 필터링된 대화방만 반환
@@ -342,3 +358,13 @@ class ChatStatusView(generics.RetrieveAPIView):
                 {"error": "대화방을 찾을 수 없습니다."},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+class ChatReportView(APIView):
+    def post(self, request, chat_id):
+        try:
+            message = ChatMessage.objects.get(id=chat_id)
+            message.report = 'Y'
+            message.save()
+            return Response({'status': 'success'}, status=status.HTTP_200_OK)
+        except ChatMessage.DoesNotExist:
+            return Response({'status': 'fail', 'error': '메시지 없음'}, status=status.HTTP_404_NOT_FOUND)

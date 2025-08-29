@@ -6,6 +6,8 @@ import AdminSidebar from "./components/AdminSidebar.jsx";
 import SearchBar from "./components/SearchBar";
 import DataTable from "./components/DataTable";
 import Pagination from "./components/Pagination";
+import { authService } from "../../services/authService";
+import api from "../../services/api";
 
 function MembersPage() {
   const navigate = useNavigate();
@@ -23,8 +25,13 @@ function MembersPage() {
 
   // 페이지 로드 시 사용자 정보와 회원 목록 조회
   useEffect(() => {
-    loadUserInfo();
-    fetchMembers();
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      loadUserInfo();
+      fetchMembers();
+    } else {
+      console.log('토큰이 없어 API 호출을 건너뜁니다.');
+    }
   }, []);
 
   // 사용자 정보 로드
@@ -42,29 +49,52 @@ function MembersPage() {
   // 회원 목록 조회
   const fetchMembers = async (filter = "", page = 1) => {
     try {
+      // 토큰 체크
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        console.log('토큰이 없어 API 호출을 건너뜁니다.');
+        return;
+      }
+
+      console.log('fetchMembers 시작:', { filter, page, token: token.substring(0, 20) + '...' });
+
       setIsLoading(true);
       setError("");
       
-      const token = authService.getToken();
-      if (!token) {
-        throw new Error('로그인이 필요합니다.');
-      }
+      const url = `/admin/users/?filter=${encodeURIComponent(filter)}&page=${page}&page_size=10`;
+      console.log('API 요청 URL:', url);
       
-      const response = await api.get(`/admin/users/?filter=${encodeURIComponent(filter)}&page=${page}&page_size=10`);
+      const response = await api.get(url);
+      console.log('API 응답 전체:', response);
+      console.log('API 응답 상태:', response.status);
+      console.log('API 응답 헤더:', response.headers);
 
-      if (response.data.success && response.data.data) {
-        setMembers(response.data.data.users || []);
-        setTotalPages(response.data.data.total_pages || 1);
+      const data = response.data;
+      console.log('API 응답 데이터:', data);
+      
+      if (data.success && data.data) {
+        setMembers(data.data.users || []);
+        setTotalPages(data.data.total_pages || 1);
         setCurrentPage(1);
+        console.log('회원 목록 설정 완료:', data.data.users?.length || 0, '명');
       } else {
-        throw new Error(response.data.message || 'API 응답 오류');
+        console.error('API 응답이 성공이 아님:', data);
+        throw new Error(data.message || 'API 응답 오류');
       }
     } catch (error) {
       console.error("회원 목록 조회 실패:", error);
+      console.error("에러 상세:", {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
       setError(`회원 목록을 불러오는데 실패했습니다: ${error.message}`);
       
       // 개발 환경에서만 더미 데이터 표시
       if (process.env.NODE_ENV === 'development') {
+        console.log('개발 환경: 더미 데이터 표시');
         setMembers([
           { dept: "개발", name: "홍길동", user_login_id: "hong", rank: "사원", email: "hong@test.com", use_yn: "Y", created_dt: "2024-01-01" },
           { dept: "영업", name: "김철수", user_login_id: "kim", rank: "대리", email: "kim@test.com", use_yn: "Y", created_dt: "2024-01-02" },
@@ -120,17 +150,6 @@ function MembersPage() {
     fetchMembers(filter, page);
   };
 
-  // 사용자명 클릭 핸들러
-  const handleUserNameClick = () => {
-    console.log("마이페이지로 이동");
-    // TODO: 마이페이지로 이동하는 로직 구현
-  };
-
-  // 로그아웃 핸들러
-  const handleLogout = () => {
-    console.log("로그아웃");
-    // TODO: 로그아웃 로직 구현
-  };
 
   // 탭 선택 핸들러
   const handleTabSelect = (tabName) => {
@@ -162,8 +181,6 @@ function MembersPage() {
     <div className="flex">
       <AdminSidebar 
         userName={userName}
-        onUserNameClick={handleUserNameClick}
-        onLogout={handleLogout}
         selectedTab={selectedTab}
         onTabSelect={handleTabSelect}
         onChatPageClick={handleChatPageClick}

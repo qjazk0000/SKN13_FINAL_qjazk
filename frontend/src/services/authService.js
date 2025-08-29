@@ -89,6 +89,7 @@ export const authService = {
             
             if (response.data.success) {
                 return response.data.data;  // 사용자 정보 반환
+            } else {
                 throw new Error(response.data.message);
             }
         } catch (error) {

@@ -1,27 +1,30 @@
 from rest_framework import serializers
 import logging
-
+# 11  
 logger = logging.getLogger(__name__)
 
 class ReceiptUploadSerializer(serializers.Serializer):
-    files = serializers.ListField(
-        child=serializers.FileField(),
-        allow_empty=False,
+    files = serializers.FileField(
+        required=True,
+        # child=serializers.FileField(),
+        # allow_empty=False,
         error_messages={
             'required': '업로드할 파일을 선택해주세요.',
             'blank': '업로드할 파일을 선택해주세요.'
         }
     )
 
+from rest_framework import serializers
+
 class ReceiptSaveSerializer(serializers.Serializer):
     file_id = serializers.UUIDField(required=True, error_messages={
         'required': '파일 ID 오류.'
     })
     store_name = serializers.CharField(required=False, allow_blank=True)
-    payment_date = serializers.DateTimeField(required=False)
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
+    payment_date = serializers.CharField()  # 문자열로 받아서 View에서 normalize_date() 처리
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     card_info = serializers.CharField(required=False, allow_blank=True)
-    items = serializers.ListField(child=serializers.DictField(), required=False)
+    items = serializers.ListField(required=False)
 
     def validate(self, data):
         """
@@ -32,9 +35,9 @@ class ReceiptSaveSerializer(serializers.Serializer):
         return data
 
 class ReceiptDownloadSerializer(serializers.Serializer):
-    start_date = serializers.DateField(
+    start_date = serializers.CharField(
         error_messages={'required': '시작일을 입력해주세요.'}
     )
-    end_date = serializers.DateField(
+    end_date = serializers.CharField(
         error_messages={'required': '종료일을 입력해주세요.'}
     )
