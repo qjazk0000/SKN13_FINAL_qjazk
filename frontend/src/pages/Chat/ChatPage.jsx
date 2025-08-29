@@ -28,6 +28,8 @@ function ChatPage() {
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("업무 가이드");
 
+  const [receiptDetails, setReceiptDetails] = useState(null);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarLoading, setIsSidebarLoading] = useState(false);
@@ -66,12 +68,12 @@ function ChatPage() {
 
   // 초기 채팅 데이터 로드
   useEffect(() => {
-    const fetchChats = async () => {
+    const fetchChatsAndReceipts = async () => {
       setIsSidebarLoading(true);
       try {
         const [chatResponse, receiptResponse] = await Promise.all([
           api.get("/chat/list/"),
-          // api.get("/receipt/"),
+          api.get("/receipt/list/"),
         ]);
         // 백엔드 응답 형태가 배열이 아닐 수도 있으므로 안전하게 파싱
         const chatsData = Array.isArray(chatResponse?.data)
@@ -82,10 +84,14 @@ function ChatPage() {
           ? chatResponse.data.data
           : [];
 
-        const receiptsData = Array.isArray(receiptResponse?.data)
-          ? receiptResponse.data
-          : Array.isArray(receiptResponse?.data?.results)
-          ? receiptResponse.data.results
+        const receiptsData = Array.isArray(
+          receiptResponse?.data?.data?.receipts
+        )
+          ? receiptResponse.data.data.receipts.map((r) => ({
+              ...r,
+              id: r.receipt_id,
+              title: new Date(r.created_at).toLocaleDateString(),
+            }))
           : [];
 
         // normalizeChat을 사용하여 안전한 스키마로 변환
@@ -104,14 +110,14 @@ function ChatPage() {
         setChats(chatsWithMessageFlags);
         setReceipts(receiptsData);
 
-        if (selectedCategory === "업무 가이드" && chatsData.length > 0) {
-          setSelectedChatId(chatsData[0].id);
-        } else if (
-          selectedCategory === "영수증 처리" &&
-          receiptsData.length > 0
-        ) {
-          setSelectedReceiptId(receiptsData[0].id);
-        }
+        // if (selectedCategory === "업무 가이드" && chatsData.length > 0) {
+        //   setSelectedChatId(chatsData[0].id);
+        // } else if (
+        //   selectedCategory === "영수증 처리" &&
+        //   receiptsData.length > 0
+        // ) {
+        //   setSelectedReceiptId(receiptsData[0].receipt_id);
+        // }
       } catch (error) {
         console.error("데이터 로드 실패:", error);
         // 실패해도 UI는 동작 가능하게 빈 배열 유지
@@ -122,7 +128,7 @@ function ChatPage() {
       }
     };
 
-    fetchChats();
+    fetchChatsAndReceipts();
   }, [selectedCategory]);
 
   // 새 채팅 생성 핸들러
@@ -157,44 +163,47 @@ function ChatPage() {
   }, []);
 
   // 새 영수증 생성 핸들러
-  const handleNewReceipt = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      // const raw = localStorage.getItem("user");
-      // const user = raw ? JSON.parse(raw) : null;
-      // const userId = user?.user_id;
-
-      // if (!userId) {
-      //   throw new Error("사용자 ID를 찾을 수 없습니다. 다시 로그인해주세요.");
-      // }
-
-      // const response = await api.post("/receipt/new/", {
-      //   title: "새로운 영수증",
-      //   user_id: userId,
-      // });
-
-      // Mock API 응답 (실제 API 연동 시 제거 필요)
-      const mockResponse = {
-        data: {
-          id: Date.now(), // 고유한 ID 생성
-          title: "새 영수증",
-          data: {}, // 영수증 데이터 초기화
-        },
-      };
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const newReceipt = mockResponse.data;
-
-      setReceipts((prev) => [newReceipt, ...prev]);
-      setSelectedReceiptId(newReceipt.id);
+  const handleNewReceipt = useCallback(() => {
+    const existingNewReceipt = receipts.find((r) => r.isNew);
+    if (existingNewReceipt) {
+      setSelectedReceiptId(existingNewReceipt.id);
       setSelectedCategory("영수증 처리");
-    } catch (err) {
-      console.error("새 영수증 생성 실패:", err);
-      alert("새 영수증을 생성하는 데 실패했습니다.");
+      setReceiptDetails(null);
+      return;
+    }
+
+    const newReceipt = {
+      id: `new-${Date.now()}`,
+      title: "새 영수증",
+      isNew: true,
+    };
+
+    setReceipts((prev) => [newReceipt, ...prev]);
+    setSelectedReceiptId(newReceipt.id);
+    setSelectedCategory("영수증 처리");
+    setReceiptDetails(null);
+  }, [receipts]);
+
+  const handleReceiptSaveSuccess = useCallback(async () => {
+    setIsSidebarLoading(true);
+    try {
+      const response = await api.get("/receipt/list/");
+      const receiptsData = Array.isArray(response?.data?.data?.receipts)
+        ? response.data.data.receipts.map((r) => ({
+            ...r,
+            id: r.receipt_id,
+            title: new Date(r.created_at).toLocaleDateString(),
+          }))
+        : [];
+      setReceipts(receiptsData);
+      setSelectedReceiptId(null);
+      setReceiptDetails(null);
+    } catch (error) {
+      alert("영수증 목록을 새로고침하는 데 실패했습니다.");
     } finally {
-      setIsLoading(false);
+      setIsSidebarLoading(false);
     }
   }, []);
-  // console.log(receipts);
 
   // 마이페이지 이동 핸들러
   const handleUserNameClick = useCallback(() => {
@@ -229,15 +238,28 @@ function ChatPage() {
   const handleSelectReceipt = useCallback(
     async (receipt) => {
       if (receipt.id === selectedReceiptId || isLoading) return;
+
+      setSelectedChatId(null);
+      setSelectedReceiptId(receipt.id);
+      setSelectedCategory("영수증 처리");
+
+      if (receipt.isNew) {
+        setReceiptDetails(null);
+        return;
+      }
+
       setIsLoading(true);
 
       try {
-        // 영수증 선택 시 바로 선택 (상세 데이터는 필요시 로드)
-        setSelectedReceiptId(receipt.id);
-        setSelectedCategory("영수증 처리");
+        const response = await api.get(`/receipt/${receipt.id}/`);
+        if (response.data.success) {
+          setReceiptDetails(response.data.data);
+        } else {
+          throw new Error(response.data.message);
+        }
       } catch (error) {
-        console.error("영수증 선택 실패:", error);
         alert("영수증을 불러오는 데 실패했습니다.");
+        setSelectedReceiptId(null);
       } finally {
         setIsLoading(false);
       }
@@ -286,6 +308,7 @@ function ChatPage() {
           message: message,
         });
         const aiResponseText = response.data.response;
+        const aiMessageId = response.data.message_id;
         const conversationTitle = response.data.conversation_title; // 백엔드에서 반환된 제목
 
         // 채팅 제목 업데이트 (첫 질문인 경우)
@@ -311,6 +334,7 @@ function ChatPage() {
                         msg.id === aiLoadingMessage.id
                           ? {
                               ...msg,
+                              id : aiMessageId,
                               content: aiResponseText,
                               isLoading: false,
                               isNew: true, // TypingEffect 활성화
@@ -320,6 +344,7 @@ function ChatPage() {
                     : [
                         {
                           ...aiLoadingMessage,
+                          id : aiMessageId,
                           content: aiResponseText,
                           isLoading: false,
                           isNew: true, // TypingEffect 활성화
@@ -339,7 +364,7 @@ function ChatPage() {
                     ...chat,
                     messages: Array.isArray(chat.messages)
                       ? chat.messages.map((msg) =>
-                          msg.id === aiLoadingMessage.id
+                          msg.id === aiMessageId
                             ? {
                                 ...msg,
                                 isNew: false, // TypingEffect 비활성화
@@ -490,6 +515,7 @@ function ChatPage() {
       <Sidebar
         userName={userName}
         chats={sidebarList}
+        receipts={receipts}
         onNewChat={handleNewChat}
         onNewReceipt={handleNewReceipt}
         onSelectChat={handleSelectChat}
@@ -497,6 +523,7 @@ function ChatPage() {
         onSelectCategory={handleSelectCategory}
         selectedCategory={selectedCategory}
         selectedChatId={selectedChatId}
+        selectedReceiptId={selectedReceiptId}
         onLogout={handleLogout}
         onUserNameClick={handleUserNameClick}
         isLoading={isSidebarLoading}
@@ -517,6 +544,8 @@ function ChatPage() {
           <Receipt
             selectedCategory={selectedCategory}
             selectedReceipt={selectedReceipt}
+            receiptDetails={receiptDetails}
+            onSaveSuccess={handleReceiptSaveSuccess}
           />
         )}
       </div>

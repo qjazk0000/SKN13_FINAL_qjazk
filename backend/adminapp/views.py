@@ -5,6 +5,12 @@ from django.db import connection
 from authapp.utils import verify_token
 import os
 
+import openpyxl
+from django.http import HttpResponse
+import io
+import traceback
+from datetime import datetime
+
 from .serializers import (
     UserSearchSerializer,
     ConversationSearchSerializer,
@@ -316,8 +322,8 @@ class AdminReceiptsView(APIView):
             # 품목명과 갯수를 문자열로 포맷팅
             formatted_items = []
             for item in items:
-                product_name = item.get('품명', '')
-                quantity = item.get('수량', 1)
+                product_name = item.get('productName', '')
+                quantity = item.get('quantity', 1)
                 if product_name:
                     formatted_items.append(f"{product_name} x{quantity}")
             
@@ -1319,4 +1325,200 @@ class ReceiptPreviewView(APIView):
             return Response({
                 'success': False,
                 'message': '영수증 미리보기 중 오류 발생'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class AdminReceiptsDownloadView(APIView):
+    """
+    관리자용 영수증 목록 Excel 다운로드 API
+    GET /api/admin/receipts/download
+    """
+    authentication_classes = []  # 커스텀 JWT 인증 사용
+    permission_classes = []
+
+    def get(self, request):
+        print("DEBUG: AdminReceiptsDownloadView.get() 메서드 호출됨")
+
+        # --- 1) Authorization 헤더 확인 ---
+        auth_header = request.headers.get('Authorization')
+        print(f"DEBUG: Authorization 헤더: {auth_header}")
+
+        if not auth_header:
+            print("DEBUG: 토큰 없음")
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            token_type, token = auth_header.split(' ')
+            print(f"DEBUG: 토큰 타입={token_type}, 토큰 앞부분={token[:20]}...")
+            if token_type.lower() != 'bearer':
+                print("DEBUG: 잘못된 토큰 타입")
+                return Response({
+                    'success': False,
+                    'message': '올바른 토큰 형식이 아닙니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError:
+            print("DEBUG: 토큰 파싱 실패")
+            return Response({
+                'success': False,
+                'message': '토큰 형식이 올바르지 않습니다.',
+                'error': 'INVALID_TOKEN_FORMAT'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # --- 2) 토큰 검증 ---
+        payload = verify_token(token)
+        print(f"DEBUG: verify_token 결과: {payload}")
+
+        if not payload:
+            print("DEBUG: 토큰 검증 실패")
+            return Response({
+                'success': False,
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                'error': 'INVALID_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        user_id = payload.get('user_id')
+        print(f"DEBUG: 추출된 user_id: {user_id}")
+
+        if not user_id:
+            return Response({
+                'success': False,
+                'message': '사용자 정보를 찾을 수 없습니다.',
+                'error': 'USER_NOT_FOUND'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+
+        # --- 3) 관리자 권한 확인 ---
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT auth FROM user_info 
+                    WHERE user_id = %s AND use_yn = 'Y'
+                """, [user_id])
+                user_data = cursor.fetchone()
+                print(f"DEBUG: DB 조회 결과: {user_data}")
+
+                if not user_data:
+                    return Response({
+                        'success': False,
+                        'message': '사용자를 찾을 수 없습니다.',
+                        'error': 'USER_NOT_FOUND'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+
+                if user_data[0] != 'Y':
+                    return Response({
+                        'success': False,
+                        'message': '관리자 권한이 필요합니다.',
+                        'error': 'ADMIN_REQUIRED'
+                    }, status=status.HTTP_403_FORBIDDEN)
+
+                print("DEBUG: 관리자 권한 확인 성공")
+
+        except Exception as e:
+            print(f"DEBUG: 사용자 권한 확인 중 오류: {e}")
+            logger.error(f"사용자 권한 확인 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '사용자 권한 확인 중 오류가 발생했습니다.',
+                'error': 'PERMISSION_CHECK_ERROR'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # --- 4) Excel 생성 및 응답 ---
+        try:
+            start_date = request.GET.get('start_date')
+            end_date = request.GET.get('end_date')
+            name_filter = request.GET.get('name')
+            dept_filter = request.GET.get('dept')
+
+            base_query = """
+                SELECT
+                    u.dept,
+                    u.name,
+                    r.amount,
+                    r.extracted_text,
+                    r.created_at
+                FROM receipt_info r
+                JOIN user_info u ON r.user_id = u.user_id
+                JOIN file_info f ON r.file_id = f.file_id
+                WHERE r.status = 'processed'
+            """
+            params = []
+            if start_date:
+                base_query += " AND r.created_at >= %s"
+                params.append(start_date)
+            if end_date:
+                base_query += " AND r.created_at <= %s"
+                params.append(end_date + ' 23:59:59')
+            if name_filter:
+                base_query += " AND u.name ILIKE %s"
+                params.append(f'%{name_filter}%')
+            if dept_filter:
+                base_query += " AND u.dept ILIKE %s"
+                params.append(f'%{dept_filter}%')
+            base_query += " ORDER BY r.created_at DESC"
+
+            with connection.cursor() as cursor:
+                cursor.execute(base_query, params)
+                receipts = cursor.fetchall()
+
+            # 엑셀 생성
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Receipts"
+            headers = [
+                "부서", "이름", "금액", "추출데이터", "업로드일시"
+            ]
+            ws.append(headers)
+
+            # 부서(A), 이름(B) 컬럼 너비 직접 지정
+            ws.column_dimensions['A'].width = 10  # 부서
+            ws.column_dimensions['B'].width = 10  # 이름
+
+            for i, receipt in enumerate(receipts):
+                # file_url = generate_s3_public_url(receipt[5]) if receipt[5] else ""
+                print(f"DEBUG: receipt[{i}] 길이: {len(receipt)}, 내용: {receipt}")
+                ws.append([
+                    receipt[0] or '',
+                    receipt[1] or '',
+                    float(receipt[2]) if receipt[2] else 0,
+                    receipt[3] or '',
+                    receipt[4].isoformat() if receipt[4] else ''
+                ])
+
+            # 컬럼 너비 자동 조정
+            for col in ws.columns:
+                max_length = 0
+                column = col[0].column_letter
+                for cell in col:
+                    try:
+                        if cell.value:
+                            max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+
+                if column not in ['A', 'B']:
+                    ws.column_dimensions[column].width = max_length + 2
+
+            # 메모리 버퍼에 저장
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+
+            filename = f"admin_receipts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+            response = HttpResponse(
+                output.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except Exception as e:
+            logger.error(f"영수증 Excel 다운로드 오류: {e}")
+            logger.error(traceback.format_exc())
+            return Response({
+                'success': False,
+                'message': '영수증 Excel 다운로드 중 오류가 발생했습니다.',
+                'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
