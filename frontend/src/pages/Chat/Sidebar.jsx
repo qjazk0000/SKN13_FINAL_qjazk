@@ -10,6 +10,7 @@ import api from "../../services/api";
 function Sidebar({
   userName,
   chats,
+  receipts,
   onNewChat,
   onNewReceipt,
   onSelectChat,
@@ -20,8 +21,8 @@ function Sidebar({
   onSelectCategory,
   selectedCategory,
   selectedChatId,
+  selectedReceiptId,
   onDeleteChat,
-  onDeleteReceipt,
   isNewChatLocked,
   isAdmin,
   onAdminPageClick,
@@ -30,7 +31,7 @@ function Sidebar({
   const displayName = userName || "사용자";
 
   const [openDeleteMenuId, setOpenDeleteMenuId] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false); // 삭제 중 상태
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const menuRef = useRef(null);
   const listRef = useRef(null);
@@ -62,14 +63,6 @@ function Sidebar({
     } else {
       onNewReceipt();
     }
-  };
-
-  const handleSelectChat = (chat) => {
-    onSelectChat(chat);
-  };
-
-  const handleSelectReceipt = (receipt) => {
-    onSelectReceipt(receipt);
   };
 
   const handleToggleDeleteMenu = (chatId, e) => {
@@ -180,79 +173,108 @@ function Sidebar({
           </button>
 
           {isLoading ? (
-            // 로딩 중일 때
             <div className="flex justify-center items-center h-full text-gray-400">
               <ArrowPathIcon className="h-6 w-6 animate-spin" />
             </div>
           ) : (
-            // 로딩이 끝났을 때
             <div ref={listRef} className="max-h-96 overflow-y-auto">
               <ul>
-                {chats.map((chat, index) => {
-                  const isSelected = selectedChatId === chat.id;
-                  const isLastItem = index === chats.length - 1;
+                {isChatCategory
+                  ? chats.map((chat, index) => {
+                      const isSelected = selectedChatId === chat.id;
+                      const isLastItem = index === chats.length - 1;
 
-                  return (
-                    <li
-                      key={chat.id}
-                      className={`relative ${
-                        openDeleteMenuId === chat.id || isSelected
-                          ? "bg-gray-700 rounded-md"
-                          : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          isChatCategory
-                            ? handleSelectChat(chat)
-                            : handleSelectReceipt(chat)
-                        }
-                        className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
-                        title={chat.title}
-                      >
-                        {chat.title}
-                      </button>
-
-                      <div className="absolute top-0 right-0 h-full flex items-center">
-                        <div
-                          className="relative"
-                          ref={openDeleteMenuId === chat.id ? menuRef : null}
+                      return (
+                        <li
+                          key={chat.id}
+                          className={`relative ${
+                            openDeleteMenuId === chat.id || isSelected
+                              ? "bg-gray-700 rounded-md"
+                              : ""
+                          }`}
                         >
                           <button
-                            onClick={(e) => {
-                              handleToggleDeleteMenu(chat.id, e);
-                            }}
-                            className="px-2 text-gray-400 hover:text-white focus:outline-none"
+                            type="button"
+                            onClick={() => onSelectChat(chat)}
+                            className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
+                            title={chat.title}
                           >
-                            <EllipsisVerticalIcon className="w-5 h-5" />
+                            {chat.title}
                           </button>
 
-                          {/* 드롭다운 메뉴 (삭제 버튼) */}
-                          {openDeleteMenuId === chat.id && (
+                          <div className="absolute top-0 right-0 h-full flex items-center">
                             <div
-                              className={`absolute ${
-                                isLastItem ? "bottom-8" : "mt-1"
-                              } right-2 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16`}
+                              className="relative"
+                              ref={
+                                openDeleteMenuId === chat.id ? menuRef : null
+                              }
                             >
                               <button
-                                onClick={() => handleDelete(chat.id)}
-                                disabled={isDeleting}
-                                className={`w-full text-left px-4 py-2 text-sm text-white transition ${
-                                  isDeleting
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : "hover:bg-gray-700"
-                                }`}
+                                onClick={(e) => {
+                                  handleToggleDeleteMenu(chat.id, e);
+                                }}
+                                className="px-2 text-gray-400 hover:text-white focus:outline-none"
                               >
-                                {isDeleting ? "삭제 중..." : "삭제"}
+                                <EllipsisVerticalIcon className="w-5 h-5" />
                               </button>
+
+                              {/* 드롭다운 메뉴 (삭제 버튼) */}
+                              {openDeleteMenuId === chat.id && (
+                                <div
+                                  className={`absolute ${
+                                    isLastItem ? "bottom-8" : "mt-1"
+                                  } right-2 z-10 bg-gray-600 hover:bg-gray-700 rounded-md shadow-lg min-w-16`}
+                                >
+                                  <button
+                                    onClick={() => handleDelete(chat.id)}
+                                    disabled={isDeleting}
+                                    className={`w-full text-left px-4 py-2 text-sm text-white transition ${
+                                      isDeleting
+                                        ? "opacity-50 cursor-not-allowed"
+                                        : "hover:bg-gray-700"
+                                    }`}
+                                  >
+                                    {isDeleting ? "삭제 중..." : "삭제"}
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    </li>
-                  );
-                })}
+                          </div>
+                        </li>
+                      );
+                    })
+                  : receipts.map((receipt, index) => {
+                      const isSelected =
+                        selectedReceiptId === receipt.receipt_id;
+                      return (
+                        <li
+                          key={receipt.receipt_id || index}
+                          className={`relative ${
+                            isSelected ? "bg-gray-700 rounded-md" : ""
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => onSelectReceipt(receipt)}
+                            className="w-full text-left block px-4 py-2 text-gray-300 rounded-md hover:bg-gray-700 hover:text-white transition truncate"
+                            title={receipt.created_at}
+                          >
+                            {receipt.created_at
+                              ? new Date(receipt.created_at).toLocaleString(
+                                  "ko-KR",
+                                  {
+                                    year: "numeric",
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )
+                              : "새 영수증"}
+                          </button>
+                        </li>
+                      );
+                    })}
               </ul>
             </div>
           )}
