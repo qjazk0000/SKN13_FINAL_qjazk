@@ -3,9 +3,12 @@ import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 import api from "../../services/api";
 import CustomModal from "./CustomModal";
 
-function Receipt({ selectedReceipt, selectedCategory }) {
+function Receipt({
+  selectedReceipt,
+  receiptDetails,
+  onSaveSuccess,
+}) {
   const [uploadFile, setUploadFile] = useState(null);
-  // const [uploadFiles, setUploadFiles] = useState([]);
   const [receiptInfo, setReceiptInfo] = useState(null);
   const [editInfo, setEditInfo] = useState(null);
 
@@ -15,7 +18,32 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
 
   useEffect(() => {
-    if (receiptInfo) {
+    if (receiptDetails) {
+      setReceiptInfo(null);
+
+      // extracted_text 문자열 파싱
+      let extracted = {};
+      if (typeof receiptDetails.extracted_text === "string") {
+        try {
+          const jsonStr = receiptDetails.extracted_text.replace(/'/g, '"');
+          extracted = JSON.parse(jsonStr);
+        } catch (e) {
+          extracted = {};
+        }
+      } else if (typeof receiptDetails.extracted_text === "object") {
+        extracted = receiptDetails.extracted_text;
+      }
+
+      setEditInfo({
+        결제처: receiptDetails.store_name || extracted.결제처 || "",
+        결제일시: receiptDetails.payment_date || extracted.결제일시 || "",
+        총합계: receiptDetails.amount || extracted.총합계 || 0,
+        카드정보: extracted.카드정보 || "",
+        품목: Array.isArray(extracted.품목)
+          ? extracted.품목.map((item) => ({ ...item }))
+          : [],
+      });
+    } else if (receiptInfo) {
       setEditInfo({
         결제처: receiptInfo.extracted?.결제처 || "",
         결제일시: receiptInfo.extracted?.결제일시 || "",
@@ -25,8 +53,10 @@ function Receipt({ selectedReceipt, selectedCategory }) {
           ? receiptInfo.extracted.품목.map((item) => ({ ...item }))
           : [],
       });
+    } else {
+      setEditInfo(null);
     }
-  }, [receiptInfo]);
+  }, [receiptDetails, receiptInfo]);
 
   const handleEditChange = (field, value) => {
     setEditInfo((prev) => ({ ...prev, [field]: value }));
@@ -48,11 +78,11 @@ function Receipt({ selectedReceipt, selectedCategory }) {
   };
 
   const handleUpload = async () => {
-    setIsLoading(true);
-
     if (!uploadFile) {
       alert("업로드할 파일을 선택해주세요.");
     }
+
+    setIsLoading(true);
 
     try {
       const formData = new FormData();
@@ -115,6 +145,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
       alert("저장할 영수증 정보가 없습니다.");
       return;
     }
+    setIsLoading(true);
     try {
       const payload = {
         file_id: receiptInfo.file_id,
@@ -132,6 +163,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
       const response = await api.post("/receipt/save/", payload);
       if (response.data.success) {
         alert("영수증이 성공적으로 저장되었습니다.");
+        if (onSaveSuccess) onSaveSuccess();
         setReceiptInfo(null);
         setEditInfo(null);
         setUploadFile(null);
@@ -141,6 +173,8 @@ function Receipt({ selectedReceipt, selectedCategory }) {
     } catch (error) {
       console.error("영수증 저장 오류:", error);
       alert(error.response?.data?.message || "저장 중 오류가 발생했습니다.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -160,63 +194,54 @@ function Receipt({ selectedReceipt, selectedCategory }) {
     );
   }
 
+  const isViewingExisting = !!receiptDetails;
+  const isEditing = !!editInfo;
+
   return (
-    <div className="flex flex-col w-full h-[100dvh] bg-gray-100 sm:px-8 md:px-16 lg:px-32 xl:px-60">
-      {receiptInfo === null && (
-        <div className="flex-1 flex flex-col items-center justify-center p-4">
-          <img
-            src="/images/NAVI.png"
-            alt="NAVI Logo"
-            className="w-24 h-auto mb-4"
-          />
-          <div className="text-xl font-bold text-gray-700">
-            영수증 처리 도우미
-          </div>
-          <p className="mt-4 text-gray-500">
-            영수증 업로드와 보고서 추출 기능을 이용해보세요.
-          </p>
-        </div>
-      )}
+    <div className="flex flex-col w-full h-screen bg-gray-100 sm:px-8 md:px-16 lg:px-32 xl:px-60">
       {isLoading && (
-        <div className="flex flex-col items-center justify-center h-[100dvh] text-gray-500 absolute inset-0 bg-white bg-opacity-70 z-50">
+        <div className="flex flex-col items-center justify-center absolute inset-0 bg-white bg-opacity-70 z-50">
           <div className="text-xl font-bold text-gray-700 mb-2">
-            영수증 업로드 및 변환중...
+            {isLoading ? "영수증 처리 중..." : "데이터 로딩 중..."}
           </div>
           <div className="mt-2 text-gray-400">잠시만 기다려주세요.</div>
-          <div className="mt-6">
-            <svg
-              className="animate-spin h-8 w-8 text-orange-400"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-                fill="none"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8z"
-              />
-            </svg>
-          </div>
+          <svg
+            className="animate-spin h-8 w-8 text-orange-400 mt-6"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+              fill="none"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8z"
+            />
+          </svg>
         </div>
       )}
-      {receiptInfo && editInfo && (
+
+      {isEditing ? (
         <div className="flex-1 overflow-y-auto py-4">
           <div className="bg-white rounded-lg shadow-md p-6 max-w-xl mx-auto">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              영수증 정보 편집
+              {isViewingExisting ? "영수증 상세 정보" : "영수증 정보 편집"}
             </h2>
             <div className="space-y-3">
-              <div className="flex items-center">
-                <span className="w-32 text-gray-500 font-semibold">파일명</span>
-                <span className="text-gray-700">{receiptInfo.file_name}</span>
-              </div>
+              {receiptInfo?.file_name && (
+                <div className="flex items-center">
+                  <span className="w-32 text-gray-500 font-semibold">
+                    파일명
+                  </span>
+                  <span className="text-gray-700">{receiptInfo.file_name}</span>
+                </div>
+              )}
               <div className="flex items-center">
                 <span className="w-32 text-gray-500 font-semibold">결제처</span>
                 <input
@@ -224,6 +249,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                   className="border rounded px-2 py-1 flex-1"
                   value={editInfo.결제처}
                   onChange={(e) => handleEditChange("결제처", e.target.value)}
+                  readOnly={isViewingExisting}
                 />
               </div>
               <div className="flex items-center">
@@ -235,17 +261,19 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                   className="border rounded px-2 py-1 flex-1"
                   value={editInfo.결제일시}
                   onChange={(e) => handleEditChange("결제일시", e.target.value)}
+                  readOnly={isViewingExisting}
                 />
               </div>
               <div className="flex items-center">
                 <span className="w-32 text-gray-500 font-semibold">
-                  카드번호
+                  카드정보
                 </span>
                 <input
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
                   value={editInfo.카드정보}
                   onChange={(e) => handleEditChange("카드정보", e.target.value)}
+                  readOnly={isViewingExisting}
                 />
               </div>
               <div className="flex items-center">
@@ -255,15 +283,16 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                   className="border rounded px-2 py-1 flex-1"
                   value={editInfo.총합계}
                   onChange={(e) => handleEditChange("총합계", e.target.value)}
+                  readOnly={isViewingExisting}
                 />
               </div>
-              {editInfo.품목 && Array.isArray(editInfo.품목) && (
+              {editInfo.품목?.length > 0 && (
                 <div>
                   <span className="w-32 text-gray-500 font-semibold">품목</span>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full mt-2 text-sm text-left border">
-                      <thead>
-                        <tr className="bg-gray-100">
+                    <table className="min-w-full mt-2 text-sm border">
+                      <thead className="bg-gray-100">
+                        <tr>
                           <th className="px-2 py-1 border">품명</th>
                           <th className="px-2 py-1 border">단가</th>
                           <th className="px-2 py-1 border">수량</th>
@@ -281,6 +310,7 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                                 onChange={(e) =>
                                   handleItemChange(idx, "품명", e.target.value)
                                 }
+                                readOnly={isViewingExisting}
                               />
                             </td>
                             <td className="px-2 py-1 border">
@@ -289,12 +319,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                                 className="border rounded px-1 py-0.5 w-full"
                                 value={item.단가}
                                 onChange={(e) =>
-                                  handleItemChange(
-                                    idx,
-                                    "단가",
-                                    Number(e.target.value)
-                                  )
+                                  handleItemChange(idx, "단가", e.target.value)
                                 }
+                                readOnly={isViewingExisting}
                               />
                             </td>
                             <td className="px-2 py-1 border">
@@ -303,12 +330,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                                 className="border rounded px-1 py-0.5 w-full"
                                 value={item.수량}
                                 onChange={(e) =>
-                                  handleItemChange(
-                                    idx,
-                                    "수량",
-                                    Number(e.target.value)
-                                  )
+                                  handleItemChange(idx, "수량", e.target.value)
                                 }
+                                readOnly={isViewingExisting}
                               />
                             </td>
                             <td className="px-2 py-1 border">
@@ -317,12 +341,9 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                                 className="border rounded px-1 py-0.5 w-full"
                                 value={item.금액}
                                 onChange={(e) =>
-                                  handleItemChange(
-                                    idx,
-                                    "금액",
-                                    Number(e.target.value)
-                                  )
+                                  handleItemChange(idx, "금액", e.target.value)
                                 }
+                                readOnly={isViewingExisting}
                               />
                             </td>
                           </tr>
@@ -333,17 +354,34 @@ function Receipt({ selectedReceipt, selectedCategory }) {
                 </div>
               )}
             </div>
-            <div className="mt-6 flex justify-center">
-              <button
-                className="px-4 py-2 bg-orange-300 text-white rounded-lg shadow hover:bg-orange-400 transition"
-                onClick={() => setSaveModalOpen(true)}
-              >
-                최종 저장
-              </button>
-            </div>
+            {!isViewingExisting && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  className="px-4 py-2 bg-orange-300 text-white rounded-lg shadow hover:bg-orange-400"
+                  onClick={() => setSaveModalOpen(true)}
+                >
+                  최종 저장
+                </button>
+              </div>
+            )}
           </div>
         </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+          <img
+            src="/images/NAVI.png"
+            alt="NAVI Logo"
+            className="w-24 h-auto mb-4"
+          />
+          <div className="text-xl font-bold text-gray-700">
+            영수증 처리 도우미
+          </div>
+          <p className="mt-4 text-gray-500">
+            영수증 업로드와 보고서 추출 기능을 이용해보세요.
+          </p>
+        </div>
       )}
+
       {saveModalOpen && (
         <CustomModal
           open={saveModalOpen}
@@ -359,73 +397,63 @@ function Receipt({ selectedReceipt, selectedCategory }) {
         />
       )}
 
-      {/* 메인 콘텐츠: 업로드 & 다운로드 박스 */}
-      <div className="flex justify-center flex-shrink-0">
-        <div className="flex bg-white rounded-lg w-full max-w-4xl p-4">
-          {/* 영수증 업로드 영역 */}
-          <div className="flex flex-1 flex-col justify-between items-center p-4 border-b md:border-b-0 md:border-r border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800">
-              영수증 업로드
-            </h3>
-            {/* 파일 선택 UI */}
-            <label
-              htmlFor="file-upload"
-              className="flex items-center justify-center p-2 border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-50 transition-colors w-full h-16"
-            >
+      {selectedReceipt?.isNew && !isEditing && (
+        <div className="flex justify-center flex-shrink-0 p-4">
+          <div className="flex flex-col md:flex-row bg-white rounded-lg w-full max-w-4xl p-4 gap-4">
+            <div className="flex-1 flex flex-col justify-between items-center p-4 border rounded-md gap-2">
+              <h3 className="text-lg font-semibold">영수증 업로드</h3>
+              <label
+                htmlFor="file-upload"
+                className="flex items-center justify-center p-2 border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-50 w-full h-16"
+              >
+                <input
+                  id="file-upload"
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                {uploadFile ? (
+                  <span className="font-semibold">{uploadFile.name}</span>
+                ) : (
+                  <>
+                    <CloudArrowUpIcon className="h-8 w-8 text-gray-400 m-2" />
+                    <span className="font-semibold">파일을 선택하세요</span>
+                  </>
+                )}
+              </label>
+              <button
+                onClick={handleUpload}
+                className="px-4 py-2 bg-gray-200 rounded-lg shadow-md hover:bg-gray-300 w-full"
+                disabled={isLoading || !uploadFile}
+              >
+                {isLoading ? "처리 중..." : "업로드"}
+              </button>
+            </div>
+            <div className="flex-1 flex flex-col gap-2 justify-between items-center p-4 border rounded-md">
+              <h3 className="text-lg font-semibold">영수증 다운로드</h3>
               <input
-                id="file-upload"
-                type="file"
-                className="hidden"
-                onChange={handleFileChange}
+                type="month"
+                value={reportStart}
+                onChange={(e) => setReportStart(e.target.value)}
+                className="w-full h-8 p-2 border rounded-md"
               />
-              {uploadFile ? (
-                <span className="text-gray-700 font-semibold text-center">
-                  {uploadFile.name}
-                </span>
-              ) : (
-                <>
-                  <CloudArrowUpIcon className="h-8 w-8 text-gray-400 m-2" />
-                  <span className="text-gray-600 font-semibold text-center">
-                    파일을 선택하세요
-                  </span>
-                </>
-              )}
-            </label>
-            <button
-              onClick={handleUpload}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow-md hover:bg-gray-300 transition-colors w-full"
-            >
-              {isLoading ? "업로드 중..." : "업로드"}
-            </button>
-          </div>
-
-          {/* 영수증 보고서 추출 영역 */}
-          <div className="flex flex-1 flex-col gap-2 justify-between items-center p-4">
-            <h3 className="text-lg font-semibold text-gray-800">
-              영수증 데이터 추출
-            </h3>
-            <input
-              type="month"
-              value={reportStart}
-              onChange={(e) => setReportStart(e.target.value)}
-              className="w-full h-8 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-            <input
-              type="month"
-              value={reportEnd}
-              onChange={(e) => setReportEnd(e.target.value)}
-              className="w-full p-2 h-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-            <button
-              onClick={handleDownload}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg shadow-lg hover:bg-gray-300 transition-colors w-full justify-center"
-            >
-              <ArrowDownTrayIcon className="h-5 w-5" />
-              <span>다운로드</span>
-            </button>
+              <input
+                type="month"
+                value={reportEnd}
+                onChange={(e) => setReportEnd(e.target.value)}
+                className="w-full p-2 h-8 border rounded-md"
+              />
+              <button
+                onClick={handleDownload}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-200 rounded-lg shadow-lg hover:bg-gray-300 w-full justify-center"
+              >
+                <ArrowDownTrayIcon className="h-5 w-5" />
+                <span>다운로드</span>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
