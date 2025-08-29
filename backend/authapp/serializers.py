@@ -140,11 +140,15 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate(self, attrs):
         current_password = attrs.get('current_password')
         new_password = attrs.get('new_password')
+        confirm_password = attrs.get('confirm_password')
 
-        # 새 비밀번호가 현재 비밀번호와 다른지 확인
-        if current_password == new_password:
+        # 새 비밀번호와 확인 비밀번호 일치 검증
+        if new_password != confirm_password:
             raise serializers.ValidationError({
-                'new_password': '새 비밀번호는 현재 비밀번호와 달라야 합니다.'
+                'confirm_password': '새 비밀번호와 확인 비밀번호가 일치하지 않습니다.'
             })
+        
+        # 현재 비밀번호 검증은 View에서 처리하므로 여기서는 제거
+        # JWT 토큰 기반 인증에서는 request.user가 AnonymousUser가 됨
         
         return attrs

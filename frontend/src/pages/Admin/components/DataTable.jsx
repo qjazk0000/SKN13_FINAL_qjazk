@@ -6,7 +6,7 @@ function DataTable({ columns, data }) {
       <thead>
         <tr className="bg-gray-100">
           {columns.map((col, index) => (
-            <th key={index} className="border p-2 text-left">
+            <th key={index} className="border p-2 text-center">
               {col.header}
             </th>
           ))}
@@ -16,11 +16,20 @@ function DataTable({ columns, data }) {
         {data.length > 0 ? (
           data.map((row, rowIndex) => (
             <tr key={rowIndex} className="hover:bg-gray-50">
-              {columns.map((col, colIndex) => (
-                <td key={colIndex} className="border p-2">
-                  {row[col.accessor]}
-                </td>
-              ))}
+              {columns.map((col, colIndex) => {
+                // 영수증 보기 셀인지 확인
+                const isReceiptCell = col.accessor === 'file_path';
+                const hasPreview = isReceiptCell && row.previewOpen;
+                
+                return (
+                  <td 
+                    key={colIndex} 
+                    className={`border p-2 text-center ${isReceiptCell ? 'receipt-preview-cell' : ''} ${hasPreview ? 'expanded' : ''}`}
+                  >
+                    {col.cell ? col.cell(row[col.accessor], row) : row[col.accessor]}
+                  </td>
+                );
+              })}
             </tr>
           ))
         ) : (

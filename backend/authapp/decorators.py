@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def require_auth(view_func):
     """인증이 필요한 API에 사용하는 데코레이터"""
     @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
+    def wrapper(self, request, *args, **kwargs):
         logger.info(f"인증 요청: {request.method} {request.path}")
         
         # Authorization 헤더 확인
@@ -44,14 +44,14 @@ def require_auth(view_func):
         request.user_id = user_data[0]
         request.username = user_data[1]
         
-        return view_func(request, *args, **kwargs)
+        return view_func(self, request, *args, **kwargs)
     
     return wrapper
 
 def require_admin(view_func):
     """관리자 권한이 필요한 API에 사용하는 데코레이터"""
     @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
+    def wrapper(self, request, *args, **kwargs):
         # 먼저 인증 확인
         token = extract_token_from_header(request)
         if not token:
@@ -84,6 +84,6 @@ def require_admin(view_func):
         request.user_id = user_data[0]
         request.username = user_data[1]
         
-        return view_func(request, *args, **kwargs)
+        return view_func(self, request, *args, **kwargs)
     
     return wrapper

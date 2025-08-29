@@ -82,3 +82,10 @@ class ChatMessage(models.Model):
 
     def __str__(self):
         return f"{self.get_sender_type_display()}: {self.content[:50]}"
+    
+    report = models.CharField(
+        max_length=1,
+        choices=[('N', '미신고'), ('Y', '신고')],
+        default='N',
+        verbose_name="신고 여부"
+    )
