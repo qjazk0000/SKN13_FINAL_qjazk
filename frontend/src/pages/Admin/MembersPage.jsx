@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { authService } from "../../services/authService";
+import api from "../../services/api";
 import AdminSidebar from "./components/AdminSidebar.jsx";
 import SearchBar from "./components/SearchBar";
 import DataTable from "./components/DataTable";
 import Pagination from "./components/Pagination";
-import { authService } from "../../services/authService";
-import api from "../../services/api";
 
 function MembersPage() {
   const navigate = useNavigate();

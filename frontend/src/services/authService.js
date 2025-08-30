@@ -58,7 +58,7 @@ export const authService = {
         }
     },
 
-    async refreshToken() {  // 토큰 갱신신
+    async refreshToken() {  // 토큰 갱신
         try {
             const refreshToken = localStorage.getItem('refresh_token');
             if (!refreshToken) {
