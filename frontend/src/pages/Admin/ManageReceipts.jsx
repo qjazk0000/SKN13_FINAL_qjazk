@@ -17,6 +17,7 @@ function ManageReceipts() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   
   // 사용자 정보 상태
   const [userName, setUserName] = useState("관리자");
@@ -88,6 +89,7 @@ function ManageReceipts() {
             React.startTransition(() => {
               setReceipts(receiptsData);
               setTotalPages(response.data.data.total_pages || 1);
+              setTotalCount(response.data.data.total_count || 0);
               setCurrentPage(1);
             });
           }
@@ -171,6 +173,7 @@ function ManageReceipts() {
         
         setReceipts(receiptsData);
         setTotalPages(data.data.total_pages || 1);
+        setTotalCount(data.data.total_count || 0);
         setCurrentPage(page);
       } else {
         throw new Error(response.data.message || 'API 응답 오류');
@@ -586,7 +589,7 @@ function ManageReceipts() {
               <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-green-800">
-                    총 <span className="font-medium">{receipts.length}</span>건의 영수증을 찾았습니다.
+                    총 <span className="font-medium">{totalCount}</span>건의 영수증을 찾았습니다.
                     {(startDate || endDate) && (
                       <span className="ml-2 text-green-600">
                         (기간: {startDate ? new Date(startDate).toLocaleDateString('ko-KR') : '시작일'} ~ {endDate ? new Date(endDate).toLocaleDateString('ko-KR') : '종료일'})

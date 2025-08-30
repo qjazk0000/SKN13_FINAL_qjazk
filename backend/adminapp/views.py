@@ -631,21 +631,48 @@ class ConversationReportView(APIView):
             page_size = int(request.data.get('page_size', 10))
             
             with connection.cursor() as cursor:
-                # 기본 쿼리 - chat_history, chat_report, user_info JOIN
+                # 기본 쿼리 - chat_history, chat_report, user_info JOIN + 대화 맥락 조회
                 base_query = """
                     SELECT
                         u.dept,
                         u.name,
                         u.rank,
-                        ch.content as user_input,
-                        ch.content as llm_response,
+                        ch.sender_type,
+                        ch.content as reported_message,
+                        ch.conversation_id,
                         ch.created_at as chat_date,
                         cr.error_type,
                         cr.reason,
                         cr.created_at as reported_at,
                         cr.remark,
                         cr.report_id,
-                        ch.chat_id
+                        ch.chat_id,
+                        -- 사용자 입력 조회 (신고된 메시지가 AI 응답인 경우)
+                        CASE 
+                            WHEN ch.sender_type = 'ai' THEN (
+                                SELECT ch_prev.content 
+                                FROM chat_history ch_prev 
+                                WHERE ch_prev.conversation_id = ch.conversation_id 
+                                AND ch_prev.sender_type = 'user' 
+                                AND ch_prev.created_at < ch.created_at 
+                                ORDER BY ch_prev.created_at DESC 
+                                LIMIT 1
+                            )
+                            ELSE ch.content
+                        END as user_input,
+                        -- LLM 응답 조회 (신고된 메시지가 사용자 입력인 경우)
+                        CASE 
+                            WHEN ch.sender_type = 'user' THEN (
+                                SELECT ch_next.content 
+                                FROM chat_history ch_next 
+                                WHERE ch_next.conversation_id = ch.conversation_id 
+                                AND ch_next.sender_type = 'ai' 
+                                AND ch_next.created_at > ch.created_at 
+                                ORDER BY ch_next.created_at ASC 
+                                LIMIT 1
+                            )
+                            ELSE ch.content
+                        END as llm_response
                     FROM chat_report cr
                     JOIN chat_history ch ON cr.chat_id = ch.chat_id
                     JOIN user_info u ON cr.reported_by = u.user_id
@@ -711,9 +738,18 @@ class ConversationReportView(APIView):
             columns = [col[0] for col in cursor.description]
             reports = [dict(zip(columns, row)) for row in cursor.fetchall()]
             
+            # 디버깅: 실제 조회된 데이터 확인
+            logger.info(f"조회된 데이터 개수: {len(reports)}")
+            for i, report in enumerate(reports):
+                logger.info(f"데이터 {i+1}: {report}")
+            
             # 데이터 포맷팅
             formatted_reports = []
             for report in reports:
+                # 디버깅을 위한 로깅
+                logger.info(f"원본 데이터 - sender_type: {report.get('sender_type')}, content: {report.get('reported_message')}")
+                logger.info(f"SQL에서 계산된 - user_input: {report.get('user_input')}, llm_response: {report.get('llm_response')}")
+                
                 formatted_reports.append({
                     'dept': report['dept'] or '',
                     'name': report['name'] or '',
@@ -768,21 +804,48 @@ class ConversationReportView(APIView):
             search_keyword = request.GET.get('search_keyword')
             
             with connection.cursor() as cursor:
-                # 기본 쿼리 - chat_history, chat_report, user_info JOIN
+                # 기본 쿼리 - chat_history, chat_report, user_info JOIN + 대화 맥락 조회
                 base_query = """
                     SELECT 
                         u.dept,
                         u.name,
                         u.rank,
-                        ch.content as user_input,
-                        ch.content as llm_response,
+                        ch.sender_type,
+                        ch.content as reported_message,
+                        ch.conversation_id,
                         ch.created_at as chat_date,
                         cr.error_type,
                         cr.reason,
                         cr.created_at as reported_at,
                         cr.remark,
                         cr.report_id,
-                        ch.chat_id
+                        ch.chat_id,
+                        -- 사용자 입력 조회 (신고된 메시지가 AI 응답인 경우)
+                        CASE 
+                            WHEN ch.sender_type = 'ai' THEN (
+                                SELECT ch_prev.content 
+                                FROM chat_history ch_prev 
+                                WHERE ch_prev.conversation_id = ch.conversation_id 
+                                AND ch_prev.sender_type = 'user' 
+                                AND ch_prev.created_at < ch.created_at 
+                                ORDER BY ch_prev.created_at DESC 
+                                LIMIT 1
+                            )
+                            ELSE ch.content
+                        END as user_input,
+                        -- LLM 응답 조회 (신고된 메시지가 사용자 입력인 경우)
+                        CASE 
+                            WHEN ch.sender_type = 'user' THEN (
+                                SELECT ch_next.content 
+                                FROM chat_history ch_next 
+                                WHERE ch_next.conversation_id = ch.conversation_id 
+                                AND ch_next.sender_type = 'ai' 
+                                AND ch_next.created_at > ch.created_at 
+                                ORDER BY ch_next.created_at ASC 
+                                LIMIT 1
+                            )
+                            ELSE ch.content
+                        END as llm_response
                     FROM chat_report cr
                     JOIN chat_history ch ON cr.chat_id = ch.chat_id
                     JOIN user_info u ON cr.reported_by = u.user_id
@@ -897,9 +960,18 @@ class ConversationReportView(APIView):
                 columns = [col[0] for col in cursor.description]
                 reports = [dict(zip(columns, row)) for row in cursor.fetchall()]
                 
+                # 디버깅: 실제 조회된 데이터 확인
+                logger.info(f"GET 메서드 - 조회된 데이터 개수: {len(reports)}")
+                for i, report in enumerate(reports):
+                    logger.info(f"GET 메서드 - 데이터 {i+1}: {report}")
+                
                 # 데이터 포맷팅
                 formatted_reports = []
                 for report in reports:
+                    # 디버깅을 위한 로깅
+                    logger.info(f"GET 메서드 - 원본 데이터 - sender_type: {report.get('sender_type')}, content: {report.get('reported_message')}")
+                    logger.info(f"GET 메서드 - SQL에서 계산된 - user_input: {report.get('user_input')}, llm_response: {report.get('llm_response')}")
+                    
                     formatted_reports.append({
                         'dept': report['dept'] or '',
                         'name': report['name'] or '',
@@ -911,7 +983,7 @@ class ConversationReportView(APIView):
                         'reason': report['reason'] or '',
                         'reported_at': report['reported_at'].isoformat() if report['reported_at'] else '',
                         'remark': report['remark'] or '',
-                        'report_id': str(report['report_id']),
+                        'report_id': str(report['chat_id']),
                         'chat_id': str(report['chat_id'])
                     })
                 
