@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-
-import dayjs from "dayjs";
 import AdminSidebar from "./components/AdminSidebar.jsx";
 import SearchBar from "./components/SearchBar";
 import DataTable from "./components/DataTable";
@@ -42,6 +40,62 @@ function ChatReportsPage() {
     }
   }, []);
 
+  // 날짜 필터 변경 시 자동 검색
+  useEffect(() => {
+    // 날짜가 변경되었을 때만 실행
+    if (startDate || endDate) {
+      // 약간의 지연을 두어 상태 업데이트가 완료된 후 검색 실행
+      const timer = setTimeout(async () => {
+        try {
+          // 데이터를 미리 로드
+          const params = new URLSearchParams();
+          params.append("page", "1");
+          params.append("page_size", "10");
+          
+          if (startDate) {
+            params.append("start_date", startDate);
+          }
+          if (endDate) {
+            params.append("end_date", endDate);
+          }
+          
+          // 검색 조건 처리
+          const trimmedSearchTerm = searchTerm.trim();
+          if (trimmedSearchTerm) {
+            if (searchType === 'dept') {
+              params.append("dept", trimmedSearchTerm);
+            } else if (searchType === 'name') {
+              params.append("name", trimmedSearchTerm);
+            } else if (searchType === 'rank') {
+              params.append("rank", trimmedSearchTerm);
+            } else if (searchType === 'error_type') {
+              params.append("error_type", trimmedSearchTerm);
+            } else if (searchType === 'reason') {
+              params.append("reason", trimmedSearchTerm);
+            } else if (searchType === 'remark') {
+              params.append("remark", trimmedSearchTerm);
+            }
+          }
+          
+          const response = await api.get(`/admin/conversations/reports/?${params.toString()}`);
+          
+          if (response.data.success) {
+            // 깜빡임 완전 방지: React 18의 배치 업데이트 활용
+            React.startTransition(() => {
+              setChatData(response.data.data.reports);
+              setTotalPages(response.data.data.total_pages);
+              setCurrentPage(1);
+            });
+          }
+        } catch (error) {
+          console.error("날짜 필터 검색 실패:", error);
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [startDate, endDate, searchTerm, searchType]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 사용자 정보 로드
   const loadUserInfo = async () => {
     try {
@@ -54,7 +108,7 @@ function ChatReportsPage() {
     }
   };
 
-  const fetchChatReports = async (page = 1) => {
+  const fetchChatReports = useCallback(async (page = 1, showLoading = true) => {
     try {
       // 토큰 체크
       // const token = localStorage.getItem("access_token");
@@ -63,7 +117,9 @@ function ChatReportsPage() {
       //   return;
       // }
 
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       setError("");
 
       const params = new URLSearchParams();
@@ -112,7 +168,7 @@ function ChatReportsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [startDate, endDate, searchTerm, searchType]);
 
   const columns = [
     {
@@ -280,14 +336,7 @@ function ChatReportsPage() {
             { value: "remark", label: "비고" }
         ];
 
-        // 신고 유형 한글-영어 매핑
-        const errorTypeMapping = {
-            "불완전": "incomplete",
-            "환각": "hallucination",
-            "사실 오류": "fact_error", 
-            "무관련": "irrelevant",
-            "기타": "other"
-        };
+
 
         // 신고 유형 선택 옵션 (한국어)
         const errorTypeOptions = [
@@ -299,14 +348,23 @@ function ChatReportsPage() {
         ];
 
   const handleDateChange = (start, end) => {
+    // 날짜 유효성 검사
+    if (start && end && start > end) {
+      alert("시작일은 종료일보다 이전이어야 합니다.");
+      return;
+    }
+    
     setStartDate(start);
     setEndDate(end);
+    // 날짜 변경 시 1페이지부터 검색 시작
+    setCurrentPage(1);
     fetchChatReports(1);
   };
 
      const handleSearch = () => {
-    if (!searchTerm.trim()) {
-      alert("검색어를 입력해주세요.");
+    // 검색어가 없어도 날짜 필터가 있으면 검색 가능
+    if (!searchTerm.trim() && !startDate && !endDate) {
+      alert("검색어 또는 날짜를 입력해주세요.");
       return;
     }
     
@@ -317,6 +375,14 @@ function ChatReportsPage() {
   const handleClearSearch = () => {
     setSearchTerm("");
     setSearchType("dept");
+    setStartDate("");
+    setEndDate("");
+    setCurrentPage(1);
+    fetchChatReports(1);
+  };
+
+  // 날짜 필터만 초기화
+  const handleClearDateFilter = () => {
     setStartDate("");
     setEndDate("");
     setCurrentPage(1);
@@ -364,7 +430,12 @@ function ChatReportsPage() {
       />
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-bold mb-4">대화 신고 내역</h1>
-        <DateSelectBar />
+        <DateSelectBar 
+          startDate={startDate}
+          endDate={endDate}
+          onDateChange={handleDateChange}
+          onClearDateFilter={handleClearDateFilter}
+        />
         <SearchBar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
@@ -398,9 +469,24 @@ function ChatReportsPage() {
           <>
             {/* 검색 결과 요약 */}
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800">
-                총 <span className="font-medium">{chatData.length}</span>건의 신고 내역을 찾았습니다.
-              </p>
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-green-800">
+                  총 <span className="font-medium">{chatData.length}</span>건의 신고 내역을 찾았습니다.
+                  {(startDate || endDate) && (
+                    <span className="ml-2 text-green-600">
+                      (기간: {startDate ? new Date(startDate).toLocaleDateString('ko-KR') : '시작일'} ~ {endDate ? new Date(endDate).toLocaleDateString('ko-KR') : '종료일'})
+                    </span>
+                  )}
+                </p>
+                {(startDate || endDate) && (
+                  <button
+                    onClick={handleClearDateFilter}
+                    className="text-xs text-green-600 hover:text-green-800 underline"
+                  >
+                    날짜 필터 초기화
+                  </button>
+                )}
+              </div>
             </div>
             
             <DataTable columns={columns} data={chatData} />

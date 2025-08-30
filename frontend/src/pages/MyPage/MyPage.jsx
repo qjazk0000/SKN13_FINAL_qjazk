@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../services/authService';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 //MyPage 복구 
 function MyPage() {
   const [userInfo, setUserInfo] = useState({
@@ -109,28 +110,7 @@ function MyPage() {
             채팅 화면
           </button>
         </div>
-        <div className="flex justify-between items-center mb-6">
-          <h2>마이페이지</h2>
-          <button
-            onClick={() => window.history.back()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition flex items-center gap-2"
-            title="채팅 화면으로 돌아가기"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            채팅 화면
-          </button>
-        </div>
+        
         
         <div className="mypage-sections">
           {/* 사용자 정보 섹션 */}
@@ -141,7 +121,10 @@ function MyPage() {
               </div>
               <div className="profile-details">
                 {isProfileLoading ? (
-                  <div>프로필 정보를 불러오는 중...</div>
+                  <div className="flex items-center gap-2">
+                    <ArrowPathIcon className="h-5 w-5 animate-spin text-blue-500" />
+                    <span>프로필 정보를 불러오는 중...</span>
+                  </div>
                 ) : (
                   <>
                     <h3 className="user-name">{userInfo.username || '사용자명 없음'}</h3>
@@ -152,38 +135,49 @@ function MyPage() {
             </div>
             
             <div className="user-fields">
-              <div className="field-group">
-                <label>아이디 (ID)</label>
-                <input
-                  type="text"
-                  value={userInfo.username || ''}
-                  className="info-input"
-                  disabled={true}
-                  readOnly
-                />
-              </div>
-              
-              <div className="field-group">
-                <label>부서 (Department)</label>
-                <input
-                  type="text"
-                  value={userInfo.dept || ''}
-                  className="info-input"
-                  disabled={true}
-                  readOnly
-                />
-              </div>
-              
-              <div className="field-group">
-                <label>직급 (Position)</label>
-                <input
-                  type="text"
-                  value={userInfo.rank || ''}
-                  className="info-input"
-                  disabled={true}
-                  readOnly
-                />
-              </div>
+              {isProfileLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <ArrowPathIcon className="h-6 w-6 animate-spin text-blue-500" />
+                    <span>사용자 정보를 불러오는 중...</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="field-group">
+                    <label>아이디 (ID)</label>
+                    <input
+                      type="text"
+                      value={userInfo.username || ''}
+                      className="info-input"
+                      disabled={true}
+                      readOnly
+                    />
+                  </div>
+                  
+                  <div className="field-group">
+                    <label>부서 (Department)</label>
+                    <input
+                      type="text"
+                      value={userInfo.dept || ''}
+                      className="info-input"
+                      disabled={true}
+                      readOnly
+                    />
+                  </div>
+                  
+                  <div className="field-group">
+                    <label>직급 (Position)</label>
+                    <input
+                      type="text"
+                      value={userInfo.rank || ''}
+                      className="info-input"
+                      disabled={true}
+                      readOnly
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* 프로필 수정 버튼 */}

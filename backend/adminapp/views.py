@@ -461,11 +461,11 @@ class AdminReceiptsView(APIView):
             
             # 날짜 필터 적용
             if start_date:
-                base_query += " AND rj.created_at >= %s"
+                base_query += " AND r.created_at >= %s"
                 params.append(start_date)
             
             if end_date:
-                base_query += " AND rj.created_at <= %s"
+                base_query += " AND r.created_at <= %s"
                 params.append(end_date + ' 23:59:59')  # 해당 날짜의 마지막 시간까지
             
             # 이름 필터 적용
@@ -480,7 +480,7 @@ class AdminReceiptsView(APIView):
             
             # 신고 여부 필터 적용
             if reported_yn:
-                base_query += " AND rj.status = %s"
+                base_query += " AND r.status = %s"
                 params.append(reported_yn)
             
             # 전체 개수 조회
