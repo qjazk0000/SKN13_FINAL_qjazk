@@ -635,27 +635,27 @@ class ConversationReportView(APIView):
                 base_query = """
                     SELECT
                         u.dept,
-                        u.naem,
+                        u.name,
                         u.rank,
                         ch.content as user_input,
                         ch.content as llm_response,
                         ch.created_at as chat_date,
                         cr.error_type,
                         cr.reason,
-                        cr.crated_at as reported_at,
+                        cr.created_at as reported_at,
                         cr.remark,
                         cr.report_id,
                         ch.chat_id
                     FROM chat_report cr
                     JOIN chat_history ch ON cr.chat_id = ch.chat_id
-                    JOIN user_info u ON cr.reorted_by = u.user_id
+                    JOIN user_info u ON cr.reported_by = u.user_id
                     WHERE 1=1
                 """
                 count_query = """
                     SELECT COUNT(*)
                     FROM chat_report cr
                     JOIN chat_history ch ON cr.chat_id = ch.chat_id
-                    JOIN user_info u ON cr.reorted_by = u.user_id
+                    JOIN user_info u ON cr.reported_by = u.user_id
                     WHERE 1=1
                 """
                 params = []
@@ -839,6 +839,7 @@ class ConversationReportView(APIView):
                 name = request.GET.get('name', '')
                 rank = request.GET.get('rank', '')
                 error_type = request.GET.get('error_type', '')
+                reason = request.GET.get('reason', '')
                 remark = request.GET.get('remark', '')
                 
                 if dept:
@@ -873,9 +874,13 @@ class ConversationReportView(APIView):
                     count_query += " AND cr.error_type = %s"
                     params.append(english_error_type)
                 
+                if reason:
+                    base_query += " AND cr.reason ILIKE %s"
+                    count_query += " AND cr.reason ILIKE %s"
+                    params.append(f'%{reason}%')
+                
                 if remark:
                     base_query += " AND cr.remark ILIKE %s"
-                    count_query += " AND cr.remark ILIKE %s"
                     params.append(f'%{remark}%')
                 
                 # 전체 개수 조회
@@ -1520,5 +1525,131 @@ class AdminReceiptsDownloadView(APIView):
             return Response({
                 'success': False,
                 'message': '영수증 Excel 다운로드 중 오류가 발생했습니다.',
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ChatReportFeedbackView(APIView):
+    """
+    채팅 신고 피드백 저장 API
+    POST /api/admin/chat-reports/{chat_id}/feedback
+    """
+    authentication_classes = []
+    permission_classes = []
+    
+    def post(self, request, chat_id):
+        try:
+            # Authorization 헤더에서 토큰 추출
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return Response({
+                    'success': False,
+                    'message': '인증 토큰이 필요합니다.',
+                    'error': 'MISSING_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            try:
+                token_type, token = auth_header.split(' ')
+                if token_type.lower() != 'bearer':
+                    return Response({
+                        'success': False,
+                        'message': '올바른 토큰 형식이 아닙니다.',
+                        'error': 'INVALID_TOKEN_FORMAT'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+            except ValueError:
+                return Response({
+                    'success': False,
+                    'message': '토큰 형식이 올바르지 않습니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 토큰 검증
+            payload = verify_token(token)
+            if not payload:
+                return Response({
+                    'success': False,
+                    'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                    'error': 'INVALID_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 관리자 권한 확인
+            user_id = payload.get('user_id')
+            if not user_id:
+                return Response({
+                    'success': False,
+                    'message': '사용자 정보를 찾을 수 없습니다.',
+                    'error': 'USER_NOT_FOUND'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT auth FROM user_info 
+                    WHERE user_id = %s AND use_yn = 'Y'
+                """, [user_id])
+                
+                user_data = cursor.fetchone()
+                if not user_data or user_data[0] != 'Y':
+                    return Response({
+                        'success': False,
+                        'message': '관리자 권한이 필요합니다.',
+                        'error': 'ADMIN_REQUIRED'
+                    }, status=status.HTTP_403_FORBIDDEN)
+            
+            # 피드백 내용 추출
+            remark = request.data.get('remark')
+            if not remark or not remark.strip():
+                return Response({
+                    'success': False,
+                    'message': '피드백 내용을 입력해주세요.',
+                    'error': 'EMPTY_FEEDBACK'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # chat_report 테이블에서 해당 chat_id의 레코드 찾기
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT report_id FROM chat_report 
+                    WHERE chat_id = %s
+                """, [chat_id])
+                
+                report_data = cursor.fetchone()
+                if not report_data:
+                    return Response({
+                        'success': False,
+                        'message': '해당 채팅 신고를 찾을 수 없습니다.',
+                        'error': 'REPORT_NOT_FOUND'
+                    }, status=status.HTTP_404_NOT_FOUND)
+                
+                report_id = report_data[0]
+                
+                # remark 컬럼 업데이트
+                cursor.execute("""
+                    UPDATE chat_report 
+                    SET remark = %s, 
+                        created_at = CURRENT_TIMESTAMP
+                    WHERE report_id = %s
+                """, [remark.strip(), report_id])
+                
+                if cursor.rowcount == 0:
+                    return Response({
+                        'success': False,
+                        'message': '피드백 업데이트에 실패했습니다.',
+                        'error': 'UPDATE_FAILED'
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+                return Response({
+                    'success': True,
+                    'message': '피드백이 성공적으로 저장되었습니다.',
+                    'data': {
+                        'report_id': str(report_id),
+                        'chat_id': str(chat_id),
+                        'remark': remark.strip()
+                    }
+                }, status=status.HTTP_200_OK)
+                
+        except Exception as e:
+            logger.error(f"피드백 저장 중 오류: {str(e)}")
+            return Response({
+                'success': False,
+                'message': '피드백 저장 중 오류가 발생했습니다.',
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

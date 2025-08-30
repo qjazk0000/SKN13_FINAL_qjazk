@@ -301,7 +301,7 @@ function ChatReportsPage() {
         return;
       }
 
-      const response = await api.post(`/admin/chat-reports/${selectedChatId}/feedback`, {
+      const response = await api.post(`/admin/chat-reports/${selectedChatId}/feedback/`, {
         remark: feedbackContent.trim()
       });
 
