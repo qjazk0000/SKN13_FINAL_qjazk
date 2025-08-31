@@ -7,6 +7,10 @@ from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# logs 폴더 생성
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
+
 # 환경변수 로드
 # load_dotenv(BASE_DIR.parent / '.env')
 
@@ -38,6 +42,9 @@ INSTALLED_APPS = [
     'authapp',
     'qdrant',
     'adminapp',
+    # Celery 관련 앱들 (임시로 주석 처리)
+    # 'django_celery_results',
+    # 'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -97,6 +104,12 @@ QDRANT_COLLECTION_NAME = os.getenv('QDRANT_COLLECTION_NAME', 'regulations_final'
 QDRANT_VECTOR_SIZE = int(os.getenv('QDRANT_VECTOR_SIZE', 1024))
 RAG_TOP_K = int(os.getenv('RAG_TOP_K', 5))
 
+# S3 버킷 설정
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_S3_BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME')
+AWS_S3_REGION = os.getenv('AWS_S3_REGION')
+
 # OpenAI 설정
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 
@@ -121,8 +134,10 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': '/app/django.log',
+            'filename': BASE_DIR / 'django.log',
             'formatter': 'verbose',
+            'mode': 'a',
+            'encoding': 'utf-8',
         },
     },
     'root': {
@@ -141,6 +156,11 @@ LOGGING = {
             'propagate': False,
         },
         'chatbot.views': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'adminapp': {
             'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': False,
@@ -169,7 +189,7 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = 'ko-kr'
 TIME_ZONE = 'Asia/Seoul'
 USE_I18N = True
-USE_TZ = True
+USE_TZ = False  # 시간대 변환 비활성화로 로컬 시간 직접 사용
 
 # Static files (for django admin pages)
 STATIC_URL = '/static/'
@@ -224,6 +244,41 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
+
+# Redis 설정
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+REDIS_DB = int(os.getenv('REDIS_DB', 0))
+
+# Celery 설정 (임시로 주석 처리)
+# CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
+# CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
+
+# Celery 추가 설정 (임시로 주석 처리)
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+# CELERY_RESULT_SERIALIZER = 'json'
+# CELERY_TIMEZONE = 'Asia/Seoul'
+# CELERY_ENABLE_UTC = False
+
+# Celery Beat 설정 (정기 작업 스케줄링) (임시로 주석 처리)
+# CELERY_BEAT_SCHEDULE = {
+#     # 예시: 매일 자정에 실행되는 작업
+#     # 'daily-cleanup': {
+#     #     'task': 'receipt.tasks.cleanup_old_jobs',
+#     #     'schedule': crontab(hour=0, minute=0),
+#     # },
+# }
+
+# Celery Worker 설정 (임시로 주석 처리)
+# CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+# CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+# CELERY_TASK_ACKS_LATE = True
+# CELERY_WORKER_DISABLE_RATE_LIMITS = False
+
+# Celery 모니터링 설정 (임시로 주석 처리)
+# CELERY_WORKER_SEND_TASK_EVENTS = True
+# CELERY_TASK_SEND_SENT_EVENT = True
 
 # corsheaders는 이미 INSTALLED_APPS와 MIDDLEWARE에 포함되어 있음
 CORS_ALLOWED_ORIGINS = [

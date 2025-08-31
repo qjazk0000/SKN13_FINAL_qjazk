@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { authService } from '../../services/authService';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 //MyPage 복구 
 function MyPage() {
   const [userInfo, setUserInfo] = useState({
@@ -110,6 +111,7 @@ function MyPage() {
           </button>
         </div>
         
+        
         <div className="mypage-sections">
           {/* 사용자 정보 섹션 */}
           <div className="user-info-section">
@@ -119,7 +121,10 @@ function MyPage() {
               </div>
               <div className="profile-details">
                 {isProfileLoading ? (
-                  <div>프로필 정보를 불러오는 중...</div>
+                  <div className="flex items-center gap-2">
+                    <ArrowPathIcon className="h-5 w-5 animate-spin text-blue-500" />
+                    <span>프로필 정보를 불러오는 중...</span>
+                  </div>
                 ) : (
                   <>
                     <h3 className="user-name">{userInfo.username || '사용자명 없음'}</h3>
@@ -130,38 +135,49 @@ function MyPage() {
             </div>
             
             <div className="user-fields">
-              <div className="field-group">
-                <label>아이디 (ID)</label>
-                <input
-                  type="text"
-                  value={userInfo.username || ''}
-                  className="info-input"
-                  disabled={true}
-                  readOnly
-                />
-              </div>
-              
-              <div className="field-group">
-                <label>부서 (Department)</label>
-                <input
-                  type="text"
-                  value={userInfo.dept || ''}
-                  className="info-input"
-                  disabled={true}
-                  readOnly
-                />
-              </div>
-              
-              <div className="field-group">
-                <label>직급 (Position)</label>
-                <input
-                  type="text"
-                  value={userInfo.rank || ''}
-                  className="info-input"
-                  disabled={true}
-                  readOnly
-                />
-              </div>
+              {isProfileLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <ArrowPathIcon className="h-6 w-6 animate-spin text-blue-500" />
+                    <span>사용자 정보를 불러오는 중...</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="field-group">
+                    <label>아이디 (ID)</label>
+                    <input
+                      type="text"
+                      value={userInfo.username || ''}
+                      className="info-input"
+                      disabled={true}
+                      readOnly
+                    />
+                  </div>
+                  
+                  <div className="field-group">
+                    <label>부서 (Department)</label>
+                    <input
+                      type="text"
+                      value={userInfo.dept || ''}
+                      className="info-input"
+                      disabled={true}
+                      readOnly
+                    />
+                  </div>
+                  
+                  <div className="field-group">
+                    <label>직급 (Position)</label>
+                    <input
+                      type="text"
+                      value={userInfo.rank || ''}
+                      className="info-input"
+                      disabled={true}
+                      readOnly
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* 프로필 수정 버튼 */}

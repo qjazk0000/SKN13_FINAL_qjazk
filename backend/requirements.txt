@@ -52,3 +52,6 @@ opencv-python-headless==4.12.0.88
 langchain-google-genai==2.1.8
 langchain-huggingface>=0.0.5
 langchain-upstage==0.7.3
+
+# excel
+openpyxl

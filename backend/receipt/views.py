@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, generics
 from django.db import connection
 from django.http import HttpResponse
 from authapp.decorators import require_auth
@@ -18,9 +18,63 @@ import logging
 from datetime import datetime
 import os
 import re
+import calendar
 
 logger = logging.getLogger(__name__)
 
+class ReceiptListView(generics.ListAPIView):
+    """
+    영수증 목록 조회 (페이징)
+    """
+    @require_auth
+    def get(self, request):
+        user_id = request.user_id
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 20))
+        offset = (page - 1) * page_size
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT receipt_id, created_at, store_name, amount
+                    FROM receipt_info
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT %s OFFSET %s
+                """, [user_id, page_size, offset])
+                rows = cursor.fetchall()
+
+                cursor.execute("""
+                    SELECT COUNT(*) FROM receipt_info WHERE user_id = %s
+                """, [user_id])
+                total_count = cursor.fetchone()[0]
+            
+            receipts = [
+                {
+                    "receipt_id": row[0],
+                    "created_at": row[1],
+                    "store_name": row[2],
+                    "amount": row[3],
+                }
+                for row in rows
+            ]
+            
+            return Response({
+                'success': True,
+                'data': {
+                    'receipts': receipts,
+                    'total_count': total_count,
+                    'page': page,
+                    'page_size': page_size
+                }
+            }, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            logger.error(f"영수증 목록 조회 오류: {str(e)}")
+            return Response({
+                'success': False,
+                'message': '영수증 목록 조회 중 오류 발생'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ReceiptUploadView(APIView):
     """
@@ -107,10 +161,11 @@ class ReceiptUploadView(APIView):
                 ])
 
                 # receipt_info 저장 (status = pending)
+                now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 cursor.execute("""
                     INSERT INTO receipt_info 
                     (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', NOW(), NOW())
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
                 """, [
                     receipt_id,
                     file_id,
@@ -119,7 +174,9 @@ class ReceiptUploadView(APIView):
                     amount,
                     'KRW',
                     store_name,
-                    str(normalized_extracted)   # 한글화된 OCR 데이터 저장
+                    str(normalized_extracted),   # 한글화된 OCR 데이터 저장
+                    now_str,
+                    now_str
                 ])
             # 임시 파일 삭제
             try:
@@ -221,14 +278,22 @@ class ReceiptSaveView(APIView):
 
             return Response({
                 'success': True,
-                'message': '영수증 데이터가 최종 저장되었습니다.'
-            }, status=status.HTTP_200_OK)
-
+                'message': '영수증이 성공적으로 업로드되었습니다. 처리 중입니다.',
+                'data': {
+                    'job_id': job_id,
+                    'status': 'pending',
+                    'uploaded_at': timezone.now().isoformat(),
+                    'file_name': uploaded_file.name,
+                    'file_size': uploaded_file.size
+                }
+            }, status=status.HTTP_201_CREATED)
+            
         except Exception as e:
-            logger.error(f"영수증 저장 오류: {str(e)}")
+            logger.error(f"영수증 업로드 오류: {str(e)}")
             return Response({
                 'success': False,
-                'message': '영수증 저장 중 오류가 발생했습니다.'
+                'message': '업로드 중 오류가 발생했습니다.',
+                'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -249,8 +314,11 @@ class ReceiptDownloadView(APIView):
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        start = serializer.validated_data['start_date'] + '-01'
-        end = serializer.validated_data['end_date'] + '-01'
+        start_year, start_month = map(int, serializer.validated_data['start_date'].split('-'))
+        end_year, end_month = map(int, serializer.validated_data['end_date'].split('-'))
+        start = f"{start_year}-{start_month:02d}-01"
+        last_day = calendar.monthrange(end_year, end_month)[1]  # 마지막 날짜(예: 28, 29, 30, 31)
+        end = f"{end_year}-{end_month:02d}-{last_day:02d}"
 
         try:
             with connection.cursor() as cursor:

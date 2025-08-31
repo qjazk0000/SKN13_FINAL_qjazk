@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # JWT 설정
 JWT_SECRET_KEY = getattr(settings, 'SECRET_KEY', 'dev-secret-key')
 JWT_ALGORITHM = 'HS256'
-ACCESS_TOKEN_LIFETIME = timedelta(hours=1)      # 1시간
+ACCESS_TOKEN_LIFETIME = timedelta(hours=24)      # 1시간
 REFRESH_TOKEN_LIFETIME = timedelta(days=7)      # 7일
 
 def create_access_token(user_data):

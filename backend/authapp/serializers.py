@@ -1,6 +1,7 @@
 # authapp/serializers.py
 from rest_framework import serializers
 from django.db import connection
+from django.contrib.auth.hashers import check_password
 import logging
 
 # 로거 설정
@@ -133,13 +134,6 @@ class PasswordChangeSerializer(serializers.Serializer):
             'required': '새로운 비밀번호를 입력해주세요.',
             'blank': '새로운 비밀번호를 입력해주세요.',
             'min_length': '새 비밀번호는 최소 8자 이상이어야 합니다.'
-        }
-    )
-    confirm_password = serializers.CharField(
-        max_length=128,
-        error_messages={
-            'required': '비밀번호 확인을 입력해주세요.',
-            'blank': '비밀번호 확인을 입력해주세요.'
         }
     )
 

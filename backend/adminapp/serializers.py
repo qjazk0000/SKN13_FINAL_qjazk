@@ -115,50 +115,35 @@ class AdminReceiptDetailSerializer(serializers.Serializer):
     - FFC-12: 영수증 이미지 출력 (미리보기)
     - FFC-13: 추출텍스트 목록 출력
     """
-    receipt_id = serializers.UUIDField()
-    user_id = serializers.UUIDField()
-    file_name = serializers.CharField(source='file_origin_name')
-    file_path = serializers.CharField()
-    image_url = serializers.SerializerMethodField()
-    store_name = serializers.CharField(allow_null=True)
-    payment_date = serializers.DateTimeField()
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
-    currency = serializers.CharField()
-    extracted_text = serializers.CharField(allow_null=True)
-    extracted_text_preview = serializers.SerializerMethodField()
-    status = serializers.CharField()
-    created_at = serializers.DateTimeField()
-    updated_at = serializers.DateTimeField()
+    # Raw SQL JOIN 결과에서 가져오는 필드들
+    receipt_id = serializers.UUIDField(help_text="영수증 고유 ID")
+    user_id = serializers.UUIDField(help_text="사용자 ID")
+    user_name = serializers.CharField(help_text="사용자 이름")
+    user_dept = serializers.CharField(help_text="사용자 부서")
+    file_path = serializers.CharField(help_text="파일 경로 (이미지 URL)")
+    file_name = serializers.CharField(help_text="파일명")
+    payment_date = serializers.DateTimeField(help_text="결제일")
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="금액")
+    currency = serializers.CharField(help_text="통화")
+    store_name = serializers.CharField(help_text="상점명")
+    extracted_text = serializers.CharField(help_text="추출된 텍스트")
+    status = serializers.CharField(help_text="상태")
+    created_at = serializers.DateTimeField(help_text="생성일")
 
-    def get_image_url(self, obj):
-        """
-        영수증 이미지 URL 생성 메서드
-        - file_path를 기반으로 미디어 URL 생성
-        - FFC-12: 이미지 미리보기 기능 지원
-        """
-        if obj.get('file_path'):
-            return f"/media/{obj['file_path']}"
-        return None
-
-    def get_extracted_text_preview(self, obj):
-        """
-        추출 텍스트 미리보기 생성 메서드
-        - FFC-13: 추출텍스트 목록 출력 지원
-        """
-        extracted_text = obj.get('extracted_text')
-        if extracted_text and len(extracted_text) > 50:
-            return extracted_text[:50] + '...'
-        return extracted_text
 
 class ReceiptPreviewSerializer(serializers.Serializer):
     """
-    영수증 이미지 미리보기 응답 시리얼라이저 (Raw SQL 결과용)
+    영수증 미리보기용 시리얼라이저 (Raw SQL 결과용)
     """
-    image_url = serializers.SerializerMethodField()
-    file_name = serializers.CharField(source='file_origin_name')
-    
-    def get_image_url(self, obj):
-        """영수증 이미지 URL 생성"""
-        if obj.get('file_path'):
-            return f"/media/{obj['file_path']}"
-        return None
+    receipt_id = serializers.UUIDField(help_text="영수증 고유 ID")
+    user_name = serializers.CharField(help_text="사용자 이름")
+    user_dept = serializers.CharField(help_text="사용자 부서")
+    file_path = serializers.CharField(help_text="파일 경로")
+    file_name = serializers.CharField(help_text="파일명")
+    payment_date = serializers.DateTimeField(help_text="결제일")
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="금액")
+    currency = serializers.CharField(help_text="통화")
+    store_name = serializers.CharField(help_text="상점명")
+    extracted_text = serializers.CharField(help_text="추출된 텍스트")
+    status = serializers.CharField(help_text="상태")
+    created_at = serializers.DateTimeField(help_text="생성일")
