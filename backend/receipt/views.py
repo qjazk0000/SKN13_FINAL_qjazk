@@ -118,7 +118,7 @@ class ReceiptUploadView(APIView):
                 converted_items.append({
                     "품명": item.get("productName", ""),
                     "단가": item.get("unitPrice", 0),
-                    "수량": item.get("quantity", 0),
+                    "수량": item.get("quantity", 1),
                     "금액": item.get("totalPrice", 0)
                 })
 
@@ -244,7 +244,7 @@ class ReceiptSaveView(APIView):
                 converted_items.append({
                     "품명": item.get("품명", ""),
                     "단가": item.get("단가", 0),
-                    "수량": item.get("수량", 0),
+                    "수량": item.get("수량", 1),
                     "금액": item.get("금액", 0)
                 })
 
@@ -278,14 +278,7 @@ class ReceiptSaveView(APIView):
 
             return Response({
                 'success': True,
-                'message': '영수증이 성공적으로 업로드되었습니다. 처리 중입니다.',
-                'data': {
-                    'job_id': job_id,
-                    'status': 'pending',
-                    'uploaded_at': timezone.now().isoformat(),
-                    'file_name': uploaded_file.name,
-                    'file_size': uploaded_file.size
-                }
+                'message': '영수증이 성공적으로 업로드되었습니다. 처리 중입니다.'
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
