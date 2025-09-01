@@ -66,13 +66,20 @@ class ChatReportSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-    # UserInfo 기반 reported_by 설정
-        user_uuid = getattr(self.context['request'].user, 'user_id', None)
-        if not user_uuid:
+        # UserInfo 기반 reported_by 설정
+        request = self.context.get('request')
+        
+        # 커스텀 인증 데코레이터에서 설정된 사용자 정보 사용
+        if hasattr(request, 'user_data') and request.user_data:
+            user_uuid = request.user_data[0]  # user_id는 첫 번째 컬럼
+        else:
             raise serializers.ValidationError("사용자 정보 없음")
 
-        user_info = UserInfo.objects.get(user_id=user_uuid)
-        validated_data['reported_by'] = user_info
+        try:
+            user_info = UserInfo.objects.get(user_id=user_uuid)
+            validated_data['reported_by'] = user_info
+        except UserInfo.DoesNotExist:
+            raise serializers.ValidationError("사용자를 찾을 수 없음")
 
         # chat 확인
         chat = validated_data.get('chat')
