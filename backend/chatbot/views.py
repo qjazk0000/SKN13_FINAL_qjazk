@@ -2,13 +2,17 @@
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
-from rest_framework import generics, status, viewsets
+from rest_framework import generics, status, viewsets, permissions
 from authapp.utils import verify_token, get_user_from_token
-from .models import Conversation, ChatMessage
-from .serializers import ConversationSerializer, ChatMessageSerializer, ChatQuerySerializer
+from authapp.decorators import require_auth
+from .models import Conversation, ChatMessage, ChatReport
+from .serializers import ConversationSerializer, ChatMessageSerializer, ChatQuerySerializer, ChatReportSerializer
 from .services.rag_service import rag_answer
 from .services.pipeline import rag_answer_enhanced
 from django.http import JsonResponse
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ConversationListView(generics.ListAPIView):
 
@@ -341,7 +345,8 @@ class ChatStatusView(generics.RetrieveAPIView):
     """
     응답 처리 상태 확인
     """
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def retrieve(self, request, *args, **kwargs):
         session_id = kwargs.get('session_id')
@@ -359,12 +364,33 @@ class ChatStatusView(generics.RetrieveAPIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-class ChatReportView(APIView):
-    def post(self, request, chat_id):
+
+class ChatReportView(generics.CreateAPIView):
+    serializer_class = ChatReportSerializer
+    authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
+    permission_classes = [AllowAny]  # 커스텀 인증을 사용하므로 AllowAny
+
+    @require_auth
+    def create(self, request, *args, **kwargs):
+        chat_id = kwargs.get("chat_id")
+        logger.info(f"chat_id: kwargs.get 실행 결과: {chat_id}")
+        if not chat_id:
+            return Response({"error": "chat_id 필요"}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
+            # 신고 대상 메시지 가져오기
             message = ChatMessage.objects.get(id=chat_id)
-            message.report = 'Y'
-            message.save()
-            return Response({'status': 'success'}, status=status.HTTP_200_OK)
+            print(f"message from DB: {message}, id: {message.id}, type: {type(message.id)}")
         except ChatMessage.DoesNotExist:
-            return Response({'status': 'fail', 'error': '메시지 없음'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "메시지 없음"}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({"error": "chat_id 형식 오류"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # create 호출 시 chat 객체를 kwargs로 넘김
+        serializer.save(chat=message)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
