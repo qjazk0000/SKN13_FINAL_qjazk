@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 import api from "../../services/api";
 import CustomModal from "./CustomModal";
+import LoadingMask from "../../components/LoadingMask";
 
 function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
   const [uploadFile, setUploadFile] = useState(null);
@@ -196,31 +197,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
   return (
     <div className="flex flex-col w-full h-screen bg-gray-100 sm:px-8 md:px-16 lg:px-32 xl:px-60">
       {isLoading && (
-        <div className="flex flex-col items-center justify-center absolute inset-0 bg-white bg-opacity-70 z-50">
-          <div className="text-xl font-bold text-gray-700 mb-2">
-            {isLoading ? "영수증 처리 중..." : "데이터 로딩 중..."}
-          </div>
-          <div className="mt-2 text-gray-400">잠시만 기다려주세요.</div>
-          <svg
-            className="animate-spin h-8 w-8 text-orange-400 mt-6"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-              fill="none"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v8z"
-            />
-          </svg>
-        </div>
+        <LoadingMask isVisible={isLoading} message="영수증 처리 중..." />
       )}
 
       {isEditing ? (

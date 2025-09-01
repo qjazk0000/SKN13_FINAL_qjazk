@@ -188,7 +188,7 @@ function Sidebar({
                       return (
                         <li
                           key={chat.id}
-                          className={`relative ${
+                          className={`relative mr-1 ${
                             openDeleteMenuId === chat.id || isSelected
                               ? "bg-gray-700 rounded-md"
                               : ""
@@ -250,7 +250,7 @@ function Sidebar({
                       return (
                         <li
                           key={receipt.receipt_id || index}
-                          className={`relative ${
+                          className={`relative mr-1 ${
                             isSelected ? "bg-gray-700 rounded-md" : ""
                           }`}
                         >
