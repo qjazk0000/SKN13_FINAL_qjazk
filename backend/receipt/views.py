@@ -278,14 +278,22 @@ class ReceiptSaveView(APIView):
 
             return Response({
                 'success': True,
-                'message': '영수증 데이터가 최종 저장되었습니다.'
-            }, status=status.HTTP_200_OK)
-
+                'message': '영수증이 성공적으로 업로드되었습니다. 처리 중입니다.',
+                'data': {
+                    'job_id': job_id,
+                    'status': 'pending',
+                    'uploaded_at': timezone.now().isoformat(),
+                    'file_name': uploaded_file.name,
+                    'file_size': uploaded_file.size
+                }
+            }, status=status.HTTP_201_CREATED)
+            
         except Exception as e:
-            logger.error(f"영수증 저장 오류: {str(e)}")
+            logger.error(f"영수증 업로드 오류: {str(e)}")
             return Response({
                 'success': False,
-                'message': '영수증 저장 중 오류가 발생했습니다.'
+                'message': '업로드 중 오류가 발생했습니다.',
+                'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

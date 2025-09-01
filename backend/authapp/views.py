@@ -259,6 +259,34 @@ class UserProfileView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self, request):
+        # Authorization 헤더 확인
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 추출 및 검증
+        from .utils import extract_token_from_header, get_user_from_token
+        token = extract_token_from_header(request)
+        if not token:
+            return Response({
+                'success': False,
+                'message': '인증 토큰이 필요합니다.',
+                'error': 'MISSING_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # 토큰 검증
+        user_data = get_user_from_token(token)
+        if not user_data:
+            return Response({
+                'success': False,
+                'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                'error': 'INVALID_TOKEN'
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
         # 프로필 업데이트 로직 (필요시 구현)
         return Response({
             'success': True,

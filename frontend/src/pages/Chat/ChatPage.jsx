@@ -212,7 +212,7 @@ function ChatPage() {
 
   // 관리자 페이지로 이동 핸들러
   const handleAdminPageClick = useCallback(() => {
-    navigate("/admin/members");
+    navigate('/admin/members');
   }, [navigate]);
 
   // 채팅 선택 핸들러
@@ -308,6 +308,7 @@ function ChatPage() {
           message: message,
         });
         const aiResponseText = response.data.response;
+        const aiMessageId = response.data.message_id;
         const conversationTitle = response.data.conversation_title; // 백엔드에서 반환된 제목
 
         // 채팅 제목 업데이트 (첫 질문인 경우)
@@ -333,6 +334,7 @@ function ChatPage() {
                         msg.id === aiLoadingMessage.id
                           ? {
                               ...msg,
+                              id : aiMessageId,
                               content: aiResponseText,
                               isLoading: false,
                               isNew: true, // TypingEffect 활성화
@@ -342,6 +344,7 @@ function ChatPage() {
                     : [
                         {
                           ...aiLoadingMessage,
+                          id : aiMessageId,
                           content: aiResponseText,
                           isLoading: false,
                           isNew: true, // TypingEffect 활성화
@@ -361,7 +364,7 @@ function ChatPage() {
                     ...chat,
                     messages: Array.isArray(chat.messages)
                       ? chat.messages.map((msg) =>
-                          msg.id === aiLoadingMessage.id
+                          msg.id === aiMessageId
                             ? {
                                 ...msg,
                                 isNew: false, // TypingEffect 비활성화
