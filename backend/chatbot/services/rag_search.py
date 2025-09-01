@@ -10,6 +10,20 @@ from sentence_transformers import SentenceTransformer
 from django.conf import settings
 from .constants import RAG_CONFIG, EXISTING_COLLECTION
 from .filters import build_qdrant_filter, build_advanced_filter
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+
+# 🚀 모듈 수준에서 즉시 모델 로딩 (강력한 캐싱)
+print("🔥 SentenceTransformer 모델 모듈 로딩 시작...")
+_GLOBAL_EMBEDDER = SentenceTransformer("nlpai-lab/KoE5")
+print("🔥 SentenceTransformer 모델 모듈 로딩 완료!")
+
+def get_global_embedder():
+    """전역 임베딩 모델 반환 (이미 로딩됨)"""
+    logger.info("캐싱된 SentenceTransformer 모델 사용")
+    return _GLOBAL_EMBEDDER
 
 class RagSearcher:
     """
@@ -33,11 +47,11 @@ class RagSearcher:
         
         self.client = QdrantClient(host=self.qdrant_host, port=self.qdrant_port)
         
-        # 임베딩 모델 초기화
-        self.embedder = SentenceTransformer("nlpai-lab/KoE5")
+        # 전역 캐싱된 임베딩 모델 사용
+        self.embedder = get_global_embedder()
         
         # 검색 설정
-        self.default_top_k = RAG_CONFIG.get('CHUNK_SIZE', 8)
+        self.default_top_k = RAG_CONFIG.get('CHUNK_SIZE', 5)  # 5로 수정
     
     def search(self, query: str, flt: Optional[Dict[str, Any]] = None, top_k: int = None) -> List[Dict[str, Any]]:
         """
