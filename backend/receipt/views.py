@@ -279,13 +279,6 @@ class ReceiptSaveView(APIView):
             return Response({
                 'success': True,
                 'message': '영수증이 성공적으로 업로드되었습니다. 처리 중입니다.',
-                'data': {
-                    'job_id': job_id,
-                    'status': 'pending',
-                    'uploaded_at': timezone.now().isoformat(),
-                    'file_name': uploaded_file.name,
-                    'file_size': uploaded_file.size
-                }
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:

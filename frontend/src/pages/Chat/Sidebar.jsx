@@ -125,13 +125,14 @@ function Sidebar({
       {/* LoadingMask */}
       <LoadingMask isVisible={isDeleting} message="채팅을 삭제하는 중..." />
 
-      <div className="flex flex-col w-64 h-screen bg-gray-800 text-white">
+      <div className="flex flex-col w-72 h-screen bg-gray-800 text-white">
         {/* 상단 로고 */}
         <div
           className="flex items-center justify-center h-16 border-b border-gray-700 cursor-pointer"
           onClick={() => window.location.reload()}
         >
-          <h1 className="text-xl font-bold">NAVI</h1>
+          {/* <h1 className="text-xl font-bold">NAVI</h1> */}
+          <img src="/images/logo3.png" alt="NAVI Logo" className="h-28 mr-3" />
         </div>
 
         {/* 카테고리 메뉴 */}
@@ -155,7 +156,7 @@ function Sidebar({
         </div>
 
         {/* 새 채팅 + 목록 */}
-        <div className="p-4 border-t border-gray-700 flex-1 flex flex-col min-h-0">
+        <div className="px-2 py-4 border-t border-gray-700 flex-1 flex flex-col min-h-0">
           <button
             type="button"
             onClick={handleAddNewItem}
@@ -177,7 +178,7 @@ function Sidebar({
               <ArrowPathIcon className="h-6 w-6 animate-spin" />
             </div>
           ) : (
-            <div ref={listRef} className="max-h-96 overflow-y-auto">
+            <div ref={listRef} className="overflow-y-auto">
               <ul>
                 {isChatCategory
                   ? chats.map((chat, index) => {
@@ -187,7 +188,7 @@ function Sidebar({
                       return (
                         <li
                           key={chat.id}
-                          className={`relative ${
+                          className={`relative mr-1 ${
                             openDeleteMenuId === chat.id || isSelected
                               ? "bg-gray-700 rounded-md"
                               : ""
@@ -249,7 +250,7 @@ function Sidebar({
                       return (
                         <li
                           key={receipt.receipt_id || index}
-                          className={`relative ${
+                          className={`relative mr-1 ${
                             isSelected ? "bg-gray-700 rounded-md" : ""
                           }`}
                         >
@@ -286,7 +287,7 @@ function Sidebar({
             <button
               type="button"
               onClick={onAdminPageClick}
-              className="w-full py-2 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-center font-medium transition flex items-center justify-center gap-2"
+              className="w-full py-2 px-4 text-white text-center font-medium underline hover:text-gray-400 transition"
               title="관리자 페이지로 이동"
             >
               관리자 페이지
@@ -305,7 +306,7 @@ function Sidebar({
                 <button
                   type="button"
                   onClick={onUserNameClick}
-                  className="text-m font-bold truncate hover:text-blue-300 transition cursor-pointer"
+                  className="text-m font-bold truncate hover:text-gray-400 transition cursor-pointer"
                   title="마이페이지로 이동"
                 >
                   {displayName}

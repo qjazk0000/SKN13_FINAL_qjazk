@@ -212,7 +212,7 @@ function ChatPage() {
 
   // 관리자 페이지로 이동 핸들러
   const handleAdminPageClick = useCallback(() => {
-    navigate('/admin/members');
+    navigate("/admin/members");
   }, [navigate]);
 
   // 채팅 선택 핸들러
@@ -334,7 +334,7 @@ function ChatPage() {
                         msg.id === aiLoadingMessage.id
                           ? {
                               ...msg,
-                              id : aiMessageId,
+                              id: aiMessageId,
                               content: aiResponseText,
                               isLoading: false,
                               isNew: true, // TypingEffect 활성화
@@ -344,7 +344,7 @@ function ChatPage() {
                     : [
                         {
                           ...aiLoadingMessage,
-                          id : aiMessageId,
+                          id: aiMessageId,
                           content: aiResponseText,
                           isLoading: false,
                           isNew: true, // TypingEffect 활성화
