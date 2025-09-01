@@ -424,7 +424,7 @@ function ChatReportsPage() {
   };
 
   return (
-    <div className="flex">
+    <div className="flex h-screen">
       <div className="w-64 bg-gray-800 text-white flex-shrink-0 h-screen">
         <AdminSidebar 
         userName={userName}
