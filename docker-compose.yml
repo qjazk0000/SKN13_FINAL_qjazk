@@ -19,7 +19,7 @@ services:
     volumes:
       - ./backend:/app
       - ./documents:/app/documents
-      - ./config:/app/config
+      - ./config:/app/prompts
       - static_volume:/app/backend/staticfiles
       - media_volume:/app/backend/mediafiles
       - /etc/localtime:/etc/localtime:ro

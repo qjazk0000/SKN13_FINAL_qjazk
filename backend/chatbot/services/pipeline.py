@@ -41,9 +41,10 @@ _USER_PROMPT = None
 def _init_prompts():
     """프롬프트 초기화 함수"""
     global _SYSTEM_PROMPT, _USER_PROMPT
+    
     if _SYSTEM_PROMPT is None:
         try:
-            system_prompt_path = '/app/config/system_prompt.md'
+            system_prompt_path = '/app/prompts/system_prompt.md'
             _SYSTEM_PROMPT = load_prompt(system_prompt_path,
                                          default="당신은 업무 가이드를 제공하는 전문가입니다.")
         except FileNotFoundError:
@@ -52,7 +53,7 @@ def _init_prompts():
     
     if _USER_PROMPT is None:
         try:
-            user_prompt_path = '/app/config/user_prompt.md'
+            user_prompt_path = '/app/prompts/user_prompt.md'
             _USER_PROMPT = load_prompt(user_prompt_path,
                                        default="위 문서들을 바탕으로 질문에 대한 정확한 답변을 제공해주세요.")
         except FileNotFoundError:
