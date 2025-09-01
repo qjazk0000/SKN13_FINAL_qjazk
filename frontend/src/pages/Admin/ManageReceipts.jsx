@@ -510,8 +510,9 @@ function ManageReceipts() {
   };
 
   return (
-    <div className="flex">
-      <AdminSidebar 
+    <div className="flex h-screen">
+      <div className="w-64 bg-gray-800 text-white flex-shrink-0 h-screen">
+        <AdminSidebar 
         userName={userName}
         onUserNameClick={handleUserNameClick}
         onLogout={handleLogout}
@@ -519,7 +520,8 @@ function ManageReceipts() {
         onTabSelect={handleTabSelect}
         onChatPageClick={handleChatPageClick}
       />
-      <div className="flex-1 p-6">
+      </div>
+      <div className="flex-1 overflow-y-auto p-6">
         <h1 className="text-2xl font-bold mb-6">영수증 관리</h1>
         
         {/* 에러 메시지 */}

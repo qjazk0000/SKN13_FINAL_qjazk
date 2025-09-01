@@ -4,10 +4,18 @@ import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useEffect, useRef, useState } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TypingEffect from "./TypingEffect";
+import CustomModal from "./CustomModal"
+import { reportChat } from "../../services/reportService";
 import api from "../../services/api";
 
 function Chat({ chat, onSendMessage, isLoading = false }) {
   const [text, setText] = useState("");
+  const [modalOpen, setModalOpen] = useState(false)
+  const [reportMessageId, setReportMessageId] = useState(null);
+  const [reportText, setReportText] = useState("");
+  const [selectedReportType, setSelectedReportType] = useState(null);
+  const [validationError, setValidationError] = useState("");
+
   const messageEndRef = useRef(null);
   const sessionStartAtRef = useRef(Date.now());
 
@@ -35,26 +43,38 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
     }
   };
 
-  const handleReport = async (messageId) => {
-    try {
-      const response = await api.post(
-        `/chat/${messageId}/report/`,
-        {},
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (response.data.status === "success") {
-        alert("신고가 접수되었습니다.");
-      } else {
-        alert("신고 처리에 실패했습니다.");
-      }
-    } catch (error) {
-      alert("신고 중 오류가 발생했습니다.");
-    }
+  const handleConfirmReport = async () => {
+  if (!selectedReportType) {
+    setValidationError("신고 유형 선택은 필수입니다.");
+    return;
+  }
+  setValidationError("");
+
+  try {
+    const data = await reportChat(reportMessageId, selectedReportType, reportText);
+    alert("신고가 접수되었습니다.");
+    setModalOpen(false);
+    setReportText("");
+    setSelectedReportType(null);
+    setReportMessageId(null);
+  } catch (err) {
+    alert("신고 처리 중 오류가 발생했습니다: " + err);
+  }
+};
+
+  // 신고 버튼 클릭 시 모달 열기
+  const handleOpenReportModal = (messageId) => {
+    setReportMessageId(messageId);
+    setModalOpen(true);
   };
+
+  const reportTypes = [
+    "hallucination",
+    "fact_error",
+    "irrelevant",
+    "incomplete",
+    "other"
+  ];
 
   if (!chat) {
     return (
@@ -145,10 +165,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
                 {message.sender_type === "ai" && !message.isLoading && (
                   <button
                     className="ml-2 self-end text-xs text-gray-500 underline"
-                    onClick={() => {
-                      handleReport(message.id);
-                      alert(`메시지 ${message.id} 신고하기 눌림`);
-                    }}
+                    onClick={() => handleOpenReportModal(message.id)}
                   >
                     신고하기
                   </button>
@@ -180,6 +197,48 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
           </button>
         </div>
       </div>
+
+      <CustomModal
+        open={modalOpen}
+        title="답변 신고"
+        confirmText="신고"
+        cancelText="취소"
+        onConfirm={handleConfirmReport}
+        onCancel={() => {
+          setModalOpen(false);
+          setSelectedReportType(null);
+          setReportText("");
+          setValidationError("");
+        }}
+      >
+        <div className="mb-4">
+          <div className="mb-2 font-semibold">신고 유형 선택</div>
+          <select
+            className="w-full p-2 border border-gray-300 rounded text-sm"
+            value={selectedReportType || ""}
+            onChange={(e) => setSelectedReportType(e.target.value)}
+          >
+            {reportTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-4">
+          <div className="mb-2 font-semibold">신고 사유</div>
+          <textarea
+            className="w-full mt-2 p-2 border border-gray-300 rounded resize-none text-sm"
+            rows={6}
+            placeholder="신고 사유를 입력하세요 (선택 사항)"
+            value={reportText}
+            onChange={(e) => setReportText(e.target.value)}
+          />
+          {validationError && (
+            <div className="text-orange-600 mt-1 text-sm font-semibold">{validationError}</div>
+          )}
+        </div>
+      </CustomModal>
     </div>
   );
 }
