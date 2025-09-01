@@ -29,15 +29,14 @@ function ManageReceipts() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  // 이미지 미리보기 토글 상태
-  const [previewStates, setPreviewStates] = useState({});
+  // 팝업 상태 및 이미지 URL + 현재 영수증 데이터
+  const [popupImageUrl, setPopupImageUrl] = useState(null);
+  const [popupReceipt, setPopupReceipt] = useState(null);
 
-  // 이미지 미리보기 토글 함수
-  const togglePreview = (receiptId) => {
-    setPreviewStates(prev => ({
-      ...prev,
-      [receiptId]: !prev[receiptId]
-    }));
+  // 팝업 닫기 함수
+  const closePopup = () => {
+    setPopupImageUrl(null);
+    setPopupReceipt(null);
   };
 
   // 페이지 로드 시 사용자 정보와 영수증 목록 조회
@@ -262,51 +261,36 @@ function ManageReceipts() {
       accessor: "file_path",
       cell: (value, row) => {
         if (!value) return <span className="text-gray-400">파일 없음</span>;
-        
-        // 파일 확장자 확인
         const fileExt = value.split('.').pop()?.toLowerCase();
         const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExt);
-        const receiptId = row.receipt_id;
-        const isPreviewOpen = previewStates[receiptId];
-        
+
         if (isImage) {
           return (
-            <div className="flex flex-col items-center space-y-2">
-              <button
-                onClick={() => togglePreview(receiptId)}
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm transition-colors"
-              >
-                {isPreviewOpen ? '접기' : '미리보기'}
-              </button>
-              
-              {/* 이미지 미리보기 */}
-              {isPreviewOpen && (
-                <div className="w-full max-w-xs bg-white border border-gray-300 rounded overflow-hidden">
-                  <div className="p-2">
-                    <img
-                      src={value}
-                      alt="영수증 이미지"
-                      className="w-full max-h-48 object-contain"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
-                      }}
-                    />
-                    <div className="hidden text-center text-gray-500 text-xs">
-                      <p>이미지를 불러올 수 없습니다</p>
-                      <a 
-                        href={value} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline"
-                      >
-                        새 창에서 보기
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => {
+                setPopupImageUrl(value);
+
+                // extracted_text 파싱
+                let parsedExtractedText = {};
+                try {
+                  if (typeof row.extracted_text === "string") {
+                    parsedExtractedText = JSON.parse(row.extracted_text.replace(/'/g, '"'));
+                  } else {
+                    parsedExtractedText = row.extracted_text;
+                  }
+                } catch (err) {
+                  console.error("extracted_text 파싱 실패:", err);
+                }
+
+                setPopupReceipt({
+                  row,
+                  extracted_text: parsedExtractedText
+                });
+              }}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded text-sm transition-colors"
+            >
+              이미지 크게 보기
+            </button>
           );
         } else {
           return (
@@ -320,34 +304,6 @@ function ManageReceipts() {
             </a>
           );
         }
-      }
-    },
-    {
-      header: "품목 정보",
-      accessor: "items_info",
-      cell: (value, row) => {
-        const receiptId = row.receipt_id;
-        const isPreviewOpen = previewStates[receiptId];
-        const itemsInfo = row.items_info || [];
-        
-        // 미리보기가 열려있을 때만 품목 정보 표시
-        if (!isPreviewOpen) {
-          return <span className="text-gray-400">-</span>;
-        }
-        
-        if (itemsInfo.length === 0) {
-          return <span className="text-gray-400">품목 정보 없음</span>;
-        }
-        
-        return (
-          <div className="space-y-1">
-            {itemsInfo.map((item, index) => (
-              <div key={index} className="text-xs bg-gray-50 px-2 py-1 rounded border whitespace-nowrap">
-                {item}
-              </div>
-            ))}
-          </div>
-        );
       }
     },
     { 
@@ -469,7 +425,7 @@ function ManageReceipts() {
     ...receipt,
     amount: formatAmount(receipt.amount),
     // created_at: formatDate(receipt.created_at),
-    previewOpen: previewStates[receipt.receipt_id] || false
+    // previewOpen: previewStates[receipt.receipt_id] || false
   }));
 
   // 엑셀 다운로드 핸들러
@@ -612,6 +568,70 @@ function ManageReceipts() {
               onPageChange={handlePageChange}
             />
           </>
+        )}
+
+        {/* 팝업 이미지 미리보기 */}
+        {popupImageUrl && popupReceipt && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+            onClick={closePopup}
+          >
+            <div
+              className="bg-white rounded-lg shadow-lg p-4 relative flex flex-col md:flex-row items-center"
+              style={{ maxWidth: '90vw', maxHeight: '90vh' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={closePopup}
+                className="absolute top-2 right-2 text-gray-700 hover:text-red-500 text-xl font-bold"
+                aria-label="닫기"
+              >
+                ×
+              </button>
+              {/* 이미지: 왼쪽 */}
+              <div className="flex-shrink-0 flex items-center justify-center md:mr-8 mb-6 md:mb-0">
+                <img
+                  src={popupImageUrl}
+                  alt="영수증 이미지"
+                  className="max-w-[40vw] max-h-[70vh] rounded"
+                  style={{ display: 'block' }}
+                />
+              </div>
+              {/* 정보: 오른쪽 */}
+              <div className="w-full md:w-[420px] bg-gray-50 rounded-lg p-4 border">
+                <div className="mb-2 text-base text-gray-800">
+                  <span className="font-semibold">결제처: </span>
+                  {popupReceipt.extracted_text?.결제처 || "정보 없음"}
+                </div>
+                <div className="mb-2 text-base text-gray-800">
+                  <span className="font-semibold">결제일시: </span>
+                  {popupReceipt.extracted_text?.결제일시 || "정보 없음"}
+                </div>
+                <div className="mb-2 text-base text-gray-800">
+                  <span className="font-semibold">카드번호: </span>
+                  {popupReceipt.extracted_text?.카드정보 || "정보 없음"}
+                </div>
+                <div className="mb-2 text-base text-gray-800">
+                  <span className="font-semibold">품목 정보: </span>
+                  {Array.isArray(popupReceipt.extracted_text?.품목) && popupReceipt.extracted_text?.품목.length > 0 ? (
+                    <ul className="mt-1 space-y-1 list-disc list-inside">
+                      {popupReceipt.extracted_text?.품목.map((item, idx) => (
+                        <li key={idx} className="text-sm text-gray-700">
+                          {item.품명} x{item.수량}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="text-gray-400">품목 정보 없음</span>
+                  )}
+                </div>
+                <div className="mb-2 text-base text-gray-800">
+                  <span className="font-semibold">합계: </span>
+                  {popupReceipt.extracted_text?.총합계 || "정보 없음"}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
