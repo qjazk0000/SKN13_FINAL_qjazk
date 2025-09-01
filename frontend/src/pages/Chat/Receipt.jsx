@@ -13,7 +13,8 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
   const [reportEnd, setReportEnd] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
-
+  const today = new Date().toISOString().slice(0, 7);
+  
   useEffect(() => {
     if (receiptDetails) {
       setReceiptInfo(null);
@@ -409,12 +410,14 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                 value={reportStart}
                 onChange={(e) => setReportStart(e.target.value)}
                 className="w-full h-8 p-2 border rounded-md"
+                max={reportEnd || today}
               />
               <input
                 type="month"
                 value={reportEnd}
                 onChange={(e) => setReportEnd(e.target.value)}
                 className="w-full p-2 h-8 border rounded-md"
+                min={reportStart || undefined}
               />
               <button
                 onClick={handleDownload}
