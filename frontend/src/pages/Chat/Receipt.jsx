@@ -2,12 +2,9 @@ import React, { useEffect, useState } from "react";
 import { CloudArrowUpIcon, ArrowDownTrayIcon } from "@heroicons/react/24/solid";
 import api from "../../services/api";
 import CustomModal from "./CustomModal";
+import LoadingMask from "../../components/LoadingMask";
 
-function Receipt({
-  selectedReceipt,
-  receiptDetails,
-  onSaveSuccess,
-}) {
+function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
   const [uploadFile, setUploadFile] = useState(null);
   const [receiptInfo, setReceiptInfo] = useState(null);
   const [editInfo, setEditInfo] = useState(null);
@@ -200,31 +197,7 @@ function Receipt({
   return (
     <div className="flex flex-col w-full h-screen bg-gray-100 sm:px-8 md:px-16 lg:px-32 xl:px-60">
       {isLoading && (
-        <div className="flex flex-col items-center justify-center absolute inset-0 bg-white bg-opacity-70 z-50">
-          <div className="text-xl font-bold text-gray-700 mb-2">
-            {isLoading ? "영수증 처리 중..." : "데이터 로딩 중..."}
-          </div>
-          <div className="mt-2 text-gray-400">잠시만 기다려주세요.</div>
-          <svg
-            className="animate-spin h-8 w-8 text-orange-400 mt-6"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-              fill="none"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8v8z"
-            />
-          </svg>
-        </div>
+        <LoadingMask isVisible={isLoading} message="영수증 처리 중..." />
       )}
 
       {isEditing ? (
@@ -377,7 +350,7 @@ function Receipt({
             영수증 처리 도우미
           </div>
           <p className="mt-4 text-gray-500">
-            영수증 업로드와 보고서 추출 기능을 이용해보세요.
+            영수증 업로드와 다운로드 기능을 이용해보세요.
           </p>
         </div>
       )}
@@ -399,8 +372,8 @@ function Receipt({
 
       {selectedReceipt?.isNew && !isEditing && (
         <div className="flex justify-center flex-shrink-0 p-4">
-          <div className="flex flex-col md:flex-row bg-white rounded-lg w-full max-w-4xl p-4 gap-4">
-            <div className="flex-1 flex flex-col justify-between items-center p-4 border rounded-md gap-2">
+          <div className="flex flex-col md:flex-row bg-white shadow-md rounded-lg w-full max-w-4xl p-4 gap-4">
+            <div className="flex-1 flex flex-col justify-between items-center p-4 rounded-md gap-2">
               <h3 className="text-lg font-semibold">영수증 업로드</h3>
               <label
                 htmlFor="file-upload"
@@ -423,13 +396,13 @@ function Receipt({
               </label>
               <button
                 onClick={handleUpload}
-                className="px-4 py-2 bg-gray-200 rounded-lg shadow-md hover:bg-gray-300 w-full"
+                className="px-4 py-2 bg-gray-200 rounded-lg shadow-md hover:bg-gray-300 w-full cursor-pointer"
                 disabled={isLoading || !uploadFile}
               >
                 {isLoading ? "처리 중..." : "업로드"}
               </button>
             </div>
-            <div className="flex-1 flex flex-col gap-2 justify-between items-center p-4 border rounded-md">
+            <div className="flex-1 flex flex-col gap-2 justify-between items-center p-4 rounded-md">
               <h3 className="text-lg font-semibold">영수증 다운로드</h3>
               <input
                 type="month"

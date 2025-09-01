@@ -172,9 +172,10 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
             disabled={isLoading}
           />
           <button
-            className="absolute right-2 top-4 bg-gray-400 text-white rounded-full p-2 h-10 w-10 flex items-center justify-center cursor-pointer transition-colors"
+            className="absolute right-2 top-4 bg-gray-400 hover:bg-gray-500 text-white rounded-full p-2 h-10 w-10 flex items-center justify-center cursor-pointer transition-colors"
             onClick={handleSend}
             disabled={text.trim() === "" || isLoading}
+            title="전송"
           >
             <PaperAirplaneIcon className="h-5 w-5" />
           </button>
