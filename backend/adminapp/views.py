@@ -322,8 +322,8 @@ class AdminReceiptsView(APIView):
             # 품목명과 갯수를 문자열로 포맷팅
             formatted_items = []
             for item in items:
-                product_name = item.get('productName', '')
-                quantity = item.get('quantity', 1)
+                product_name = item.get('품명', '')
+                quantity = item.get('수량', 1)
                 if product_name:
                     formatted_items.append(f"{product_name} x{quantity}")
             
@@ -1066,13 +1066,13 @@ class ReceiptManagementView(APIView):
                                 # 간단한 파싱으로 품목 정보 추출
                                 items = []
                                 # {'productName': '...', 'quantity': ...} 패턴 찾기
-                                item_pattern = r"\{'productName':\s*'([^']+)',\s*'quantity':\s*(\d+)[^}]*\}"
+                                item_pattern = r"\{'품명':\s*'([^']+)',\s*'수량':\s*(\d+)[^}]*\}"
                                 item_matches = re.findall(item_pattern, items_str)
                                 
                                 for product_name, quantity in item_matches:
                                     items.append({
-                                        'productName': product_name,
-                                        'quantity': int(quantity)
+                                        '품명': product_name,
+                                        '수량': int(quantity)
                                     })
                                 
                                 data = {'품목': items}
@@ -1102,8 +1102,8 @@ class ReceiptManagementView(APIView):
             # 품목명과 갯수를 문자열로 포맷팅
             formatted_items = []
             for item in items:
-                product_name = item.get('productName', '')
-                quantity = item.get('quantity', 1)
+                product_name = item.get('품명', '')
+                quantity = item.get('수량', 1)
                 if product_name:
                     formatted_items.append(f"{product_name} x{quantity}")
             
