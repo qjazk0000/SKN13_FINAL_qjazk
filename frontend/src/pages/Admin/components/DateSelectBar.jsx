@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-export default function DateSelectBar({ onDateChange, startDate, endDate }) {
+export default function DateSelectBar({ onDateChange, startDate, endDate, onClearDateFilter }) {
   const [start_date, setStartDate] = useState(startDate || "");
   const [end_date, setEndDate] = useState(endDate || "");
 
@@ -54,6 +54,14 @@ export default function DateSelectBar({ onDateChange, startDate, endDate }) {
         min={start_date} 
         max={today}
       />
+      {(start_date || end_date) && onClearDateFilter && (
+        <button
+          onClick={onClearDateFilter}
+          className="ml-2 px-2 py-1 text-xs text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50"
+        >
+          초기화
+        </button>
+      )}
     </div>
   );
 }

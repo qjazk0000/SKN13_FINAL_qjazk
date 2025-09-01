@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from '../../services/api';
 import AdminSidebar from "./components/AdminSidebar.jsx";
@@ -17,6 +17,7 @@ function ManageReceipts() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   
   // 사용자 정보 상태
   const [userName, setUserName] = useState("관리자");
@@ -50,6 +51,57 @@ function ManageReceipts() {
     }
   }, []);
 
+  // 날짜 필터 변경 시 자동 검색
+  useEffect(() => {
+    // 날짜가 변경되었을 때만 실행
+    if (startDate || endDate) {
+      // 약간의 지연을 두어 상태 업데이트가 완료된 후 검색 실행
+      const timer = setTimeout(async () => {
+        try {
+          // 데이터를 미리 로드
+          const params = new URLSearchParams();
+          params.append("page", "1");
+          params.append("page_size", "10");
+          
+          if (startDate) {
+            params.append("start_date", startDate);
+          }
+          if (endDate) {
+            params.append("end_date", endDate);
+          }
+          
+          // 검색 필터 적용
+          if (searchTerm.trim()) {
+            if (searchType === 'status') {
+              params.append('reported_yn', searchTerm.trim());
+            } else if (searchType === 'name') {
+              params.append('name', searchTerm.trim());
+            } else if (searchType === 'dept') {
+              params.append('dept', searchTerm.trim());
+            }
+          }
+          
+          const response = await api.get(`/admin/receipts/?${params.toString()}`);
+          
+          if (response.data.success && response.data.data) {
+            const receiptsData = response.data.data.receipts || [];
+            // 깜빡임 완전 방지: React 18의 배치 업데이트 활용
+            React.startTransition(() => {
+              setReceipts(receiptsData);
+              setTotalPages(response.data.data.total_pages || 1);
+              setTotalCount(response.data.data.total_count || 0);
+              setCurrentPage(1);
+            });
+          }
+        } catch (error) {
+          console.error("날짜 필터 검색 실패:", error);
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [startDate, endDate, searchTerm, searchType]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 사용자 정보 로드
   const loadUserInfo = async () => {
     try {
@@ -63,7 +115,7 @@ function ManageReceipts() {
   };
 
   // 영수증 목록 조회
-  const fetchReceipts = async (page = 1) => {
+  const fetchReceipts = useCallback(async (page = 1, showLoading = true) => {
     try {
       // 토큰 체크
       const token = localStorage.getItem('access_token');
@@ -72,7 +124,9 @@ function ManageReceipts() {
         return;
       }
 
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       setError("");
       
       const params = new URLSearchParams();
@@ -119,6 +173,7 @@ function ManageReceipts() {
         
         setReceipts(receiptsData);
         setTotalPages(data.data.total_pages || 1);
+        setTotalCount(data.data.total_count || 0);
         setCurrentPage(page);
       } else {
         throw new Error(response.data.message || 'API 응답 오류');
@@ -139,34 +194,19 @@ function ManageReceipts() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [startDate, endDate, searchTerm, searchType]);
 
   // 테이블 컬럼 정의
   const columns = [
-    { 
-      header: "이름", 
-      accessor: "name",
-      cell: (value) => value || "정보 없음"
-    },
     { 
       header: "부서", 
       accessor: "dept",
       cell: (value) => value || "정보 없음"
     },
     { 
-      header: "제출일자", 
-      accessor: "created_at",
-      cell: (value) => {
-        if (!value) return "정보 없음";
-        const date = new Date(value);
-        return date.toLocaleString('ko-KR', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      }
+      header: "이름", 
+      accessor: "name",
+      cell: (value) => value || "정보 없음"
     },
     { 
       header: "금액", 
@@ -309,6 +349,22 @@ function ManageReceipts() {
           </div>
         );
       }
+    },
+    { 
+      header: "제출일자", 
+      accessor: "created_at",
+      cell: (value) => {
+        if (!value) return "정보 없음";
+        const date = new Date(value);
+        return date.toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
     }
   ];
 
@@ -326,6 +382,16 @@ function ManageReceipts() {
     fetchReceipts(1);
   };
 
+  // 검색 조건 초기화
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setSearchType("name");
+    setStartDate("");
+    setEndDate("");
+    setCurrentPage(1);
+    fetchReceipts(1);
+  };
+
   // 페이지 변경 처리 함수
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -334,8 +400,22 @@ function ManageReceipts() {
 
   // 날짜 변경 처리 함수
   const handleDateChange = (start, end) => {
+    // 날짜 유효성 검사
+    if (start && end && start > end) {
+      alert("시작일은 종료일보다 이전이어야 합니다.");
+      return;
+    }
+    
     setStartDate(start);
     setEndDate(end);
+    setCurrentPage(1);
+    fetchReceipts(1);
+  };
+
+  // 날짜 필터만 초기화
+  const handleClearDateFilter = () => {
+    setStartDate("");
+    setEndDate("");
     setCurrentPage(1);
     fetchReceipts(1);
   };
@@ -382,20 +462,52 @@ function ManageReceipts() {
     return new Intl.NumberFormat('ko-KR').format(amount) + '원';
   };
 
-  // 날짜 포맷팅 함수
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ko-KR');
-  };
+
 
   // 포맷팅된 데이터 생성
   const formattedReceipts = receipts.map(receipt => ({
     ...receipt,
     amount: formatAmount(receipt.amount),
-    created_at: formatDate(receipt.created_at),
+    // created_at: formatDate(receipt.created_at),
     previewOpen: previewStates[receipt.receipt_id] || false
   }));
+
+  // 엑셀 다운로드 핸들러
+  const handleExcelDownload = async () => {
+    try {
+      // 쿼리 파라미터 구성 (필터, 날짜 등)
+      const params = new URLSearchParams();
+      if (startDate) params.append('start_date', startDate);
+      if (endDate) params.append('end_date', endDate);
+      if (searchTerm.trim()) {
+        if (searchType === 'status') params.append('reported_yn', searchTerm.trim());
+        else if (searchType === 'name') params.append('name', searchTerm.trim());
+        else if (searchType === 'dept') params.append('dept', searchTerm.trim());
+      }
+
+      // 엑셀 다운로드 API 호출
+      const token = localStorage.getItem('access_token');
+      const response = await api.get(`/admin/receipts/download?${params.toString()}`, {
+        responseType: 'blob',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      // 파일 다운로드 처리
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', '영수증목록.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("엑셀 다운로드 실패:", error);
+      alert("엑셀 다운로드 중 오류가 발생했습니다.");
+    }
+  };
 
   return (
     <div className="flex">
@@ -423,6 +535,7 @@ function ManageReceipts() {
             onDateChange={handleDateChange}
             startDate={startDate}
             endDate={endDate}
+            onClearDateFilter={handleClearDateFilter}
           />
         </div>
         
@@ -435,9 +548,35 @@ function ManageReceipts() {
             searchType={searchType}
             setSearchType={setSearchType}
             searchOptions={searchOptions}
+            onClearSearch={handleClearSearch}
           />
         </div>
         
+        {/* 엑셀 다운로드 버튼 */}
+        <div className="flex justify-between items-center mb-4">
+          {/* 날짜 필터 정보 및 초기화 버튼 */}
+          {(startDate || endDate) && (
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-600">
+                기간: {startDate ? new Date(startDate).toLocaleDateString('ko-KR') : '시작일'} ~ {endDate ? new Date(endDate).toLocaleDateString('ko-KR') : '종료일'}
+              </span>
+              <button
+                onClick={handleClearDateFilter}
+                className="text-xs text-red-600 hover:text-red-800 underline"
+              >
+                날짜 필터 초기화
+              </button>
+            </div>
+          )}
+          
+          <button
+            onClick={handleExcelDownload}
+            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded shadow transition-colors"
+          >
+            엑셀 다운로드
+          </button>
+        </div>
+
         {/* 로딩 상태 */}
         {isLoading ? (
           <div className="flex justify-center items-center py-8">
@@ -445,6 +584,22 @@ function ManageReceipts() {
           </div>
         ) : (
           <>
+            {/* 검색 결과 요약 */}
+            {!error && receipts.length > 0 && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-green-800">
+                    총 <span className="font-medium">{totalCount}</span>건의 영수증을 찾았습니다.
+                    {(startDate || endDate) && (
+                      <span className="ml-2 text-green-600">
+                        (기간: {startDate ? new Date(startDate).toLocaleDateString('ko-KR') : '시작일'} ~ {endDate ? new Date(endDate).toLocaleDateString('ko-KR') : '종료일'})
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            )}
+            
             {/* 데이터 테이블 */}
             <div className="mb-6">
               <DataTable columns={columns} data={formattedReceipts} />

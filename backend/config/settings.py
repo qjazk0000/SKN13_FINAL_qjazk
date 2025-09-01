@@ -189,7 +189,7 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = 'ko-kr'
 TIME_ZONE = 'Asia/Seoul'
 USE_I18N = True
-USE_TZ = True
+USE_TZ = False  # 시간대 변환 비활성화로 로컬 시간 직접 사용
 
 # Static files (for django admin pages)
 STATIC_URL = '/static/'
