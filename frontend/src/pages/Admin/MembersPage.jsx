@@ -175,6 +175,8 @@ function MembersPage() {
    const handleSearch = () => {
     console.log(`검색 유형: ${searchType}, 검색어: ${searchTerm}`);
    
+
+
     // 검색 필터 구성
     let filter = "";
     if (searchTerm.trim()) {

@@ -118,11 +118,12 @@ class AdminUsersView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # 데이터베이스에서 사용자 정보 조회하여 관리자 권한 확인
+        # WHERE 절에 use_yn='Y' 조건 제외: 비활성화된 사용자도 조회 가능해야 함
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
                     SELECT auth FROM user_info 
-                    WHERE user_id = %s AND use_yn = 'Y'
+                    WHERE user_id = %s 
                 """, [user_id])
                 
                 user_data = cursor.fetchone()
@@ -161,11 +162,12 @@ class AdminUsersView(APIView):
             page_size = int(request.GET.get('page_size', 10))
             
             # 기본 쿼리
+            # WHERE use_yn = 'Y' 조건 제외: 비활성화된 사용자도 조회 가능해야 함
             base_query = """
                 SELECT user_id, user_login_id, name, dept, rank, email, 
                        created_dt, use_yn, auth
                 FROM user_info 
-                WHERE use_yn = 'Y'
+                WHERE 1=1
             """
             params = []
             
