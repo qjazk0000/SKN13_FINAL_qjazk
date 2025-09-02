@@ -7,11 +7,13 @@ from .views import (
     AdminReceiptDetailView,
     AdminReceiptsView,
     AdminReceiptsDownloadView,
-    ChatReportFeedbackView
+    ChatReportFeedbackView,
+    UpdateUseYnView
 )
 
 urlpatterns = [
     path('users/', AdminUsersView.as_view(), name='admin-users'),
+    path('users/update_use_yn/', UpdateUseYnView.as_view(), name='admin-use-yn'),
     path('conversations/reports/', ConversationReportView.as_view(), name='admin-reports'),
     path('chat-reports/<uuid:chat_id>/feedback/', ChatReportFeedbackView.as_view(), name='admin-chat-feedback'),
     path('receipts/', AdminReceiptsView.as_view(), name='admin-receipts'),
