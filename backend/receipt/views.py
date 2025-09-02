@@ -19,6 +19,7 @@ from datetime import datetime
 import os
 import re
 import calendar
+from zipfile import ZipFile
 
 logger = logging.getLogger(__name__)
 
@@ -96,119 +97,229 @@ class ReceiptUploadView(APIView):
                 'errors': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        f = serializer.validated_data['files']  # 단일 파일만 처리
-        try:
-            # 업로드된 파일을 임시 경로에 저장
-            tmp_path = f"/tmp/{uuid.uuid4()}_{f.name}"
-            with open(tmp_path, "wb") as tmp:
+        f = serializer.validated_data['files']
+        results = []
+
+        # zip 파일 처리
+        if f.name.lower().endswith('.zip'):
+            tmp_zip_path = f"/tmp/{uuid.uuid4()}_{f.name}"
+            with open(tmp_zip_path, "wb") as tmp:
                 for chunk in f.chunks():
                     tmp.write(chunk)
+            with ZipFile(tmp_zip_path, 'r') as zip_ref:
+                image_names = [name for name in zip_ref.namelist() if name.lower().endswith(('.jpg', '.jpeg', '.png'))]
+                for img_name in image_names:
+                    with zip_ref.open(img_name) as img_file:
+                        tmp_img_path = f"/tmp/{uuid.uuid4()}_{img_name}"
+                        with open(tmp_img_path, "wb") as out_img:
+                            out_img.write(img_file.read())
+                        # OCR 처리
+                        extracted_data = extract_receipt_info(tmp_img_path)
+                        store_name = extracted_data.get('storeName', '')
+                        payment_date = normalize_date(extracted_data.get('transactionDate', ""))
+                        amount = extracted_data.get('transactionAmount', 0)
+                        card_info = extracted_data.get('cardNumber', '')
+                        items = extracted_data.get('items', [])
 
-            # OCR 처리
-            extracted_data = extract_receipt_info(tmp_path)
-            store_name = extracted_data.get('storeName', '')
-            payment_date = normalize_date(extracted_data.get('transactionDate', ""))
-            amount = extracted_data.get('transactionAmount', 0)
-            card_info = extracted_data.get('cardNumber', '')
-            items = extracted_data.get('items', [])
+                        # 품목 배열을 한글 키로 변환
+                        converted_items = []
+                        for item in items:
+                            converted_items.append({
+                                "품명": item.get("productName", ""),
+                                "단가": item.get("unitPrice", 0),
+                                "수량": item.get("quantity", 1),
+                                "금액": item.get("totalPrice", 0)
+                            })
 
-            # 품목 배열을 한글 키로 변환
-            converted_items = []
-            for item in items:
-                converted_items.append({
-                    "품명": item.get("productName", ""),
-                    "단가": item.get("unitPrice", 0),
-                    "수량": item.get("quantity", 1),
-                    "금액": item.get("totalPrice", 0)
-                })
+                        # 전체 OCR 데이터를 한글 키로 통일
+                        normalized_extracted = {
+                            "결제처": store_name,
+                            "결제일시": str(payment_date),
+                            "총합계": float(amount),
+                            "카드정보": card_info,
+                            "품목": converted_items
+                        }
 
-            # 전체 OCR 데이터를 한글 키로 통일
-            normalized_extracted = {
-                "결제처": store_name,
-                "결제일시": str(payment_date),
-                "총합계": float(amount),
-                "카드정보": card_info,
-                "품목": converted_items
-            }
+                        # S3에 임시 파일 업로드
+                        with open(tmp_img_path, 'rb') as tmp_file:
+                            s3_upload_result = s3_receipt_service.upload_receipt_file(tmp_file, request.user_id)
+                        
+                        if not s3_upload_result['success']:
+                            logger.error(f"S3 업로드 실패: {s3_upload_result['error']}")
+                            return Response({
+                                'success': False,
+                                'message': f'S3 업로드 실패: {s3_upload_result["error"]}',
+                                'error': 'S3_UPLOAD_FAILED'
+                            }, status=status.HTTP_400_BAD_REQUEST)
 
-            # S3에 임시 파일 업로드
-            with open(tmp_path, 'rb') as tmp_file:
-                s3_upload_result = s3_receipt_service.upload_receipt_file(tmp_file, request.user_id)
-            
-            if not s3_upload_result['success']:
-                logger.error(f"S3 업로드 실패: {s3_upload_result['error']}")
-                return Response({
-                    'success': False,
-                    'message': f'S3 업로드 실패: {s3_upload_result["error"]}',
-                    'error': 'S3_UPLOAD_FAILED'
-                }, status=status.HTTP_400_BAD_REQUEST)
+                        # file_info / receipt_info 저장
+                        with connection.cursor() as cursor:
+                            file_id = uuid.uuid4()
+                            receipt_id = uuid.uuid4()                
+                            cursor.execute("""
+                                INSERT INTO file_info 
+                                (file_id, chat_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
+                                VALUES (%s, NULL, %s, %s, %s, %s, %s, NOW())
+                            """, [
+                                file_id,
+                                f.name,
+                                f"receipt_{file_id}",
+                                s3_upload_result['s3_key'],  # S3 키를 file_path에 저장
+                                f.size,
+                                f.name.split('.')[-1] if '.' in f.name else ''
+                            ])
 
-            # file_info / receipt_info 저장
-            with connection.cursor() as cursor:
-                file_id = uuid.uuid4()
-                receipt_id = uuid.uuid4()                
-                cursor.execute("""
-                    INSERT INTO file_info 
-                    (file_id, chat_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
-                    VALUES (%s, NULL, %s, %s, %s, %s, %s, NOW())
-                """, [
-                    file_id,
-                    f.name,
-                    f"receipt_{file_id}",
-                    s3_upload_result['s3_key'],  # S3 키를 file_path에 저장
-                    f.size,
-                    f.name.split('.')[-1] if '.' in f.name else ''
-                ])
-
-                # receipt_info 저장 (status = pending)
-                now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                cursor.execute("""
-                    INSERT INTO receipt_info 
-                    (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
-                """, [
-                    receipt_id,
-                    file_id,
-                    request.user_id,
-                    payment_date,
-                    amount,
-                    'KRW',
-                    store_name,
-                    str(normalized_extracted),   # 한글화된 OCR 데이터 저장
-                    now_str,
-                    now_str
-                ])
-            # 임시 파일 삭제
-            try:
-                os.unlink(tmp_path)
-            except Exception as e:
-                logger.warning(f"임시 파일 삭제 실패: {e}")
-
+                            # receipt_info 저장 (status = pending)
+                            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            cursor.execute("""
+                                INSERT INTO receipt_info 
+                                (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
+                            """, [
+                                receipt_id,
+                                file_id,
+                                request.user_id,
+                                payment_date,
+                                amount,
+                                'KRW',
+                                store_name,
+                                str(normalized_extracted),   # 한글화된 OCR 데이터 저장
+                                now_str,
+                                now_str
+                            ])
+                        # 결과 리스트에 추가
+                        results.append({
+                            'file_name': img_name,
+                            'extracted': normalized_extracted,
+                            'receipt_id': str(receipt_id),
+                            'file_id': str(file_id),
+                            's3_key': s3_upload_result['s3_key'],
+                            'file_url': s3_upload_result['file_url'],
+                        })
+                        # 임시 이미지 파일 삭제
+                        try:
+                            os.unlink(tmp_img_path)
+                        except Exception as e:
+                            logger.warning(f"임시 이미지 파일 삭제 실패: {e}")
+            os.unlink(tmp_zip_path)
             return Response({
                 'success': True,
-                'message': '파일 업로드 및 OCR 추출 성공',
-                'data': {
-                    'receipt_id': str(receipt_id),
-                    'file_id': str(file_id),
-                    'file_name': f.name,
-                    's3_key': s3_upload_result['s3_key'],
-                    'file_url': s3_upload_result['file_url'],
-                    'extracted': normalized_extracted   # 프론트로도 한글 키 반환
-                }
+                'message': '여러 영수증 파일 처리 성공',
+                'data': results
             }, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            logger.error(f"파일 업로드/OCR 처리 오류: {str(e)}")
-            # 임시 파일 정리
+        else:
             try:
-                if 'tmp_path' in locals():
+                # 업로드된 파일을 임시 경로에 저장
+                tmp_path = f"/tmp/{uuid.uuid4()}_{f.name}"
+                with open(tmp_path, "wb") as tmp:
+                    for chunk in f.chunks():
+                        tmp.write(chunk)
+
+                # OCR 처리
+                extracted_data = extract_receipt_info(tmp_path)
+                store_name = extracted_data.get('storeName', '')
+                payment_date = normalize_date(extracted_data.get('transactionDate', ""))
+                amount = extracted_data.get('transactionAmount', 0)
+                card_info = extracted_data.get('cardNumber', '')
+                items = extracted_data.get('items', [])
+
+                # 품목 배열을 한글 키로 변환
+                converted_items = []
+                for item in items:
+                    converted_items.append({
+                        "품명": item.get("productName", ""),
+                        "단가": item.get("unitPrice", 0),
+                        "수량": item.get("quantity", 1),
+                        "금액": item.get("totalPrice", 0)
+                    })
+
+                # 전체 OCR 데이터를 한글 키로 통일
+                normalized_extracted = {
+                    "결제처": store_name,
+                    "결제일시": str(payment_date),
+                    "총합계": float(amount),
+                    "카드정보": card_info,
+                    "품목": converted_items
+                }
+
+                # S3에 임시 파일 업로드
+                with open(tmp_path, 'rb') as tmp_file:
+                    s3_upload_result = s3_receipt_service.upload_receipt_file(tmp_file, request.user_id)
+                
+                if not s3_upload_result['success']:
+                    logger.error(f"S3 업로드 실패: {s3_upload_result['error']}")
+                    return Response({
+                        'success': False,
+                        'message': f'S3 업로드 실패: {s3_upload_result["error"]}',
+                        'error': 'S3_UPLOAD_FAILED'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # file_info / receipt_info 저장
+                with connection.cursor() as cursor:
+                    file_id = uuid.uuid4()
+                    receipt_id = uuid.uuid4()                
+                    cursor.execute("""
+                        INSERT INTO file_info 
+                        (file_id, chat_id, file_origin_name, file_name, file_path, file_size, file_ext, uploaded_at)
+                        VALUES (%s, NULL, %s, %s, %s, %s, %s, NOW())
+                    """, [
+                        file_id,
+                        f.name,
+                        f"receipt_{file_id}",
+                        s3_upload_result['s3_key'],  # S3 키를 file_path에 저장
+                        f.size,
+                        f.name.split('.')[-1] if '.' in f.name else ''
+                    ])
+
+                    # receipt_info 저장 (status = pending)
+                    now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    cursor.execute("""
+                        INSERT INTO receipt_info 
+                        (receipt_id, file_id, user_id, payment_date, amount, currency, store_name, extracted_text, status, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s)
+                    """, [
+                        receipt_id,
+                        file_id,
+                        request.user_id,
+                        payment_date,
+                        amount,
+                        'KRW',
+                        store_name,
+                        str(normalized_extracted),   # 한글화된 OCR 데이터 저장
+                        now_str,
+                        now_str
+                    ])
+                # 임시 파일 삭제
+                try:
                     os.unlink(tmp_path)
-            except:
-                pass
-            return Response({
-                'success': False,
-                'message': '파일 업로드 중 오류 발생'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                except Exception as e:
+                    logger.warning(f"임시 파일 삭제 실패: {e}")
+
+                return Response({
+                    'success': True,
+                    'message': '파일 업로드 및 OCR 추출 성공',
+                    'data': {
+                        'receipt_id': str(receipt_id),
+                        'file_id': str(file_id),
+                        'file_name': f.name,
+                        's3_key': s3_upload_result['s3_key'],
+                        'file_url': s3_upload_result['file_url'],
+                        'extracted': normalized_extracted   # 프론트로도 한글 키 반환
+                    }
+                }, status=status.HTTP_201_CREATED)
+
+            except Exception as e:
+                logger.error(f"파일 업로드/OCR 처리 오류: {str(e)}")
+                # 임시 파일 정리
+                if 'tmp_path' in locals() and os.path.exists(tmp_path):
+                    try:
+                        os.unlink(tmp_path)
+                    except Exception as e2:
+                        logger.warning(f"임시 파일 삭제 실패: {e2}")
+                return Response({
+                    'success': False,
+                    'message': '파일 업로드 중 오류 발생'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -230,55 +341,46 @@ class ReceiptSaveView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            file_id = serializer.validated_data['file_id']
-            store_name = serializer.validated_data['store_name']
-            raw_payment_date = serializer.validated_data['payment_date']
-            payment_date = normalize_date(raw_payment_date)  # 날짜 포맷 통일
-            amount = serializer.validated_data['amount']
-            card_info = serializer.validated_data.get('card_info', '')
-            items = serializer.validated_data.get('items', [])
+            all_receipts = serializer.validated_data['receipts']
+            for receipt in all_receipts:
+                file_id = receipt['file_id']
+                store_name = receipt['store_name']
+                raw_payment_date = receipt['payment_date']
+                payment_date = normalize_date(raw_payment_date)
+                amount = receipt['amount']
+                card_info = receipt.get('card_info', '')
+                items = receipt.get('items', [])
 
-            # 품목 배열을 한글 키로 변환
-            converted_items = []
-            for item in items:
-                converted_items.append({
-                    "품명": item.get("품명", ""),
-                    "단가": item.get("단가", 0),
-                    "수량": item.get("수량", 1),
-                    "금액": item.get("금액", 0)
-                })
+                extracted_text = {
+                    "결제처": store_name,
+                    "결제일시": str(payment_date),
+                    "총합계": float(amount),
+                    "카드정보": card_info,
+                    "품목": items,
+                }
 
-            # 전체 OCR 데이터를 한글 키로 통일
-            extracted_text = {
-                "결제처": store_name,
-                "결제일시": str(payment_date),
-                "총합계": float(amount),
-                "카드정보": card_info,
-                "품목": converted_items
-            }
-
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    UPDATE receipt_info 
-                    SET store_name = %s,
-                        payment_date = %s,
-                        amount = %s,
-                        extracted_text = %s,
-                        status = 'processed',
-                        updated_at = NOW()
-                    WHERE file_id = %s AND user_id = %s
-                """, [
-                    store_name,
-                    payment_date,
-                    amount,
-                    str(extracted_text),
-                    file_id,
-                    request.user_id
-                ])
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE receipt_info 
+                        SET store_name = %s,
+                            payment_date = %s,
+                            amount = %s,
+                            extracted_text = %s,
+                            status = 'processed',
+                            updated_at = NOW()
+                        WHERE file_id = %s AND user_id = %s
+                    """, [
+                        store_name,
+                        payment_date,
+                        amount,
+                        str(extracted_text),
+                        file_id,
+                        request.user_id
+                    ])
 
             return Response({
                 'success': True,
-                'message': '영수증이 성공적으로 업로드되었습니다. 처리 중입니다.'
+                'message': f'총 {len(all_receipts)}개의 영수증이 processed 처리되었습니다.'
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
