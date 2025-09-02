@@ -20,9 +20,12 @@ from .serializers import (
 )
 from .decorators import admin_required
 
+from .models import UserInfo
+
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 def generate_s3_public_url(s3_key):
     """
@@ -1725,3 +1728,97 @@ class ChatReportFeedbackView(APIView):
                 'message': '피드백 저장 중 오류가 발생했습니다.',
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class UpdateUseYnView(APIView):
+    """
+    회원 계정 활성 여부 업데이트 API
+    POST /api/admin/users/update_use_yn/
+    """
+    authentication_classes = []  # JWT 직접 확인할 것이므로 DRF 인증 클래스는 비움
+    permission_classes = []
+
+    def post(self, request):
+        try:
+            # Authorization 헤더에서 토큰 추출
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return Response({
+                    'success': False,
+                    'message': '인증 토큰이 필요합니다.',
+                    'error': 'MISSING_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            try:
+                token_type, token = auth_header.split(' ')
+                if token_type.lower() != 'bearer':
+                    return Response({
+                        'success': False,
+                        'message': '올바른 토큰 형식이 아닙니다.',
+                        'error': 'INVALID_TOKEN_FORMAT'
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+            except ValueError:
+                return Response({
+                    'success': False,
+                    'message': '토큰 형식이 올바르지 않습니다.',
+                    'error': 'INVALID_TOKEN_FORMAT'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 토큰 검증
+            payload = verify_token(token)
+            if not payload:
+                return Response({
+                    'success': False,
+                    'message': '토큰이 만료되었거나 유효하지 않습니다.',
+                    'error': 'INVALID_TOKEN'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # 관리자 권한 확인
+            user_id = payload.get('user_id')
+            if not user_id:
+                return Response({
+                    'success': False,
+                    'message': '사용자 정보를 찾을 수 없습니다.',
+                    'error': 'USER_NOT_FOUND'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT auth FROM user_info 
+                    WHERE user_id = %s AND use_yn = 'Y'
+                """, [user_id])
+                
+                user_data = cursor.fetchone()
+                if not user_data or user_data[0] != 'Y':
+                    return Response({
+                        'success': False,
+                        'message': '관리자 권한이 필요합니다.',
+                        'error': 'ADMIN_REQUIRED'
+                    }, status=status.HTTP_403_FORBIDDEN)
+    
+
+            # 요청 데이터 처리
+            data = request.data  # [{"user_login_id": "hong", "use_yn": "N"}, ...]
+            if not isinstance(data, list):
+                return Response(
+                    {"success": False, "message": "데이터 형식이 잘못되었습니다.", "error": "INVALID_DATA"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            updated_count = 0
+            for item in data:
+                login_id = item.get("user_login_id")
+                use_yn = item.get("use_yn")
+                if login_id and use_yn in ["Y", "N"]:
+                    rows = UserInfo.objects.filter(user_login_id=login_id).update(use_yn=use_yn)
+                    updated_count += rows
+
+            return Response(
+                {"success": True, "message": f"{updated_count}건의 계정 활성 여부가 업데이트되었습니다."},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {"success": False, "message": "서버 오류가 발생했습니다.", "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

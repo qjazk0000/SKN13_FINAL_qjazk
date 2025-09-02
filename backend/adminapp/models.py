@@ -124,3 +124,17 @@ class Receipt(models.Model):
 
     def __str__(self):
         return f"Receipt {self.receipt_id} - {self.amount} {self.currency}"
+    
+
+class UserInfo(models.Model):
+    user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user_login_id = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=50)
+    dept = models.CharField(max_length=50, blank=True, null=True)
+    rank = models.CharField(max_length=50, blank=True, null=True)
+    email = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    use_yn = models.CharField(max_length=1, choices=[('Y', '활성'), ('N', '비활성')], default='Y')
+    created_dt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "user_info"
