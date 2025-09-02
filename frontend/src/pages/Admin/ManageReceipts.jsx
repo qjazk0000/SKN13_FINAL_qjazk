@@ -454,7 +454,27 @@ function ManageReceipts() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', '영수증목록.xlsx');
+
+      // 필터 정보로 파일명 생성
+      let filename = '영수증목록';
+      const parts = [];
+      if (startDate || endDate) {
+        const startStr = startDate ? new Date(startDate).toLocaleDateString('ko-KR').replace(/\./g, '').replace(/ /g, '') : '';
+        const endStr = endDate ? new Date(endDate).toLocaleDateString('ko-KR').replace(/\./g, '').replace(/ /g, '') : '';
+        if (startStr || endStr) parts.push(`${startStr}~${endStr}`);
+      }
+      if (searchType === 'dept' && searchTerm.trim()) {
+        parts.push(`${searchTerm.trim()}팀`);
+      }
+      if (searchType === 'name' && searchTerm.trim()) {
+        parts.push(`${searchTerm.trim()}`);
+      }
+      if (parts.length > 0) {
+        filename += '_' + parts.join('_');
+      }
+      filename += '.xlsx';
+
+      link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       link.remove();

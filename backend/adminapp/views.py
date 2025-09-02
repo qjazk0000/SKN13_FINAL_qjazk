@@ -983,7 +983,7 @@ class ConversationReportView(APIView):
                         'reason': report['reason'] or '',
                         'reported_at': report['reported_at'].isoformat() if report['reported_at'] else '',
                         'remark': report['remark'] or '',
-                        'report_id': str(report['chat_id']),
+                        'report_id': str(report['report_id']),
                         'chat_id': str(report['chat_id'])
                     })
                 
@@ -1017,7 +1017,7 @@ class ReceiptManagementView(APIView):
     영수증 목록 조회 API
     - 영수증 이미지, 파일명, 업로드 일시 정보 제공
     """
-    
+
     def _parse_items_info(self, extracted_text):
         """
         추출된 텍스트에서 품목 정보를 파싱하여 반환
@@ -1550,8 +1550,8 @@ class AdminReceiptsDownloadView(APIView):
             ws.append(headers)
 
             # 부서(A), 이름(B) 컬럼 너비 직접 지정
-            ws.column_dimensions['A'].width = 10  # 부서
-            ws.column_dimensions['B'].width = 10  # 이름
+            ws.column_dimensions['A'].width = 12  # 부서
+            ws.column_dimensions['B'].width = 12  # 이름
 
             for i, receipt in enumerate(receipts):
                 # file_url = generate_s3_public_url(receipt[5]) if receipt[5] else ""
@@ -1559,7 +1559,7 @@ class AdminReceiptsDownloadView(APIView):
                 ws.append([
                     receipt[0] or '',
                     receipt[1] or '',
-                    float(receipt[2]) if receipt[2] else 0,
+                    "{:,}".format(int(receipt[2])),  # 금액에 쉼표 추가
                     receipt[3] or '',
                     receipt[4].isoformat() if receipt[4] else ''
                 ])
