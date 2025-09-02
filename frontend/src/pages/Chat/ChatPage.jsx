@@ -50,14 +50,16 @@ function ChatPage() {
   useEffect(() => {
     const loadUserInfo = () => {
       const currentUser = authService.getCurrentUser();
+      console.log("현재 사용자 정보:", currentUser);
 
-      if (currentUser && currentUser.name) {
-        setUserName(currentUser.name);
+      if (currentUser && (currentUser.name || currentUser.username)) {
+        setUserName(currentUser.name || currentUser.username);
 
         const adminStatus = authService.isAdmin();
         setIsAdmin(adminStatus);
       } else {
         console.log("사용자 정보가 없습니다.");
+        console.log("localStorage user:", localStorage.getItem('user'));
         alert("로그인이 필요합니다.");
         navigate("/login");
       }

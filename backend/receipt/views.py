@@ -118,7 +118,7 @@ class ReceiptUploadView(APIView):
                 converted_items.append({
                     "품명": item.get("productName", ""),
                     "단가": item.get("unitPrice", 0),
-                    "수량": item.get("quantity", 0),
+                    "수량": item.get("quantity", 1),
                     "금액": item.get("totalPrice", 0)
                 })
 
@@ -244,7 +244,7 @@ class ReceiptSaveView(APIView):
                 converted_items.append({
                     "품명": item.get("품명", ""),
                     "단가": item.get("단가", 0),
-                    "수량": item.get("수량", 0),
+                    "수량": item.get("수량", 1),
                     "금액": item.get("금액", 0)
                 })
 
@@ -278,7 +278,7 @@ class ReceiptSaveView(APIView):
 
             return Response({
                 'success': True,
-                'message': '영수증이 성공적으로 업로드되었습니다. 처리 중입니다.',
+                'message': '영수증이 성공적으로 업로드되었습니다. 처리 중입니다.'
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
@@ -309,6 +309,13 @@ class ReceiptDownloadView(APIView):
 
         start_year, start_month = map(int, serializer.validated_data['start_date'].split('-'))
         end_year, end_month = map(int, serializer.validated_data['end_date'].split('-'))
+
+        if (start_year, start_month) > (end_year, end_month):
+            return Response({
+                'success': False,
+                'message': '시작 월은 종료 월보다 이후일 수 없습니다.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         start = f"{start_year}-{start_month:02d}-01"
         last_day = calendar.monthrange(end_year, end_month)[1]  # 마지막 날짜(예: 28, 29, 30, 31)
         end = f"{end_year}-{end_month:02d}-{last_day:02d}"

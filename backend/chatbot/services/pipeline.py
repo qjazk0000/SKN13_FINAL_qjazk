@@ -16,6 +16,8 @@ import os
 import sys
 import time
 import logging
+import openai
+import hashlib
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
@@ -39,9 +41,10 @@ _USER_PROMPT = None
 def _init_prompts():
     """프롬프트 초기화 함수"""
     global _SYSTEM_PROMPT, _USER_PROMPT
+    
     if _SYSTEM_PROMPT is None:
         try:
-            system_prompt_path = '/app/config/system_prompt.md'
+            system_prompt_path = '/app/prompts/system_prompt.md'
             _SYSTEM_PROMPT = load_prompt(system_prompt_path,
                                          default="당신은 업무 가이드를 제공하는 전문가입니다.")
         except FileNotFoundError:
@@ -50,13 +53,78 @@ def _init_prompts():
     
     if _USER_PROMPT is None:
         try:
-            user_prompt_path = '/app/config/user_prompt.md'
-            _USER_PROMPT = load_prompt(user_prompt_path, default="")
+            user_prompt_path = '/app/prompts/user_prompt.md'
+            _USER_PROMPT = load_prompt(user_prompt_path,
+                                       default="위 문서들을 바탕으로 질문에 대한 정확한 답변을 제공해주세요.")
         except FileNotFoundError:
-            _USER_PROMPT = ""
+            _USER_PROMPT = "위 문서들을 바탕으로 질문에 대한 정확한 답변을 제공해주세요."
             print("WARNING: user_prompt.md not found, using default prompt")
     
     return _SYSTEM_PROMPT, _USER_PROMPT
+
+def is_simple_greeting(query: str, openai_api_key: str = None) -> bool:
+    """
+    LLM을 사용하여 간단한 인사말/질문인지 판단
+    
+    Args:
+        query: 사용자 질문
+        openai_api_key: OpenAI API 키
+    
+    Returns:
+        True if simple greeting, False if complex question
+    """
+    try:
+        # OpenAI 클라이언트 설정
+        api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            logger.warning("OpenAI API 키가 없어 간단한 질문 판단 불가, 복잡한 질문으로 처리")
+            return False
+        
+        client = openai.OpenAI(api_key=api_key)
+        
+        # 간단한 질문 판단용 프롬프트
+        system_prompt = """당신은 질문의 복잡도를 판단하는 전문가입니다.
+사용자의 질문이 '간단한 인사말이나 짧은 대화'인지, '구체적인 업무 관련 질문'인지 판단해주세요.
+
+간단한 인사말/대화 예시:
+- 안녕, 안녕하세요, Hi, Hello
+- 좋은 아침, 좋은 저녁, 잘 가
+- 감사합니다, 고마워요, 땡큐
+- 네, 예, 응, 오케이
+- 짧은 감정 표현 (ㅎㅎ, ㅋㅋ, 우와 등)
+
+복잡한 업무 질문 예시:
+- 휴가 신청 방법은?
+- 급여 규정이 어떻게 되나요?
+- 회의실 예약은 어떻게 하나요?
+- 프로젝트 관련 문의
+
+답변은 반드시 'YES' 또는 'NO'로만 해주세요.
+- YES: 간단한 인사말/대화
+- NO: 복잡한 업무 질문"""
+
+        user_prompt = f"다음 질문을 분석해주세요: '{query}'"
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0,
+            max_tokens=10
+        )
+        
+        result = response.choices[0].message.content.strip().upper()
+        is_simple = result == "YES"
+        
+        logger.info(f"간단한 질문 판단 결과: {query} -> {result} ({'간단' if is_simple else '복잡'})")
+        return is_simple
+        
+    except Exception as e:
+        logger.error(f"간단한 질문 판단 실패: {e}")
+        # 오류 시 복잡한 질문으로 처리 (안전한 기본값)
+        return False
 
 def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = None) -> Dict[str, Any]:
     """
@@ -65,10 +133,10 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
     Args:
         query: 사용자 질문
         openai_api_key: OpenAI API 키 (선택사항)
-        explicit_domain: 명시적으로 지정된 도메인 (선택사항)
+        explicit_domain: 명시적 도메인 (선택사항)
     
     Returns:
-        답변과 메타데이터를 포함한 결과
+        답변, 메타데이터, 참고문서를 포함한 딕셔너리
     """
     start_time = time.time()
     
@@ -76,7 +144,72 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
         logger.info(f"RAG 파이프라인 시작 - 질문: {query}")
         print(f"DEBUG: RAG 파이프라인 시작 - 질문: {query}")
         
-        # 1단계: 키워드 추출 (타임아웃 방지)
+        # 🚀 간단한 질문 감지 (간단한 인사말은 빠른 처리)
+        is_simple_query = is_simple_greeting(query, openai_api_key)
+        
+        if is_simple_query:
+            logger.info(f"⚡ 간단한 질문 감지, LLM으로 직접 응답 생성: {query}")
+            print(f"DEBUG: ⚡ 간단한 질문 감지, LLM으로 직접 응답 생성")
+            
+            # LLM에게 간단한 응답 생성 요청
+            try:
+                api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+                if not api_key:
+                    # API 키가 없는 경우에만 기본 응답 사용
+                    response = "안녕하세요! 업무 관련 궁금한 사항이 있으시면 언제든 문의해 주세요."
+                else:
+                    client = openai.OpenAI(api_key=api_key)
+                    
+                    simple_response_prompt = f"""사용자가 간단한 인사말이나 짧은 대화를 했습니다: "{query}"
+
+다음 역할을 수행해주세요:
+- 한국인터넷진흥원(KISA)의 업무 가이드 챗봇으로서 친근하고 전문적으로 응답
+- 사용자의 톤에 맞춰 자연스럽게 인사
+- 업무 관련 도움을 제공할 준비가 되어 있음을 알림
+- 2-3문장으로 간결하게 작성
+
+예시:
+- "안녕" → "안녕하세요! 업무 관련 궁금한 사항이 있으시면 언제든 문의해 주세요."
+- "좋은 아침" → "좋은 아침입니다! 오늘도 업무에 도움이 되는 정보를 제공해드리겠습니다."
+- "고마워" → "천만에요! 다른 궁금한 사항이 있으시면 언제든 말씀해 주세요."
+"""
+                    
+                    response_result = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "user", "content": simple_response_prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=100
+                    )
+                    
+                    response = response_result.choices[0].message.content.strip()
+                    
+            except Exception as e:
+                logger.error(f"간단한 응답 생성 실패: {e}")
+                # 오류 시 기본 응답 사용
+                response = "안녕하세요! 업무 관련 궁금한 사항이 있으시면 언제든 문의해 주세요."
+            
+            total_time = time.time() - start_time
+            logger.info(f"⚡ 간단한 질문 처리 완료 (총 소요시간: {total_time:.2f}초)")
+            
+            return {
+                'answer': response,
+                'contexts': [],
+                'sources': [],
+                'keywords': [],
+                'domains': [],
+                'search_strategy': 'simple_response',
+                'total_time': total_time,
+                'search_time': 0,
+                'answer_time': total_time
+            }
+        
+        # 🔥 복잡한 질문 처리 (통합된 system_prompt가 보안 검증 포함)
+        logger.info("복잡한 질문 감지, 전체 RAG 파이프라인 실행")
+        print(f"DEBUG: 복잡한 질문 감지, 전체 RAG 파이프라인 실행")
+        
+        # 1단계: 키워드 추출
         logger.info("1단계: 키워드 추출 시작")
         keywords_start = time.time()
         try:
@@ -435,23 +568,22 @@ def rag_answer_enhanced(user_query: str) -> Dict[str, Any]:
         # OpenAI API 키는 환경변수에서 자동으로 가져옴
         result = answer_query(user_query)
         
-        if result['success']:
-            # 기존 rag_answer와 호환되는 형식으로 변환
-            return {
-                'answer': result['answer'],
-                'sources': result['sources'],
-                'metadata': {
-                    'domains': result.get('used_domains', []),
-                    'search_strategy': result.get('search_strategy', {}),
-                    'result_count': len(result.get('top_docs', []))
-                }
+        # answer_query는 항상 answer를 반환하므로 success 체크 불필요
+        search_strategy = result.get('search_strategy', '')
+        
+        return {
+            'answer': result.get('answer', '죄송합니다. 답변을 생성할 수 없습니다.'),
+            'sources': result.get('sources', []),
+            'rag_used': search_strategy != 'simple_response',  # 간단한 응답이 아니면 RAG 사용
+            'metadata': {
+                'domains': result.get('domains', []),
+                'search_strategy': search_strategy,
+                'keywords': result.get('keywords', []),
+                'total_time': result.get('total_time', 0),
+                'search_time': result.get('search_time', 0),
+                'answer_time': result.get('answer_time', 0)
             }
-        else:
-            return {
-                'answer': result.get('answer', '죄송합니다. 답변을 생성할 수 없습니다.'),
-                'sources': [],
-                'metadata': {'error': result.get('error', 'Unknown error')}
-            }
+        }
             
     except Exception as e:
         logger.error(f"향상된 RAG 답변 생성 오류: {e}")
@@ -459,5 +591,6 @@ def rag_answer_enhanced(user_query: str) -> Dict[str, Any]:
         return {
             'answer': '죄송합니다. 시스템 오류가 발생했습니다.',
             'sources': [],
+            'rag_used': False,
             'metadata': {'error': str(e)}
-        } 
+        }
