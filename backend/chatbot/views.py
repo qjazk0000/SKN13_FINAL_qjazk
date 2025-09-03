@@ -372,6 +372,10 @@ class ChatReportView(generics.CreateAPIView):
 
     @require_auth
     def create(self, request, *args, **kwargs):
+        import time
+        request_id = int(time.time() * 1000) + hash(str(request.data))
+        logger.info(f"🚀 ChatReportView.create 시작 [{request_id}] - chat_id: {kwargs.get('chat_id')}")
+        
         chat_id = kwargs.get("chat_id")
         logger.info(f"chat_id: kwargs.get 실행 결과: {chat_id}")
         if not chat_id:
@@ -380,17 +384,21 @@ class ChatReportView(generics.CreateAPIView):
         try:
             # 신고 대상 메시지 가져오기
             message = ChatMessage.objects.get(id=chat_id)
-            print(f"message from DB: {message}, id: {message.id}, type: {type(message.id)}")
+            logger.info(f"📝 message from DB: {message}, id: {message.id}, type: {type(message.id)}")
         except ChatMessage.DoesNotExist:
             return Response({"error": "메시지 없음"}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
             return Response({"error": "chat_id 형식 오류"}, status=status.HTTP_400_BAD_REQUEST)
 
+        logger.info(f"🔍 request.data: {request.data}")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        logger.info(f"✅ serializer validation 완료")
 
         # create 호출 시 chat 객체를 kwargs로 넘김
-        serializer.save(chat=message)
+        logger.info(f"💾 serializer.save(chat=message) 호출 시작")
+        chat_report = serializer.save(chat=message)
+        logger.info(f"✅ serializer.save 완료 [{request_id}] - report_id: {chat_report.report_id}")
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

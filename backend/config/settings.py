@@ -310,6 +310,10 @@ AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazo
 # S3 정적 파일 스토리지 (선택사항)
 # STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
 
+# 로그 디렉토리 생성
+LOGS_DIR = BASE_DIR / 'logs'
+LOGS_DIR.mkdir(exist_ok=True)
+
 # 로깅 설정 추가
 LOGGING = {
     'version': 1,
@@ -331,8 +335,10 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': '/app/django.log',
+            'filename': BASE_DIR / 'django.log',
             'formatter': 'verbose',
+            'mode': 'a',
+            'encoding': 'utf-8',
         },
     },
     'root': {
