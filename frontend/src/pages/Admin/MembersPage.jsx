@@ -12,6 +12,7 @@ function MembersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [searchType, setSearchType] = useState("name");
   const [members, setMembers] = useState([]);
+  const [updatedUseYn, setUpdatedUseYn] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTab, setSelectedTab] = useState("members");
   const [isLoading, setIsLoading] = useState(false);
@@ -73,7 +74,7 @@ function MembersPage() {
       if (data.success && data.data) {
         setMembers(data.data.users || []);
         setTotalPages(data.data.total_pages || 1);
-        setCurrentPage(1);
+        setCurrentPage(page);
         console.log('회원 목록 설정 완료:', data.data.users?.length || 0, '명');
       } else {
         console.error('API 응답이 성공이 아님:', data);
@@ -105,13 +106,61 @@ function MembersPage() {
     }
   };
 
+  const handleChangeUseYn = (userId, newValue) => {
+    setUpdatedUseYn(prev => ({ ...prev, [userId]: newValue }));
+    setMembers(prev =>
+      prev.map(member =>
+        member.user_login_id === userId ? { ...member, use_yn: newValue } : member
+      )
+    );
+  };
+
+  const handleSaveChanges = async () => {
+    try {
+      const payload = Object.entries(updatedUseYn).map(([user_login_id, use_yn]) => ({
+        user_login_id,
+        use_yn
+      }));
+
+      const token = localStorage.getItem("access_token");
+      const response = await api.post("admin/users/update_use_yn/", payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        alert("변경 사항이 저장되었습니다.");
+        setUpdatedUseYn({}); // 변경 내역 초기화
+      } else {
+        alert("저장 실패: " + response.data.message);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("저장 중 오류가 발생했습니다.");
+    }
+  };
+
+
   const columns = [
     { header: "부서", accessor: "dept" },
     { header: "이름", accessor: "name" },
     { header: "로그인 ID", accessor: "user_login_id" },
     { header: "직급", accessor: "rank" },
     { header: "이메일", accessor: "email" },
-    { header: "계정 활성 여부", accessor: "use_yn" },
+    // { header: "계정 활성 여부", accessor: "use_yn" },
+    {
+    header: "계정 활성 여부",
+    accessor: "use_yn",
+    cell: (value, row) => (
+      <select
+        value={value}
+        onChange={(e) => handleChangeUseYn(row.user_login_id, e.target.value)}
+        className="border rounded p-1 text-center w-20"
+      >
+        <option value="Y">Y</option>
+        <option value="N">N</option>
+      </select>
+    ),
+  },
     { header: "가입일", accessor: "created_dt" },
   ];
 
@@ -126,13 +175,15 @@ function MembersPage() {
    const handleSearch = () => {
     console.log(`검색 유형: ${searchType}, 검색어: ${searchTerm}`);
    
+
+
     // 검색 필터 구성
     let filter = "";
     if (searchTerm.trim()) {
       filter = `${searchType}:${searchTerm.trim()}`;
     }
     
-    // API 호출로 회원 목록 조회 (페이지 1로 리셋)
+    // API 호출로 회원 목록 조회 
     setCurrentPage(1);
     fetchMembers(filter, 1);
 
@@ -201,6 +252,16 @@ function MembersPage() {
           setSearchType={setSearchType}
           searchOptions={searchOptions}
         />
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={handleSaveChanges}
+            disabled={Object.keys(updatedUseYn).length === 0}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+          >
+            변경 사항 저장
+          </button>
+        </div>
+
         {/* 로딩 상태 */}
         {isLoading ? (
           <div className="flex justify-center items-center py-8">

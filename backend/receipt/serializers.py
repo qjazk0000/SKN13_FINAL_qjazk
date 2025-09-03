@@ -17,20 +17,21 @@ class ReceiptUploadSerializer(serializers.Serializer):
 from rest_framework import serializers
 
 class ReceiptSaveSerializer(serializers.Serializer):
-    file_id = serializers.UUIDField(required=True, error_messages={
-        'required': '파일 ID 오류.'
-    })
-    store_name = serializers.CharField(required=False, allow_blank=True)
-    payment_date = serializers.CharField()  # 문자열로 받아서 View에서 normalize_date() 처리
-    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
-    card_info = serializers.CharField(required=False, allow_blank=True)
-    items = serializers.ListField(required=False)
+    receipts = serializers.ListField(
+        child=serializers.DictField(),
+        required=True
+    )
+    # store_name = serializers.CharField(required=False, allow_blank=True)
+    # payment_date = serializers.CharField()  # 문자열로 받아서 View에서 normalize_date() 처리
+    # amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    # card_info = serializers.CharField(required=False, allow_blank=True)
+    # items = serializers.ListField(required=False)
 
     def validate(self, data):
         """
         OCR이 제공한 값이 모두 비어 있으면 저장할 수 없도록 처리
         """
-        if not any([data.get('store_name'), data.get('payment_date'), data.get('amount')]):
+        if not data.get('receipts'):
             raise serializers.ValidationError("저장할 영수증 정보가 없습니다.")
         return data
 

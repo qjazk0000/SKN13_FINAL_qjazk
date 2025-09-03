@@ -78,6 +78,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
   // 신고 버튼 클릭 시 모달 열기
   const handleOpenReportModal = useCallback((messageId) => {
     setReportMessageId(messageId);
+    setSelectedReportType(reportTypes[0]); // 첫 번째 옵션을 기본 선택
     setModalOpen(true);
   }, []);
 

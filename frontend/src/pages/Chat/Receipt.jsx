@@ -13,6 +13,15 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
   const [reportEnd, setReportEnd] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const today = new Date().toISOString().slice(0, 7);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // 여러 장 지원: receiptInfo가 배열이면 현재 인덱스의 결과만 사용
+  const isMulti = Array.isArray(receiptInfo) && receiptInfo.length > 0;
+  const currentReceiptInfo = isMulti ? receiptInfo[currentIndex] : receiptInfo;
+  const currentEditInfo = isMulti && editInfo && Array.isArray(editInfo)
+    ? editInfo[currentIndex]
+    : editInfo;
 
   useEffect(() => {
     if (receiptDetails) {
@@ -55,17 +64,93 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
     }
   }, [receiptDetails, receiptInfo]);
 
+  // 여러 장 지원: receiptInfo가 배열이면 현재 인덱스의 결과만 사용
+  useEffect(() => {
+    if (Array.isArray(receiptInfo)) {
+      setEditInfo(receiptInfo.map(info => ({
+        결제처: info.extracted?.결제처 || "",
+        결제일시: info.extracted?.결제일시 || "",
+        총합계: info.extracted?.총합계 || 0,
+        카드정보: info.extracted?.카드정보 || "",
+        품목: Array.isArray(info.extracted?.품목)
+          ? info.extracted.품목.map(item => ({ ...item }))
+          : [],
+      })));
+    } else if (receiptDetails) {
+      setReceiptInfo(null);
+
+      // extracted_text 문자열 파싱
+      let extracted = {};
+      if (typeof receiptDetails.extracted_text === "string") {
+        try {
+          const jsonStr = receiptDetails.extracted_text.replace(/'/g, '"');
+          extracted = JSON.parse(jsonStr);
+        } catch (e) {
+          extracted = {};
+        }
+      } else if (typeof receiptDetails.extracted_text === "object") {
+        extracted = receiptDetails.extracted_text;
+      }
+
+      setEditInfo({
+        결제처: receiptDetails.store_name || extracted.결제처 || "",
+        결제일시: receiptDetails.payment_date || extracted.결제일시 || "",
+        총합계: receiptDetails.amount || extracted.총합계 || 0,
+        카드정보: extracted.카드정보 || "",
+        품목: Array.isArray(extracted.품목)
+          ? extracted.품목.map((item) => ({ ...item }))
+          : [],
+      });
+    } else if (receiptInfo) {
+      setEditInfo({
+        결제처: receiptInfo.extracted?.결제처 || "",
+        결제일시: receiptInfo.extracted?.결제일시 || "",
+        총합계: receiptInfo.extracted?.총합계 || 0,
+        카드정보: receiptInfo.extracted?.카드정보 || "",
+        품목: receiptInfo.extracted?.품목
+          ? receiptInfo.extracted.품목.map((item) => ({ ...item }))
+          : [],
+      });
+    } else {
+      setEditInfo(null);
+    }
+  }, [receiptDetails, receiptInfo]);
+
+  // 품목/필드 변경 핸들러도 배열 지원
   const handleEditChange = (field, value) => {
-    setEditInfo((prev) => ({ ...prev, [field]: value }));
+    if (isMulti) {
+      setEditInfo((prev) =>
+        prev.map((info, idx) =>
+          idx === currentIndex ? { ...info, [field]: value } : info
+        )
+      );
+    } else {
+      setEditInfo((prev) => ({ ...prev, [field]: value }));
+    }
   };
 
   const handleItemChange = (idx, field, value) => {
-    setEditInfo((prev) => ({
-      ...prev,
-      품목: prev.품목.map((item, i) =>
-        i === idx ? { ...item, [field]: value } : item
-      ),
-    }));
+    if (isMulti) {
+      setEditInfo((prev) =>
+        prev.map((info, i) =>
+          i === currentIndex
+            ? {
+                ...info,
+                품목: info.품목.map((item, j) =>
+                  j === idx ? { ...item, [field]: value } : item
+                ),
+              }
+            : info
+        )
+      );
+    } else {
+      setEditInfo((prev) => ({
+        ...prev,
+        품목: prev.품목.map((item, i) =>
+          i === idx ? { ...item, [field]: value } : item
+        ),
+      }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -137,33 +222,49 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
     }
   };
 
+  // 저장 시 현재 인덱스의 영수증만 저장
   const handleSave = async () => {
-    if (!receiptInfo || !editInfo) {
+    // 여러 장 처리
+    const isMulti = Array.isArray(receiptInfo) && receiptInfo.length > 0;
+    const currentEdit = isMulti ? editInfo[currentIndex] : editInfo;
+    const currentReceipt = isMulti ? receiptInfo[currentIndex] : receiptInfo;
+
+    if (!currentReceipt || !currentEdit) {
       alert("저장할 영수증 정보가 없습니다.");
       return;
     }
     setIsLoading(true);
     try {
       const payload = {
-        file_id: receiptInfo.file_id,
-        store_name: editInfo.결제처,
-        payment_date: editInfo.결제일시,
-        amount: Number(editInfo.총합계),
-        card_info: editInfo.카드정보,
-        items: editInfo.품목.map((item) => ({
-          품명: item.품명,
-          단가: Number(item.단가),
-          수량: Number(item.수량),
-          금액: Number(item.금액),
-        })),
+        receipts: editInfo.map((info, idx) => ({
+          file_id: receiptInfo[idx].file_id,
+          store_name: info.결제처,
+          payment_date: info.결제일시,
+          amount: Number(info.총합계),
+          card_info: info.카드정보,
+          items: Array.isArray(info.품목)
+            ? info.품목.map(item => ({
+                품명: item.품명,
+                단가: Number(item.단가),
+                수량: Number(item.수량),
+                금액: Number(item.금액),
+              }))
+            : [],
+        }))
       };
+      console.log(payload);
       const response = await api.post("/receipt/save/", payload);
       if (response.data.success) {
         alert("영수증이 성공적으로 저장되었습니다.");
         if (onSaveSuccess) onSaveSuccess();
-        setReceiptInfo(null);
-        setEditInfo(null);
-        setUploadFile(null);
+        // 저장 후 다음 영수증으로 이동
+        if (isMulti && currentIndex < receiptInfo.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          setReceiptInfo(null);
+          setEditInfo(null);
+          setUploadFile(null);
+        }
       } else {
         alert(response.data.message || "저장에 실패했습니다.");
       }
@@ -203,6 +304,31 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
       {isEditing ? (
         <div className="flex-1 overflow-y-auto py-4">
           <div className="bg-white rounded-lg shadow-md p-6 max-w-xl mx-auto">
+            {isMulti && (
+              <div className="flex justify-between items-center mb-4">
+                <button
+                  onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
+                  disabled={currentIndex === 0}
+                  className="px-3 py-1 bg-gray-200 rounded"
+                >
+                  ◀
+                </button>
+                <span className="font-bold">
+                  {currentIndex + 1} / {receiptInfo.length}
+                </span>
+                <button
+                  onClick={() =>
+                    setCurrentIndex((i) =>
+                      Math.min(i + 1, receiptInfo.length - 1)
+                    )
+                  }
+                  disabled={currentIndex === receiptInfo.length - 1}
+                  className="px-3 py-1 bg-gray-200 rounded"
+                >
+                  ▶
+                </button>
+              </div>
+            )}
             <h2 className="text-xl font-bold text-gray-800 mb-4">
               {isViewingExisting ? "영수증 상세 정보" : "영수증 정보 편집"}
             </h2>
@@ -220,7 +346,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                 <input
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.결제처}
+                  value={currentEditInfo.결제처}
                   onChange={(e) => handleEditChange("결제처", e.target.value)}
                   readOnly={isViewingExisting}
                 />
@@ -232,7 +358,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                 <input
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.결제일시}
+                  value={currentEditInfo.결제일시}
                   onChange={(e) => handleEditChange("결제일시", e.target.value)}
                   readOnly={isViewingExisting}
                 />
@@ -244,7 +370,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                 <input
                   type="text"
                   className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.카드정보}
+                  value={currentEditInfo.카드정보}
                   onChange={(e) => handleEditChange("카드정보", e.target.value)}
                   readOnly={isViewingExisting}
                 />
@@ -254,12 +380,12 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                 <input
                   type="number"
                   className="border rounded px-2 py-1 flex-1"
-                  value={editInfo.총합계}
+                  value={currentEditInfo.총합계}
                   onChange={(e) => handleEditChange("총합계", e.target.value)}
                   readOnly={isViewingExisting}
                 />
               </div>
-              {editInfo.품목?.length > 0 && (
+              {currentEditInfo.품목?.length > 0 && (
                 <div>
                   <span className="w-32 text-gray-500 font-semibold">품목</span>
                   <div className="overflow-x-auto">
@@ -273,7 +399,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {editInfo.품목.map((item, idx) => (
+                        {currentEditInfo.품목.map((item, idx) => (
                           <tr key={idx}>
                             <td className="px-2 py-1 border">
                               <input
@@ -409,12 +535,14 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                 value={reportStart}
                 onChange={(e) => setReportStart(e.target.value)}
                 className="w-full h-8 p-2 border rounded-md"
+                max={reportEnd || today}
               />
               <input
                 type="month"
                 value={reportEnd}
                 onChange={(e) => setReportEnd(e.target.value)}
                 className="w-full p-2 h-8 border rounded-md"
+                min={reportStart || undefined}
               />
               <button
                 onClick={handleDownload}
@@ -431,4 +559,77 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
   );
 }
 
+function ReceiptPreviewMulti({ results }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  if (!results || results.length === 0) return null;
+
+  const current = results[currentIndex];
+
+  return (
+    <div className="w-full flex flex-col items-center">
+      <div className="flex items-center mb-4">
+        <button
+          disabled={currentIndex === 0}
+          onClick={() => setCurrentIndex(i => i - 1)}
+          className="px-3 py-1 bg-gray-200 rounded mr-2"
+        >
+          ◀
+        </button>
+        <span className="font-bold">
+          {currentIndex + 1} / {results.length}
+        </span>
+        <button
+          disabled={currentIndex === results.length - 1}
+          onClick={() => setCurrentIndex(i => i + 1)}
+          className="px-3 py-1 bg-gray-200 rounded ml-2"
+        >
+          ▶
+        </button>
+      </div>
+      <div className="w-full bg-gray-50 rounded-lg p-4 border">
+        <div className="mb-2 text-base text-gray-800">
+          <span className="font-semibold">파일명: </span>
+          {current.file_name}
+        </div>
+        <div className="mb-2 text-base text-gray-800">
+          <span className="font-semibold">결제처: </span>
+          {current.extracted?.결제처 || "정보 없음"}
+        </div>
+        <div className="mb-2 text-base text-gray-800">
+          <span className="font-semibold">결제일시: </span>
+          {current.extracted?.결제일시 || "정보 없음"}
+        </div>
+        <div className="mb-2 text-base text-gray-800">
+          <span className="font-semibold">총합계: </span>
+          {current.extracted?.총합계 || "정보 없음"}
+        </div>
+        <div className="mb-2 text-base text-gray-800">
+          <span className="font-semibold">카드정보: </span>
+          {current.extracted?.카드정보 || "정보 없음"}
+        </div>
+        {current.extracted?.품목 && current.extracted.품목.length > 0 && (
+          <div className="mt-2">
+            <span className="font-semibold">품목:</span>
+            <div className="mt-1">
+              {current.extracted.품목.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="flex justify-between text-gray-700 text-sm py-1"
+                >
+                  <span>{item.품명}</span>
+                  <span>
+                    {item.수량} x {item.단가} = {item.금액}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default Receipt;
+export { ReceiptPreviewMulti };
