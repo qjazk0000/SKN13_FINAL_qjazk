@@ -24,9 +24,15 @@ function ChatPage() {
   const [userName, setUserName] = useState("");
   const [lockedChatId, setLockedChatId] = useState(null);
 
-  const [selectedChatId, setSelectedChatId] = useState(null);
-  const [selectedReceiptId, setSelectedReceiptId] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState("업무 가이드");
+  const [selectedChatId, setSelectedChatId] = useState(() => {
+    return sessionStorage.getItem("selectedChatId") || null;
+  });
+const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
+    return sessionStorage.getItem("selectedReceiptId") || null;
+  });
+  const [selectedCategory, setSelectedCategory] = useState(()=> {
+    return sessionStorage.getItem('selectedCategory') || "업무 가이드";
+  });
 
   const [receiptDetails, setReceiptDetails] = useState(null);
 
@@ -132,40 +138,44 @@ function ChatPage() {
 
     fetchChatsAndReceipts();
   }, [selectedCategory]);
+  
 
-  // 새 채팅 생성 핸들러
-  const handleNewChat = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const raw = localStorage.getItem("user");
-      const user = raw ? JSON.parse(raw) : null;
-      const userId = user?.user_id;
+  const handleNewChat = useCallback(() => {
+    setSelectedChatId(null);
+    setSelectedReceiptId(null);
+    sessionStorage.removeItem("selectedChatId");
+    sessionStorage.removeItem("selectedReceiptId");
 
-      if (!userId) {
-        throw new Error("사용자 ID를 찾을 수 없습니다. 다시 로그인해주세요.");
-      }
-
-      const response = await api.post("/chat/new/", {
-        title: "새로운 대화",
-        user_id: userId,
-      });
-      const newChat = normalizeChat(response.data.data);
-
-      setChats((prev) => [newChat, ...prev]);
-      setSelectedChatId(newChat.id);
+    // 이미 새 채팅이 있으면 그걸 선택
+    const existingNewChat = chats.find((c) => c.isNew);
+    if (existingNewChat) {
+      setSelectedChatId(existingNewChat.id);
       setSelectedCategory("업무 가이드");
-
-      setLockedChatId(newChat.id);
-    } catch (err) {
-      console.error("새 채팅 생성 실패:", err);
-      alert("새 채팅을 생성하는 데 실패했습니다.");
-    } finally {
-      setIsLoading(false);
+      setLockedChatId(existingNewChat.id);
+      return;
     }
-  }, []);
+
+    // 프론트에서 임의 id로 새 채팅 생성
+    const newChat = {
+      id: `new-${Date.now()}`,
+      title: "새 채팅",
+      messages: [],
+      isNew: true, // 임시 채팅임을 표시
+    };
+
+    setChats((prev) => [newChat, ...prev]);
+    setSelectedChatId(newChat.id);
+    setSelectedCategory("업무 가이드");
+    setLockedChatId(newChat.id);
+  }, [chats]);
 
   // 새 영수증 생성 핸들러
   const handleNewReceipt = useCallback(() => {
+    setSelectedChatId(null);
+    setSelectedReceiptId(null);
+    sessionStorage.removeItem("selectedChatId");
+    sessionStorage.removeItem("selectedReceiptId"); 
+
     const existingNewReceipt = receipts.find((r) => r.isNew);
     if (existingNewReceipt) {
       setSelectedReceiptId(existingNewReceipt.id);
@@ -210,11 +220,13 @@ function ChatPage() {
   // 마이페이지 이동 핸들러
   const handleUserNameClick = useCallback(() => {
     navigate("/mypage");
+    sessionStorage.clear();
   }, [navigate]);
 
   // 관리자 페이지로 이동 핸들러
   const handleAdminPageClick = useCallback(() => {
     navigate("/admin/members");
+    sessionStorage.clear();
   }, [navigate]);
 
   // 채팅 선택 핸들러
@@ -226,6 +238,7 @@ function ChatPage() {
       try {
         // 채팅 메시지는 이미 대화방에 포함되어 있으므로 바로 선택
         setSelectedChatId(chat.id);
+        sessionStorage.setItem("selectedChatId", chat.id); 
       } catch (error) {
         console.error("채팅 선택 실패:", error);
         alert("채팅을 불러오는 데 실패했습니다.");
@@ -243,6 +256,7 @@ function ChatPage() {
 
       setSelectedChatId(null);
       setSelectedReceiptId(receipt.id);
+      sessionStorage.setItem("selectedReceiptId", receipt.id);
       setSelectedCategory("영수증 처리");
 
       if (receipt.isNew) {
@@ -306,12 +320,49 @@ function ChatPage() {
       }
 
       try {
-        const response = await api.post(`/chat/${selectedChat.id}/query/`, {
+        // const response = await api.post(`/chat/${selectedChat.id}/query/`, {
+        //   message: message,
+        // });
+        // const aiResponseText = response.data.response;
+        // const aiMessageId = response.data.message_id;
+        // const conversationTitle = response.data.conversation_title; // 백엔드에서 반환된 제목
+
+        let chatIdToUse = selectedChat.id;
+
+        // 임시 채팅이면 DB에 먼저 저장
+        if (selectedChat.isNew) {
+          const raw = localStorage.getItem("user");
+          const user = raw ? JSON.parse(raw) : null;
+          const userId = user?.user_id;
+
+          // DB에 새 채팅 생성
+          const createRes = await api.post("/chat/new/", {
+            title: message.slice(0, 50),
+            user_id: userId,
+          });
+          const newChatFromDB = normalizeChat(createRes.data.data);
+
+          // 임시 채팅을 DB 채팅으로 교체
+          setChats((prevChats) =>
+            prevChats.map((chat) =>
+              chat.id === selectedChat.id
+                ? { ...newChatFromDB, messages: [userMessage, aiLoadingMessage], isNew: false }
+                : chat
+            )
+          );
+          setSelectedChatId(newChatFromDB.id);
+          setLockedChatId(newChatFromDB.id);
+
+          chatIdToUse = newChatFromDB.id;
+        }
+
+        // DB id로 쿼리 요청
+        const response = await api.post(`/chat/${chatIdToUse}/query/`, {
           message: message,
         });
         const aiResponseText = response.data.response;
         const aiMessageId = response.data.message_id;
-        const conversationTitle = response.data.conversation_title; // 백엔드에서 반환된 제목
+        const conversationTitle = response.data.conversation_title;
 
         // 채팅 제목 업데이트 (첫 질문인 경우)
         if (conversationTitle) {
@@ -445,15 +496,20 @@ function ChatPage() {
   // 카테고리 선택 핸들러 (업무 가이드, 영수증 처리)
   const handleSelectCategory = useCallback((category) => {
     setSelectedCategory(category);
+    sessionStorage.setItem('selectedCategory', category);
 
     if (category === "업무 가이드") {
       // 업무 가이드로 전환 → 영수증 선택값 초기화
       setSelectedReceiptId(null);
       setSelectedChatId(null);
+      sessionStorage.removeItem("selectedReceiptId");
+      sessionStorage.removeItem("selectedChatId");
     } else {
       // 영수증 처리로 전환 → 채팅 선택값 초기화
       setSelectedChatId(null);
       setSelectedReceiptId(null);
+      sessionStorage.removeItem("selectedReceiptId");
+      sessionStorage.removeItem("selectedChatId");
     }
   }, []);
 
@@ -511,6 +567,36 @@ function ChatPage() {
   );
 
   const sidebarList = selectedCategory === "업무 가이드" ? chats : receipts;
+
+  useEffect(() => {
+    // ① 영수증 처리 화면이고, selectedReceiptId가 있으면 상세 정보 자동 조회
+    if (selectedCategory === "영수증 처리" && selectedReceiptId) {
+      // ② 현재 영수증 목록(receipts)에서 선택된 영수증 객체 찾기
+      const receipt = receipts.find(r => r.id === selectedReceiptId);
+
+      // ③ 영수증이 있고, 새 영수증이 아니라면(기존 영수증이면)
+      if (receipt && !receipt.isNew) {
+        setIsLoading(true); // ④ 로딩 상태 true로 설정
+
+        // ⑤ API로 해당 영수증의 상세 정보 요청
+        api.get(`/receipt/${selectedReceiptId}/`)
+          .then(response => {
+            // ⑥ 응답 성공이면 상세 정보 상태에 저장
+            if (response.data.success) {
+              setReceiptDetails(response.data.data);
+            } else {
+              setReceiptDetails(null); // 실패 시 상세 정보 초기화
+            }
+          })
+          .catch(() => setReceiptDetails(null)) // ⑦ 에러 발생 시 상세 정보 초기화
+          .finally(() => setIsLoading(false)); // ⑧ 로딩 상태 false로 변경
+      } else if (receipt && receipt.isNew) {
+        // ⑨ 새 영수증이면 상세 정보 없음으로 처리
+        setReceiptDetails(null);
+      }
+    }
+  }, [selectedCategory, selectedReceiptId, receipts]);
+
 
   return (
     <div className="flex w-full min-h-screen bg-gray-100">
