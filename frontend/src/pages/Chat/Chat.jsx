@@ -18,6 +18,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
 
   const messageEndRef = useRef(null);
   const sessionStartAtRef = useRef(Date.now());
+  const textareaRef = useRef(null);
 
   // chat이 undefined일 때도 안전하게 처리
   const safeMessages =
@@ -34,6 +35,10 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
     if (text.trim() === "") return;
     onSendMessage(text);
     setText("");
+
+  if (textareaRef.current) {
+    textareaRef.current.style.height = "auto";
+  }
   };
 
   const handleKeyDown = (e) => {
@@ -181,6 +186,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
       <div className="p-4 border-t flex items-start space-x-2 flex-shrink-0">
         <div className="relative flex-grow">
           <textarea
+          ref={textareaRef}
             rows={2}
             placeholder="메시지를 입력하세요..."
             className="w-full p-2 pr-14 border border-gray-300 focus:outline-none rounded-2xl resize-none overflow-y-auto"
