@@ -37,7 +37,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -181,11 +181,18 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
       <div className="p-4 border-t flex items-start space-x-2 flex-shrink-0">
         <div className="relative flex-grow">
           <textarea
-            rows="2"
+            rows={2}
             placeholder="메시지를 입력하세요..."
-            className="w-full p-2 pr-14 border border-gray-300 focus:outline-none rounded-2xl resize-none"
+            className="w-full p-2 pr-14 border border-gray-300 focus:outline-none rounded-2xl resize-none overflow-y-auto"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={
+              (e) => {setText(e.target.value);
+              const textarea = e.target;
+              textarea.style.height = "auto"; // 높이 초기화
+              const maxHeight = 8 * 24; // 8줄 * 24px(한 줄 높이 기준)
+              textarea.style.height =
+                Math.min(textarea.scrollHeight, maxHeight) + "px"; // scrollHeight vs maxHeight
+              }}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
           />
