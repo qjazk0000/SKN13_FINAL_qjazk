@@ -339,33 +339,38 @@ function ChatReportsPage() {
 
   return (
     <div className="flex h-screen">
-      <div className="w-64 bg-gray-800 text-white flex-shrink-0 h-screen">
-      <AdminSidebar 
+      <div className="w-72 bg-gray-800 text-white flex-shrink-0 h-screen">
+      <AdminSidebar
         userName={userName}
         selectedTab={selectedTab}
         onTabSelect={handleTabSelect}
         onChatPageClick={handleChatPageClick}
       />
       </div>
-      <div className="flex-1 overflow-y-auto p-6">
-        <h1 className="text-2xl font-bold mb-4">대화 신고 내역</h1>
-        <DateSelectBar 
-          startDate={startDate}
-          endDate={endDate}
-          onDateChange={handleDateChange}
-          onClearDateFilter={handleClearDateFilter}
-        />
-        <SearchBar
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          onSearch={handleSearch}
-          searchType={searchType}
-          setSearchType={setSearchType}
-          searchOptions={searchOptions}
-          onClearSearch={handleClearSearch}
-          errorTypeOptions={errorTypeOptions}
-        />
+      <div className="flex-1 overflow-y-auto p-6 bg-white">
+        <h1 className="text-2xl font-bold mb-6">대화 신고 내역</h1>
+        <div className="mb-2">
+          <DateSelectBar 
+            startDate={startDate}
+            endDate={endDate}
+            onDateChange={handleDateChange}
+            onClearDateFilter={handleClearDateFilter}
+          />
+        </div>
         
+        <div className="mb-2">
+          <SearchBar
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            onSearch={handleSearch}
+            searchType={searchType}
+            setSearchType={setSearchType}
+            searchOptions={searchOptions}
+            onClearSearch={handleClearSearch}
+            errorTypeOptions={errorTypeOptions}
+          />
+        </div>
+      
         {isLoading && (
           <div className="text-center py-8">
             <p className="text-gray-500">데이터를 불러오는 중...</p>
