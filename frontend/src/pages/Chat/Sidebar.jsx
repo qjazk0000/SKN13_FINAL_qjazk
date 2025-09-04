@@ -309,7 +309,7 @@ function Sidebar({
                 <button
                   type="button"
                   onClick={onUserNameClick}
-                  className="text-m font-bold truncate hover:text-gray-400 transition cursor-pointer"
+                  className="text-base font-bold truncate hover:text-gray-400 transition cursor-pointer"
                   title="마이페이지로 이동"
                 >
                   {displayName}
