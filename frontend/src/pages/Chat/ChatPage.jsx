@@ -14,6 +14,7 @@ const normalizeChat = (c) => ({
   id: c?.id ?? c?.session_id ?? c?.conversation_id ?? crypto.randomUUID(),
   title: c?.title ?? "새 채팅",
   messages: Array.isArray(c?.messages) ? c.messages : [],
+  isNew: c?.isNew ?? false,  // 기존 isNew 유지, 없으면 false
 });
 
 function ChatPage() {
@@ -111,7 +112,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
           ...chat,
           messages: chat.messages.map((message) => ({
             ...message,
-            isNew: false, // DB에서 가져온 메시지는 타이핑 효과 적용 안함
+            // isNew: false, // DB에서 가져온 메시지는 타이핑 효과 적용 안함
           })),
         }));
 
@@ -157,12 +158,12 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
 
     // 프론트에서 임의 id로 새 채팅 생성
     const newChat = {
-      id: `new-${Date.now()}`,
+      id: '1234567890',
       title: "새 채팅",
       messages: [],
       isNew: true, // 임시 채팅임을 표시
     };
-
+    console.log("1111111:",selectedChat)
     setChats((prev) => [newChat, ...prev]);
     setSelectedChatId(newChat.id);
     setSelectedCategory("업무 가이드");
@@ -185,7 +186,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
     }
 
     const newReceipt = {
-      id: `new-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: "새 영수증",
       isNew: true,
     };
@@ -288,41 +289,25 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
     async (message) => {
       if (!selectedChat || isLoading) return;
       setIsLoading(true);
-
+      console.log("222222:",selectedChat.id)
       const userMessage = {
-        id: Date.now(),
+        id: crypto.randomUUID(),
         sender_type: "user",
         content: message,
       };
 
       const aiLoadingMessage = {
-        id: Date.now() + 1, // ID가 겹치지 않도록 +1
+        id: crypto.randomUUID(), 
         sender_type: "ai",
         content: "...",
         isLoading: true,
       };
-
-      setChats((prevChats) =>
-        prevChats.map((chat) =>
-          chat.id === selectedChat.id
-            ? {
-                ...chat,
-                messages: Array.isArray(chat.messages)
-                  ? [...chat.messages, userMessage, aiLoadingMessage]
-                  : [userMessage, aiLoadingMessage],
-              }
-            : chat
-        )
-      );
-
-      if (lockedChatId === selectedChat.id) {
-        setLockedChatId(null);
-      }
-
+      console.log("DEBUG: selectedChat.id:", selectedChat.id);
+      //newChat.id
+      let chatIdToUse = selectedChat.id;
+      let newChatFromDB = null;
+      
       try {
-
-        let chatIdToUse = selectedChat.id;
-
         // 임시 채팅이면 DB에 먼저 저장
         if (selectedChat.isNew) {
           const raw = localStorage.getItem("user");
@@ -331,24 +316,45 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
 
           // DB에 새 채팅 생성
           const createRes = await api.post("/chat/new/", {
-            title: message.slice(0, 50),
             user_id: userId,
           });
-          const newChatFromDB = normalizeChat(createRes.data.data);
 
-          // 임시 채팅을 DB 채팅으로 교체
+          newChatFromDB = normalizeChat(createRes.data.data);
+
+          chatIdToUse = newChatFromDB.id;
+          //selectedChat.id = newChatFromDB.id;
+          
+          // 임시 채팅을 DB 채팅으로 교체 (UI용)
           setChats((prevChats) =>
             prevChats.map((chat) =>
               chat.id === selectedChat.id
-                ? { ...newChatFromDB, messages: [userMessage, aiLoadingMessage], isNew: false }
+                ? { 
+                  ...newChatFromDB, 
+                  messages: [userMessage, aiLoadingMessage], 
+                  isNew: chat.isNew ?? false 
+                }
                 : chat
             )
           );
+          
           setSelectedChatId(newChatFromDB.id);
           setLockedChatId(newChatFromDB.id);
 
-          chatIdToUse = newChatFromDB.id;
-        }
+
+        } else {
+          setChats((prevChats) =>
+            prevChats.map((chat) =>
+              chat.id === selectedChat.id
+                ? {
+                    ...chat,
+                    messages: Array.isArray(chat.messages)
+                      ? [...chat.messages, userMessage, aiLoadingMessage]
+                      : [userMessage, aiLoadingMessage],
+                  }
+                : chat
+            )
+          );
+        }           
 
         // DB id로 쿼리 요청
         const response = await api.post(`/chat/${chatIdToUse}/query/`, {
@@ -357,6 +363,10 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
         const aiResponseText = response.data.response;
         const aiMessageId = response.data.message_id;
         const conversationTitle = response.data.conversation_title;
+        aiLoadingMessage.id = aiMessageId;
+        console.log("DEBUG: aiMessageId:", aiMessageId);
+        console.log("DEBUG: aiLoadingMessage.id:", aiLoadingMessage.id);
+        console.log("DEBUG: aiLoadingMessage.id = aiMessageId", aiLoadingMessage.id == aiMessageId);
 
         // 채팅 제목 업데이트 (첫 질문인 경우)
         if (conversationTitle) {
@@ -370,7 +380,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
           console.log("DEBUG: 채팅 제목 업데이트:", conversationTitle);
         }
 
-        // AI 답변 완료 시 isNew: true로 설정 (TypingEffect 활성화)
+        // AI 답변 완료 시 
         setChats((prevChats) =>
           prevChats.map((chat) =>
             chat.id === selectedChat.id
@@ -384,7 +394,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
                               id: aiMessageId,
                               content: aiResponseText,
                               isLoading: false,
-                              isNew: true, // TypingEffect 활성화
                             }
                           : msg
                       )
@@ -394,7 +403,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
                           id: aiMessageId,
                           content: aiResponseText,
                           isLoading: false,
-                          isNew: true, // TypingEffect 활성화
+                          // isNew: true, // TypingEffect 활성화
                         },
                       ],
                 }
@@ -402,28 +411,9 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
           )
         );
 
-        // TypingEffect 완료 후 isNew: false로 변경 (setTimeout 사용)
-        setTimeout(() => {
-          setChats((prevChats) =>
-            prevChats.map((chat) =>
-              chat.id === selectedChat.id
-                ? {
-                    ...chat,
-                    messages: Array.isArray(chat.messages)
-                      ? chat.messages.map((msg) =>
-                          msg.id === aiMessageId
-                            ? {
-                                ...msg,
-                                isNew: false, // TypingEffect 비활성화
-                              }
-                            : msg
-                        )
-                      : chat.messages,
-                  }
-                : chat
-            )
-          );
-        }, 100); // 100ms 후 isNew: false로 변경
+        if (lockedChatId === selectedChat.id) {
+          setLockedChatId(null);
+        }
       } catch (error) {
         console.error("메시지 전송 실패:", error);
         // 에러 메시지 처리
@@ -440,7 +430,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
                               content:
                                 "죄송합니다. 메시지를 처리하는 중 오류가 발생했습니다.",
                               isLoading: false,
-                              isNew: true,
+                              // isNew: true,
                             }
                           : msg
                       )
@@ -450,7 +440,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
                           content:
                             "죄송합니다. 메시지를 처리하는 중 오류가 발생했습니다.",
                           isLoading: false,
-                          isNew: true,
+                          // isNew: true,
                         },
                       ],
                 }
