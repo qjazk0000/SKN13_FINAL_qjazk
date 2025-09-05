@@ -60,7 +60,7 @@ function ManageReceipts() {
           // 데이터를 미리 로드
           const params = new URLSearchParams();
           params.append("page", "1");
-          params.append("page_size", "10");
+          params.append("page_size", "7");
           
           if (startDate) {
             params.append("start_date", startDate);
@@ -130,7 +130,7 @@ function ManageReceipts() {
       
       const params = new URLSearchParams();
       params.append('page', page.toString());
-      params.append('page_size', '10');
+      params.append('page_size', '7');
       
       if (startDate) {
         params.append('start_date', startDate);
@@ -487,7 +487,7 @@ function ManageReceipts() {
 
   return (
     <div className="flex h-screen">
-      <div className="w-64 bg-gray-800 text-white flex-shrink-0 h-screen">
+      <div className="w-72 bg-gray-800 text-white flex-shrink-0 h-screen">
         <AdminSidebar 
         userName={userName}
         onUserNameClick={handleUserNameClick}
@@ -497,7 +497,7 @@ function ManageReceipts() {
         onChatPageClick={handleChatPageClick}
       />
       </div>
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 bg-white">
         <h1 className="text-2xl font-bold mb-6">영수증 관리</h1>
         
         {/* 에러 메시지 */}
@@ -508,7 +508,7 @@ function ManageReceipts() {
         )}
         
         {/* 기간 선택 바 */}
-        <div className="mb-6">
+        <div className="mb-2">
           <DateSelectBar 
             onDateChange={handleDateChange}
             startDate={startDate}
@@ -518,42 +518,44 @@ function ManageReceipts() {
         </div>
         
         {/* 검색 바 */}
-        <div className="mb-6">
-          <SearchBar
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            onSearch={handleSearch}
-            searchType={searchType}
-            setSearchType={setSearchType}
-            searchOptions={searchOptions}
-            onClearSearch={handleClearSearch}
-          />
-        </div>
-        
-        {/* 엑셀 다운로드 버튼 */}
-        <div className="flex justify-between items-center mb-4">
-          {/* 날짜 필터 정보 및 초기화 버튼 */}
-          {(startDate || endDate) && (
-            <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-600">
-                기간: {startDate ? new Date(startDate).toLocaleDateString('ko-KR') : '시작일'} ~ {endDate ? new Date(endDate).toLocaleDateString('ko-KR') : '종료일'}
-              </span>
-              <button
-                onClick={handleClearDateFilter}
-                className="text-xs text-red-600 hover:text-red-800 underline"
-              >
-                날짜 필터 초기화
-              </button>
-            </div>
-          )}
-          
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <div>
+            <SearchBar
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              onSearch={handleSearch}
+              searchType={searchType}
+              setSearchType={setSearchType}
+              searchOptions={searchOptions}
+              onClearSearch={handleClearSearch}
+            />
+          </div>
           <button
             onClick={handleExcelDownload}
-            className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded shadow transition-colors"
+            className="h-10 flex items-center bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded shadow transition-colors"
           >
             엑셀 다운로드
           </button>
         </div>
+        
+          <div className="flex items-center space-x-3">
+            {/* 날짜 필터 정보 및 초기화 버튼 */}
+            {(startDate || endDate) && (
+              <>
+                <span className="text-sm text-gray-600">
+                  기간: {startDate ? new Date(startDate).toLocaleDateString('ko-KR') : '시작일'} ~ {endDate ? new Date(endDate).toLocaleDateString('ko-KR') : '종료일'}
+                </span>
+                <button
+                  onClick={handleClearDateFilter}
+                  className="text-xs text-red-600 hover:text-red-800 underline"
+                >
+                  날짜 필터 초기화
+                </button>
+              </>
+            )}
+          </div>
+
+       
 
         {/* 로딩 상태 */}
         {isLoading ? (
@@ -565,7 +567,6 @@ function ManageReceipts() {
             {/* 검색 결과 요약 */}
             {!error && receipts.length > 0 && (
               <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex justify-between items-center">
                   <p className="text-sm text-green-800">
                     총 <span className="font-medium">{totalCount}</span>건의 영수증을 찾았습니다.
                     {(startDate || endDate) && (
@@ -574,9 +575,9 @@ function ManageReceipts() {
                       </span>
                     )}
                   </p>
-                </div>
               </div>
             )}
+         
             
             {/* 데이터 테이블 */}
             <div className="mb-6">
