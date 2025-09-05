@@ -19,9 +19,10 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
   // 여러 장 지원: receiptInfo가 배열이면 현재 인덱스의 결과만 사용
   const isMulti = Array.isArray(receiptInfo) && receiptInfo.length > 0;
   const currentReceiptInfo = isMulti ? receiptInfo[currentIndex] : receiptInfo;
-  const currentEditInfo = isMulti && editInfo && Array.isArray(editInfo)
-    ? editInfo[currentIndex]
-    : editInfo;
+  const currentEditInfo =
+    isMulti && editInfo && Array.isArray(editInfo)
+      ? editInfo[currentIndex]
+      : editInfo;
 
   useEffect(() => {
     if (receiptDetails) {
@@ -67,15 +68,17 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
   // 여러 장 지원: receiptInfo가 배열이면 현재 인덱스의 결과만 사용
   useEffect(() => {
     if (Array.isArray(receiptInfo)) {
-      setEditInfo(receiptInfo.map(info => ({
-        결제처: info.extracted?.결제처 || "",
-        결제일시: info.extracted?.결제일시 || "",
-        총합계: info.extracted?.총합계 || 0,
-        카드정보: info.extracted?.카드정보 || "",
-        품목: Array.isArray(info.extracted?.품목)
-          ? info.extracted.품목.map(item => ({ ...item }))
-          : [],
-      })));
+      setEditInfo(
+        receiptInfo.map((info) => ({
+          결제처: info.extracted?.결제처 || "",
+          결제일시: info.extracted?.결제일시 || "",
+          총합계: info.extracted?.총합계 || 0,
+          카드정보: info.extracted?.카드정보 || "",
+          품목: Array.isArray(info.extracted?.품목)
+            ? info.extracted.품목.map((item) => ({ ...item }))
+            : [],
+        }))
+      );
     } else if (receiptDetails) {
       setReceiptInfo(null);
 
@@ -235,36 +238,58 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
     }
     setIsLoading(true);
     try {
-      const payload = {
-        receipts: editInfo.map((info, idx) => ({
-          file_id: receiptInfo[idx].file_id,
-          store_name: info.결제처,
-          payment_date: info.결제일시,
-          amount: Number(info.총합계),
-          card_info: info.카드정보,
-          items: Array.isArray(info.품목)
-            ? info.품목.map(item => ({
-                품명: item.품명,
-                단가: Number(item.단가),
-                수량: Number(item.수량),
-                금액: Number(item.금액),
-              }))
-            : [],
-        }))
-      };
+      const receiptsPayload = Array.isArray(editInfo)
+        ? editInfo.map((info, idx) => ({
+            file_id: receiptInfo[idx].file_id,
+            store_name: info.결제처,
+            payment_date: info.결제일시,
+            amount: Number(info.총합계),
+            card_info: info.카드정보,
+            items: Array.isArray(info.품목)
+              ? info.품목.map((item) => ({
+                  품명: item.품명,
+                  단가: Number(item.단가),
+                  수량: Number(item.수량),
+                  금액: Number(item.금액),
+                }))
+              : [],
+          }))
+        : [
+            {
+              file_id: receiptInfo.file_id,
+              store_name: editInfo.결제처,
+              payment_date: editInfo.결제일시,
+              amount: Number(editInfo.총합계),
+              card_info: editInfo.카드정보,
+              items: Array.isArray(editInfo.품목)
+                ? editInfo.품목.map((item) => ({
+                    품명: item.품명,
+                    단가: Number(item.단가),
+                    수량: Number(item.수량),
+                    금액: Number(item.금액),
+                  }))
+                : [],
+            },
+          ];
+
+      const payload = { receipts: receiptsPayload };
       console.log(payload);
       const response = await api.post("/receipt/save/", payload);
       if (response.data.success) {
         alert("영수증이 성공적으로 저장되었습니다.");
         if (onSaveSuccess) onSaveSuccess();
         // 저장 후 다음 영수증으로 이동
-        if (isMulti && currentIndex < receiptInfo.length - 1) {
-          setCurrentIndex(currentIndex + 1);
-        } else {
-          setReceiptInfo(null);
-          setEditInfo(null);
-          setUploadFile(null);
-        }
+        // if (isMulti && currentIndex < receiptInfo.length - 1) {
+        //   setCurrentIndex(currentIndex + 1);
+        // } else {
+        //   setReceiptInfo(null);
+        //   setEditInfo(null);
+        //   setUploadFile(null);
+        // }
+        setReceiptInfo(null);
+        setEditInfo(null);
+        setUploadFile(null);
+        setCurrentIndex(0);
       } else {
         alert(response.data.message || "저장에 실패했습니다.");
       }
@@ -571,7 +596,7 @@ function ReceiptPreviewMulti({ results }) {
       <div className="flex items-center mb-4">
         <button
           disabled={currentIndex === 0}
-          onClick={() => setCurrentIndex(i => i - 1)}
+          onClick={() => setCurrentIndex((i) => i - 1)}
           className="px-3 py-1 bg-gray-200 rounded mr-2"
         >
           ◀
@@ -581,7 +606,7 @@ function ReceiptPreviewMulti({ results }) {
         </span>
         <button
           disabled={currentIndex === results.length - 1}
-          onClick={() => setCurrentIndex(i => i + 1)}
+          onClick={() => setCurrentIndex((i) => i + 1)}
           className="px-3 py-1 bg-gray-200 rounded ml-2"
         >
           ▶
@@ -632,4 +657,3 @@ function ReceiptPreviewMulti({ results }) {
 }
 
 export default Receipt;
-export { ReceiptPreviewMulti };
