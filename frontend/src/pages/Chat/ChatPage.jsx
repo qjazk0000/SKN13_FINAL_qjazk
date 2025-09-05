@@ -27,11 +27,11 @@ function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState(() => {
     return sessionStorage.getItem("selectedChatId") || null;
   });
-const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
+  const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
     return sessionStorage.getItem("selectedReceiptId") || null;
   });
-  const [selectedCategory, setSelectedCategory] = useState(()=> {
-    return sessionStorage.getItem('selectedCategory') || "업무 가이드";
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    return sessionStorage.getItem("selectedCategory") || "업무 가이드";
   });
 
   const [receiptDetails, setReceiptDetails] = useState(null);
@@ -65,7 +65,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
         setIsAdmin(adminStatus);
       } else {
         console.log("사용자 정보가 없습니다.");
-        console.log("localStorage user:", localStorage.getItem('user'));
+        console.log("localStorage user:", localStorage.getItem("user"));
         alert("로그인이 필요합니다.");
         navigate("/login");
       }
@@ -138,7 +138,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
 
     fetchChatsAndReceipts();
   }, [selectedCategory]);
-  
 
   const handleNewChat = useCallback(() => {
     setSelectedChatId(null);
@@ -174,7 +173,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
     setSelectedChatId(null);
     setSelectedReceiptId(null);
     sessionStorage.removeItem("selectedChatId");
-    sessionStorage.removeItem("selectedReceiptId"); 
+    sessionStorage.removeItem("selectedReceiptId");
 
     const existingNewReceipt = receipts.find((r) => r.isNew);
     if (existingNewReceipt) {
@@ -238,7 +237,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
       try {
         // 채팅 메시지는 이미 대화방에 포함되어 있으므로 바로 선택
         setSelectedChatId(chat.id);
-        sessionStorage.setItem("selectedChatId", chat.id); 
+        sessionStorage.setItem("selectedChatId", chat.id);
       } catch (error) {
         console.error("채팅 선택 실패:", error);
         alert("채팅을 불러오는 데 실패했습니다.");
@@ -346,7 +345,11 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
           setChats((prevChats) =>
             prevChats.map((chat) =>
               chat.id === selectedChat.id
-                ? { ...newChatFromDB, messages: [userMessage, aiLoadingMessage], isNew: false }
+                ? {
+                    ...newChatFromDB,
+                    messages: [userMessage, aiLoadingMessage],
+                    isNew: false,
+                  }
                 : chat
             )
           );
@@ -496,7 +499,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
   // 카테고리 선택 핸들러 (업무 가이드, 영수증 처리)
   const handleSelectCategory = useCallback((category) => {
     setSelectedCategory(category);
-    sessionStorage.setItem('selectedCategory', category);
+    sessionStorage.setItem("selectedCategory", category);
 
     if (category === "업무 가이드") {
       // 업무 가이드로 전환 → 영수증 선택값 초기화
@@ -572,15 +575,16 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
     // ① 영수증 처리 화면이고, selectedReceiptId가 있으면 상세 정보 자동 조회
     if (selectedCategory === "영수증 처리" && selectedReceiptId) {
       // ② 현재 영수증 목록(receipts)에서 선택된 영수증 객체 찾기
-      const receipt = receipts.find(r => r.id === selectedReceiptId);
+      const receipt = receipts.find((r) => r.id === selectedReceiptId);
 
       // ③ 영수증이 있고, 새 영수증이 아니라면(기존 영수증이면)
       if (receipt && !receipt.isNew) {
         setIsLoading(true); // ④ 로딩 상태 true로 설정
 
         // ⑤ API로 해당 영수증의 상세 정보 요청
-        api.get(`/receipt/${selectedReceiptId}/`)
-          .then(response => {
+        api
+          .get(`/receipt/${selectedReceiptId}/`)
+          .then((response) => {
             // ⑥ 응답 성공이면 상세 정보 상태에 저장
             if (response.data.success) {
               setReceiptDetails(response.data.data);
@@ -596,7 +600,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
       }
     }
   }, [selectedCategory, selectedReceiptId, receipts]);
-
 
   return (
     <div className="flex w-full min-h-screen bg-gray-100">
