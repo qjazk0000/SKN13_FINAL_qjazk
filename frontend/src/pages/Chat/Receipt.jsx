@@ -18,14 +18,14 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
 
   // 여러 장 지원: receiptInfo가 배열이면 현재 인덱스의 결과만 사용
   const isMulti = Array.isArray(receiptInfo) && receiptInfo.length > 0;
-  const currentReceiptInfo = isMulti ? receiptInfo[currentIndex] : receiptInfo;
+  // const currentReceiptInfo = isMulti ? receiptInfo[currentIndex] : receiptInfo;
   const currentEditInfo = isMulti && editInfo && Array.isArray(editInfo)
     ? editInfo[currentIndex]
     : editInfo;
 
   useEffect(() => {
     if (receiptDetails) {
-      setReceiptInfo(null);
+      // setReceiptInfo(null);
 
       // extracted_text 문자열 파싱
       let extracted = {};
@@ -40,6 +40,11 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
         extracted = receiptDetails.extracted_text;
       }
 
+      setReceiptInfo({
+        ...receiptDetails,
+        extracted,
+      });
+
       setEditInfo({
         결제처: receiptDetails.store_name || extracted.결제처 || "",
         결제일시: receiptDetails.payment_date || extracted.결제일시 || "",
@@ -49,20 +54,8 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
           ? extracted.품목.map((item) => ({ ...item }))
           : [],
       });
-    } else if (receiptInfo) {
-      setEditInfo({
-        결제처: receiptInfo.extracted?.결제처 || "",
-        결제일시: receiptInfo.extracted?.결제일시 || "",
-        총합계: receiptInfo.extracted?.총합계 || 0,
-        카드정보: receiptInfo.extracted?.카드정보 || "",
-        품목: receiptInfo.extracted?.품목
-          ? receiptInfo.extracted.품목.map((item) => ({ ...item }))
-          : [],
-      });
-    } else {
-      setEditInfo(null);
     }
-  }, [receiptDetails, receiptInfo]);
+  }, [receiptDetails]);
 
   // 여러 장 지원: receiptInfo가 배열이면 현재 인덱스의 결과만 사용
   useEffect(() => {
@@ -258,13 +251,9 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
         alert("영수증이 성공적으로 저장되었습니다.");
         if (onSaveSuccess) onSaveSuccess();
         // 저장 후 다음 영수증으로 이동
-        if (isMulti && currentIndex < receiptInfo.length - 1) {
-          setCurrentIndex(currentIndex + 1);
-        } else {
-          setReceiptInfo(null);
-          setEditInfo(null);
-          setUploadFile(null);
-        }
+        setReceiptInfo(null);
+        setEditInfo(null);
+        setUploadFile(null);
       } else {
         alert(response.data.message || "저장에 실패했습니다.");
       }
@@ -348,7 +337,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                   className="border rounded px-2 py-1 flex-1"
                   value={currentEditInfo.결제처}
                   onChange={(e) => handleEditChange("결제처", e.target.value)}
-                  readOnly={isViewingExisting}
+                  readOnly={isViewingExisting && receiptDetails?.status !== "pending"}
                 />
               </div>
               <div className="flex items-center">
@@ -360,7 +349,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                   className="border rounded px-2 py-1 flex-1"
                   value={currentEditInfo.결제일시}
                   onChange={(e) => handleEditChange("결제일시", e.target.value)}
-                  readOnly={isViewingExisting}
+                  readOnly={isViewingExisting && receiptDetails?.status !== "pending"}
                 />
               </div>
               <div className="flex items-center">
@@ -372,7 +361,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                   className="border rounded px-2 py-1 flex-1"
                   value={currentEditInfo.카드정보}
                   onChange={(e) => handleEditChange("카드정보", e.target.value)}
-                  readOnly={isViewingExisting}
+                  readOnly={isViewingExisting && receiptDetails?.status !== "pending"}
                 />
               </div>
               <div className="flex items-center">
@@ -382,7 +371,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                   className="border rounded px-2 py-1 flex-1"
                   value={currentEditInfo.총합계}
                   onChange={(e) => handleEditChange("총합계", e.target.value)}
-                  readOnly={isViewingExisting}
+                  readOnly={isViewingExisting && receiptDetails?.status !== "pending"}
                 />
               </div>
               {currentEditInfo.품목?.length > 0 && (
@@ -409,7 +398,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                                 onChange={(e) =>
                                   handleItemChange(idx, "품명", e.target.value)
                                 }
-                                readOnly={isViewingExisting}
+                                readOnly={isViewingExisting && receiptDetails?.status !== "pending"}
                               />
                             </td>
                             <td className="px-2 py-1 border">
@@ -420,7 +409,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                                 onChange={(e) =>
                                   handleItemChange(idx, "단가", e.target.value)
                                 }
-                                readOnly={isViewingExisting}
+                                readOnly={isViewingExisting && receiptDetails?.status !== "pending"}
                               />
                             </td>
                             <td className="px-2 py-1 border">
@@ -431,7 +420,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                                 onChange={(e) =>
                                   handleItemChange(idx, "수량", e.target.value)
                                 }
-                                readOnly={isViewingExisting}
+                                readOnly={isViewingExisting && receiptDetails?.status !== "pending"}
                               />
                             </td>
                             <td className="px-2 py-1 border">
@@ -442,7 +431,7 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                                 onChange={(e) =>
                                   handleItemChange(idx, "금액", e.target.value)
                                 }
-                                readOnly={isViewingExisting}
+                                readOnly={isViewingExisting && receiptDetails?.status !== "pending"}
                               />
                             </td>
                           </tr>
@@ -453,7 +442,8 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
                 </div>
               )}
             </div>
-            {!isViewingExisting && (
+            {/* status가 pending인 경우에만 최종 저장 버튼 노출 */}
+            {isEditing && (receiptDetails && receiptDetails.status === "pending") && (
               <div className="mt-6 flex justify-center">
                 <button
                   className="px-4 py-2 bg-orange-300 text-white rounded-lg shadow hover:bg-orange-400"
