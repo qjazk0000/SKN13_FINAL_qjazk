@@ -320,12 +320,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
       }
 
       try {
-        // const response = await api.post(`/chat/${selectedChat.id}/query/`, {
-        //   message: message,
-        // });
-        // const aiResponseText = response.data.response;
-        // const aiMessageId = response.data.message_id;
-        // const conversationTitle = response.data.conversation_title; // 백엔드에서 반환된 제목
 
         let chatIdToUse = selectedChat.id;
 
