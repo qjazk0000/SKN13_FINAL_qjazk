@@ -254,7 +254,7 @@ def main():
         print("✅ 기존 데이터를 유지하고 새로 추가합니다.")
     
     embedder = SentenceTransformer(EMBED_MODEL)
-    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, prefer_grpc=True)
+    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, grpc_port=6334, prefer_grpc=True)
     ensure_collection(client, force_reset=args.reset)
 
     pdf_dir = Path(PDF_DIR)
