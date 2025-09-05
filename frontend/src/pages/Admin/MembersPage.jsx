@@ -228,7 +228,7 @@ function MembersPage() {
 
   return (
     <div className="flex h-screen">
-      <div className="w-64 bg-gray-800 text-white flex-shrink-0 h-screen">
+      <div className="w-72 bg-gray-800 text-white flex-shrink-0 h-screen">
         <AdminSidebar 
         userName={userName}
         selectedTab={selectedTab}
