@@ -28,40 +28,27 @@ class ConversationListView(generics.ListAPIView):
         auth_header = self.request.headers.get('Authorization')
         user_id = None
         
-        print(f"DEBUG: ConversationListView - Authorization 헤더: {auth_header}")
-        
         if auth_header:
             try:
                 token_type, token = auth_header.split(' ')
-                print(f"DEBUG: ConversationListView - 토큰 타입: {token_type}, 토큰: {token[:20]}...")
                 
                 if token_type.lower() == 'bearer':
                     from authapp.utils import verify_token
                     payload = verify_token(token)
-                    print(f"DEBUG: ConversationListView - 토큰 검증 결과: {payload}")
                     
                     if payload:
                         user_id = payload.get('user_id')
-                        print(f"DEBUG: ConversationListView - JWT에서 추출한 user_id: {user_id}")
-                    else:
-                        print(f"DEBUG: ConversationListView - 토큰 검증 실패")
-                else:
-                    print(f"DEBUG: ConversationListView - 잘못된 토큰 타입: {token_type}")
             except Exception as e:
-                print(f"DEBUG: ConversationListView - JWT 파싱 실패: {str(e)}")
-                import traceback
-                print(f"DEBUG: ConversationListView - 상세 오류: {traceback.format_exc()}")
+                pass
         else:
-            print(f"DEBUG: ConversationListView - Authorization 헤더가 없음")
+            pass
         
         if user_id:
             # user_id로 필터링된 대화방만 반환
             queryset = Conversation.objects.filter(user_id=user_id).order_by('-updated_at')
-            print(f"DEBUG: ConversationListView - user_id {user_id}로 필터링된 대화방 수: {queryset.count()}")
             return queryset
         else:
             # user_id가 없으면 빈 쿼리셋 반환
-            print(f"DEBUG: ConversationListView - user_id가 없어 빈 결과 반환")
             return Conversation.objects.none()
 
 class ConversationCreateView(generics.CreateAPIView):
@@ -372,6 +359,10 @@ class ChatReportView(generics.CreateAPIView):
 
     @require_auth
     def create(self, request, *args, **kwargs):
+        import time
+        request_id = int(time.time() * 1000) + hash(str(request.data))
+        logger.info(f"🚀 ChatReportView.create 시작 [{request_id}] - chat_id: {kwargs.get('chat_id')}")
+        
         chat_id = kwargs.get("chat_id")
         logger.info(f"chat_id: kwargs.get 실행 결과: {chat_id}")
         if not chat_id:
@@ -380,17 +371,21 @@ class ChatReportView(generics.CreateAPIView):
         try:
             # 신고 대상 메시지 가져오기
             message = ChatMessage.objects.get(id=chat_id)
-            print(f"message from DB: {message}, id: {message.id}, type: {type(message.id)}")
+            logger.info(f"📝 message from DB: {message}, id: {message.id}, type: {type(message.id)}")
         except ChatMessage.DoesNotExist:
             return Response({"error": "메시지 없음"}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
             return Response({"error": "chat_id 형식 오류"}, status=status.HTTP_400_BAD_REQUEST)
 
+        logger.info(f"🔍 request.data: {request.data}")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        logger.info(f"✅ serializer validation 완료")
 
         # create 호출 시 chat 객체를 kwargs로 넘김
-        serializer.save(chat=message)
+        logger.info(f"💾 serializer.save(chat=message) 호출 시작")
+        chat_report = serializer.save(chat=message)
+        logger.info(f"✅ serializer.save 완료 [{request_id}] - report_id: {chat_report.report_id}")
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 

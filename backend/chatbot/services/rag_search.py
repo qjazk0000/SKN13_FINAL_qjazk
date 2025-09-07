@@ -196,6 +196,132 @@ class RagSearcher:
         
         return self.search(query, flt=recency_filter, top_k=top_k)
     
+    def search_forms(self, query: str, top_k: int = None) -> List[Dict[str, Any]]:
+        """
+        서식 전용 검색 (form_title, topics, synonyms 활용)
+        
+        Args:
+            query: 검색 질문
+            top_k: 반환할 결과 수
+        
+        Returns:
+            서식 검색 결과
+        """
+        if top_k is None:
+            top_k = self.default_top_k
+        
+        try:
+            # 질문 임베딩
+            query_vector = self.embedder.encode([query])[0].tolist()
+            
+            # 서식 전용 필터 (doc_type이 "form"인 것만)
+            form_filter = {
+                "must": [
+                    {
+                        "key": "doc_type",
+                        "match": {"value": "form"}
+                    }
+                ]
+            }
+            
+            # Qdrant 검색
+            search_results = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_vector,
+                query_filter=form_filter,
+                limit=top_k * 2,  # 더 많이 검색해서 재순위화
+                with_payload=True,
+                with_vectors=False
+            )
+            
+            # 서식 메타데이터를 활용한 재순위화
+            reranked_results = self._rerank_forms(search_results, query)
+            
+            # 상위 결과만 반환
+            return reranked_results[:top_k]
+            
+        except Exception as e:
+            print(f"서식 검색 오류: {e}")
+            return []
+    
+    def _rerank_forms(self, results: List, query: str) -> List[Dict[str, Any]]:
+        """
+        서식 검색 결과 재순위화 (form_title, topics, synonyms 활용)
+        
+        Args:
+            results: 원본 검색 결과
+            query: 검색 질문
+        
+        Returns:
+            재순위화된 서식 결과
+        """
+        query_lower = query.lower()
+        reranked = []
+        
+        for result in results:
+            payload = result.payload
+            
+            # 서식 관련 메타데이터 추출
+            form_title = payload.get('form_title', '')
+            topics = payload.get('topics', [])
+            synonyms = payload.get('synonyms', [])
+            
+            # 관련성 점수 계산
+            relevance_score = 0
+            
+            # 1. 서식 제목 직접 매칭 (높은 가중치)
+            if form_title and any(keyword in form_title.lower() for keyword in query_lower.split()):
+                relevance_score += 5
+            
+            # 2. 토픽 매칭
+            for topic in topics:
+                if topic and any(keyword in topic.lower() for keyword in query_lower.split()):
+                    relevance_score += 3
+            
+            # 3. 동의어 매칭
+            for synonym in synonyms:
+                if synonym and any(keyword in synonym.lower() for keyword in query_lower.split()):
+                    relevance_score += 2
+            
+            # 4. 벡터 유사도 점수
+            relevance_score += result.score * 2
+            
+            # 새로운 메타데이터 구조에 맞게 결과 포맷팅
+            formatted_result = {
+                'id': str(result.id),
+                'score': result.score,
+                'relevance_score': relevance_score,
+                'text': payload.get('text', ''),
+                'file_name': payload.get('doc_title', ''),
+                'pages': payload.get('page', ''),
+                'source': payload.get('source', ''),
+                
+                # 서식 관련 메타데이터
+                'form_title': form_title,
+                'form_page': payload.get('form_page', ''),
+                'form_file_uri': payload.get('form_file_uri', ''),
+                'topics': topics,
+                'synonyms': synonyms,
+                'anchor_refs': payload.get('anchor_refs', []),
+                
+                # 기존 메타데이터
+                'document_level': payload.get('document_level', ''),
+                'document_type': payload.get('document_type', ''),
+                'domain_primary': payload.get('domain_primary', ''),
+                'domain_secondary': payload.get('domain_secondary', ''),
+                'year': payload.get('year', 0),
+                'recency_score': payload.get('recency_score', 1),
+                'file_path': payload.get('file_path', ''),
+                'doc_id': payload.get('doc_id', ''),
+            }
+            
+            reranked.append(formatted_result)
+        
+        # 관련성 점수로 재정렬
+        reranked.sort(key=lambda x: x['relevance_score'], reverse=True)
+        
+        return reranked
+
     def hybrid_search(self, query: str, domain_list: List[str] = None, 
                      file_types: List[str] = None, min_recency: int = None,
                      top_k: int = None) -> List[Dict[str, Any]]:

@@ -28,11 +28,11 @@ function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState(() => {
     return sessionStorage.getItem("selectedChatId") || null;
   });
-const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
+  const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
     return sessionStorage.getItem("selectedReceiptId") || null;
   });
-  const [selectedCategory, setSelectedCategory] = useState(()=> {
-    return sessionStorage.getItem('selectedCategory') || "업무 가이드";
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    return sessionStorage.getItem("selectedCategory") || "업무 가이드";
   });
 
   const [receiptDetails, setReceiptDetails] = useState(null);
@@ -57,7 +57,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
   useEffect(() => {
     const loadUserInfo = () => {
       const currentUser = authService.getCurrentUser();
-      console.log("현재 사용자 정보:", currentUser);
 
       if (currentUser && (currentUser.name || currentUser.username)) {
         setUserName(currentUser.name || currentUser.username);
@@ -65,8 +64,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
         const adminStatus = authService.isAdmin();
         setIsAdmin(adminStatus);
       } else {
-        console.log("사용자 정보가 없습니다.");
-        console.log("localStorage user:", localStorage.getItem('user'));
         alert("로그인이 필요합니다.");
         navigate("/login");
       }
@@ -139,7 +136,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
 
     fetchChatsAndReceipts();
   }, [selectedCategory]);
-  
 
   const handleNewChat = useCallback(() => {
     setSelectedChatId(null);
@@ -175,7 +171,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
     setSelectedChatId(null);
     setSelectedReceiptId(null);
     sessionStorage.removeItem("selectedChatId");
-    sessionStorage.removeItem("selectedReceiptId"); 
+    sessionStorage.removeItem("selectedReceiptId");
 
     const existingNewReceipt = receipts.find((r) => r.isNew);
     if (existingNewReceipt) {
@@ -239,7 +235,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
       try {
         // 채팅 메시지는 이미 대화방에 포함되어 있으므로 바로 선택
         setSelectedChatId(chat.id);
-        sessionStorage.setItem("selectedChatId", chat.id); 
+        sessionStorage.setItem("selectedChatId", chat.id);
       } catch (error) {
         console.error("채팅 선택 실패:", error);
         alert("채팅을 불러오는 데 실패했습니다.");
@@ -302,14 +298,29 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
         content: "...",
         isLoading: true,
       };
-      console.log("DEBUG: selectedChat.id:", selectedChat.id);
-      //newChat.id
-      let chatIdToUse = selectedChat.id;
-      let newChatFromDB = null;
-      
+
+      setChats((prevChats) =>
+        prevChats.map((chat) =>
+          chat.id === selectedChat.id
+            ? {
+                ...chat,
+                messages: Array.isArray(chat.messages)
+                  ? [...chat.messages, userMessage, aiLoadingMessage]
+                  : [userMessage, aiLoadingMessage],
+              }
+            : chat
+        )
+      );
+
+      if (lockedChatId === selectedChat.id) {
+        setLockedChatId(null);
+      }
+
       try {
+        let chatIdToUse = selectedChat.id;
+
         // 임시 채팅이면 DB에 먼저 저장
-        if (selectedChat.isNew) {
+        if (selectedChat.isNew || selectedChat.id.startsWith('new-')) {
           const raw = localStorage.getItem("user");
           const user = raw ? JSON.parse(raw) : null;
           const userId = user?.user_id;
@@ -318,8 +329,8 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
           const createRes = await api.post("/chat/new/", {
             user_id: userId,
           });
-
-          newChatFromDB = normalizeChat(createRes.data.data);
+          
+          const newChatFromDB = normalizeChat(createRes.data.data);
 
           chatIdToUse = newChatFromDB.id;
           //selectedChat.id = newChatFromDB.id;
@@ -328,11 +339,11 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
           setChats((prevChats) =>
             prevChats.map((chat) =>
               chat.id === selectedChat.id
-                ? { 
-                  ...newChatFromDB, 
-                  messages: [userMessage, aiLoadingMessage], 
-                  isNew: chat.isNew ?? false 
-                }
+                ? {
+                    ...newChatFromDB,
+                    messages: [userMessage, aiLoadingMessage],
+                    isNew: false,
+                  }
                 : chat
             )
           );
@@ -360,6 +371,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
         const response = await api.post(`/chat/${chatIdToUse}/query/`, {
           message: message,
         });
+        
         const aiResponseText = response.data.response;
         const aiMessageId = response.data.message_id;
         const conversationTitle = response.data.conversation_title;
@@ -377,39 +389,46 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
                 : chat
             )
           );
-          console.log("DEBUG: 채팅 제목 업데이트:", conversationTitle);
         }
 
-        // AI 답변 완료 시 
-        setChats((prevChats) =>
-          prevChats.map((chat) =>
-            chat.id === selectedChat.id
-              ? {
-                  ...chat,
-                  messages: Array.isArray(chat.messages)
-                    ? chat.messages.map((msg) =>
-                        msg.id === aiLoadingMessage.id
-                          ? {
-                              ...msg,
-                              id: aiMessageId,
-                              content: aiResponseText,
-                              isLoading: false,
-                            }
-                          : msg
-                      )
-                    : [
-                        {
-                          ...aiLoadingMessage,
-                          id: aiMessageId,
-                          content: aiResponseText,
-                          isLoading: false,
-                          // isNew: true, // TypingEffect 활성화
-                        },
-                      ],
-                }
-              : chat
-          )
-        );
+        // AI 답변 완료 시 isNew: true로 설정 (TypingEffect 활성화)
+        setChats((prevChats) => {
+          const updatedChats = prevChats.map((chat) => {
+            // Fix: chatIdToUse를 사용하여 매칭
+            if (chat.id === chatIdToUse) {
+              const updatedMessages = Array.isArray(chat.messages)
+                ? chat.messages.map((msg) => {
+                    if (msg.id === aiLoadingMessage.id) {
+                      return {
+                        ...msg,
+                        id: aiMessageId,
+                        content: aiResponseText,
+                        isLoading: false,
+                        isNew: true, // TypingEffect 활성화
+                      };
+                    }
+                    return msg;
+                  })
+                : [
+                    {
+                      id: aiMessageId,
+                      sender_type: 'ai',
+                      content: aiResponseText,
+                      isLoading: false,
+                      isNew: true,
+                    },
+                  ];
+              
+              return {
+                ...chat,
+                messages: updatedMessages,
+              };
+            }
+            return chat;
+          });
+          
+          return updatedChats;
+        });
 
         if (lockedChatId === selectedChat.id) {
           setLockedChatId(null);
@@ -462,7 +481,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
 
       // 백엔드 응답 확인
       if (response && response.success) {
-        console.log("백엔드 로그아웃 성공:", response.message);
+        // 백엔드 로그아웃 성공
       }
     } catch (error) {
       console.error("백엔드 로그아웃 실패:", error);
@@ -472,7 +491,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
       localStorage.clear();
 
       // 명시적으로 루트 페이지로만 이동 (로그인 화면)
-      console.log("로그아웃 완료, 루트 페이지(/)로 이동");
       window.location.href = "/"; // 강제로 루트 페이지로 이동
     }
   }, []);
@@ -480,7 +498,7 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
   // 카테고리 선택 핸들러 (업무 가이드, 영수증 처리)
   const handleSelectCategory = useCallback((category) => {
     setSelectedCategory(category);
-    sessionStorage.setItem('selectedCategory', category);
+    sessionStorage.setItem("selectedCategory", category);
 
     if (category === "업무 가이드") {
       // 업무 가이드로 전환 → 영수증 선택값 초기화
@@ -545,7 +563,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
         );
       }
       setLockedChatId((prev) => (prev === deletedChatId ? null : prev));
-      console.log("ChatPage: 채팅 삭제 완료");
     },
     [selectedChatId]
   );
@@ -556,15 +573,16 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
     // ① 영수증 처리 화면이고, selectedReceiptId가 있으면 상세 정보 자동 조회
     if (selectedCategory === "영수증 처리" && selectedReceiptId) {
       // ② 현재 영수증 목록(receipts)에서 선택된 영수증 객체 찾기
-      const receipt = receipts.find(r => r.id === selectedReceiptId);
+      const receipt = receipts.find((r) => r.id === selectedReceiptId);
 
       // ③ 영수증이 있고, 새 영수증이 아니라면(기존 영수증이면)
       if (receipt && !receipt.isNew) {
         setIsLoading(true); // ④ 로딩 상태 true로 설정
 
         // ⑤ API로 해당 영수증의 상세 정보 요청
-        api.get(`/receipt/${selectedReceiptId}/`)
-          .then(response => {
+        api
+          .get(`/receipt/${selectedReceiptId}/`)
+          .then((response) => {
             // ⑥ 응답 성공이면 상세 정보 상태에 저장
             if (response.data.success) {
               setReceiptDetails(response.data.data);
@@ -580,7 +598,6 @@ const [selectedReceiptId, setSelectedReceiptId] = useState(() => {
       }
     }
   }, [selectedCategory, selectedReceiptId, receipts]);
-
 
   return (
     <div className="flex w-full min-h-screen bg-gray-100">

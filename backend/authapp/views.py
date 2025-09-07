@@ -2,19 +2,72 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth.hashers import check_password
-from django.db import connection
+from django.contrib.auth.hashers import make_password, check_password
+from django.db import connection, transaction
 from .serializers import (
+    RegisterSerializer,
     LoginSerializer,
     RefreshTokenSerializer,
     UserProfileSerializer,
     PasswordChangeSerializer
 )
-from .utils import create_access_token, create_refresh_token, verify_token, get_user_from_token
+from .utils import create_access_token, create_refresh_token, verify_token, get_user_from_token, extract_token_from_header
 from .decorators import require_auth
 import logging
 
 logger = logging.getLogger(__name__)
+
+class RegisterView(APIView):
+    """회원가입 API"""
+    authentication_classes = []  # 인증 클래스 제외
+    permission_classes = []      # 권한 클래스 제외
+    
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                # 회원가입 처리
+                result = serializer.create(serializer.validated_data)
+                user = result['user']
+                
+                # JWT 토큰 생성
+                access_token = create_access_token(user)
+                refresh_token = create_refresh_token(user)
+                
+                return Response({
+                    'success': True,
+                    'message': '회원가입이 완료되었습니다.',
+                    'data': {
+                        'user_id': result['user_id'],
+                        'user_login_id': result['user_login_id'],
+                        'created_dt': result['created_dt'],
+                        'access_token': access_token,
+                        'refresh_token': refresh_token,
+                        'user': {
+                            'user_id': user.user_id,
+                            'username': user.username,
+                            'email': user.email,
+                            'name': user.first_name,
+                            'dept': user.dept,
+                            'rank': user.rank,
+                            'auth': user.auth,
+                        }
+                    }
+                }, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                logger.error(f"회원가입 처리 중 오류: {e}")
+                return Response({
+                    'success': False,
+                    'message': '회원가입 중 오류가 발생했습니다.',
+                    'error': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({
+            'success': False,
+            'message': '입력 정보가 올바르지 않습니다.',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
     authentication_classes = []  # 인증 클래스 제외
@@ -294,6 +347,10 @@ class UserProfileView(APIView):
         }, status=status.HTTP_501_NOT_IMPLEMENTED)
 
 class PasswordChangeView(APIView):
+    """비밀번호 변경 API"""
+    authentication_classes = []  # 커스텀 JWT 인증 사용
+    permission_classes = []      # 권한 검사는 뷰 내부에서 수행
+    
     def post(self, request):
         # Authorization 헤더 확인
         auth_header = request.headers.get('Authorization')
@@ -305,7 +362,6 @@ class PasswordChangeView(APIView):
             }, status=status.HTTP_401_UNAUTHORIZED)
         
         # 토큰 추출 및 검증
-        from .utils import extract_token_from_header, get_user_from_token
         token = extract_token_from_header(request)
         if not token:
             return Response({
@@ -323,56 +379,56 @@ class PasswordChangeView(APIView):
                 'error': 'INVALID_TOKEN'
             }, status=status.HTTP_401_UNAUTHORIZED)
         
-        serializer = PasswordChangeSerializer(
-            data=request.data,
-            context={'request': request}
-        )
+        serializer = PasswordChangeSerializer(data=request.data)
 
         if serializer.is_valid():
             try:
-                # 현재 비밀번호 확인
-                current_password = serializer.validated_data['current_password']
-                new_password = serializer.validated_data['new_password']
-                
-                # 현재 비밀번호 검증
-                with connection.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT passwd FROM user_info 
-                        WHERE user_id = %s
-                    """, [user_data[0]])  # user_data[0]은 user_id
+                with transaction.atomic():
+                    current_password = serializer.validated_data['current_password']
+                    new_password = serializer.validated_data['new_password']
                     
-                    result = cursor.fetchone()
-                    if not result:
-                        return Response({
-                            'success': False,
-                            'message': '사용자를 찾을 수 없습니다.'
-                        }, status=status.HTTP_404_NOT_FOUND)
-                    
-                    stored_password = result[0]
-                    
-                    # 현재 비밀번호 확인
-                    if stored_password != current_password:
-                        return Response({
-                            'success': False,
-                            'message': '현재 비밀번호가 올바르지 않습니다.'
-                        }, status=status.HTTP_400_BAD_REQUEST)
-                    
-                    # 새 비밀번호로 업데이트
-                    cursor.execute("""
-                        UPDATE user_info 
-                        SET passwd = %s 
-                        WHERE user_id = %s
-                    """, [new_password, user_data[0]])
-                    
-                    if cursor.rowcount == 0:
-                        return Response({
-                            'success': False,
-                            'message': '비밀번호 업데이트에 실패했습니다.'
-                        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    # 현재 비밀번호 검증
+                    with connection.cursor() as cursor:
+                        cursor.execute("""
+                            SELECT passwd FROM user_info 
+                            WHERE user_id = %s
+                        """, [user_data[0]])  # user_data[0]은 user_id
+                        
+                        result = cursor.fetchone()
+                        if not result:
+                            return Response({
+                                'success': False,
+                                'message': '사용자를 찾을 수 없습니다.'
+                            }, status=status.HTTP_404_NOT_FOUND)
+                        
+                        stored_password = result[0]
+                        
+                        # 현재 비밀번호 확인 (해시 검증)
+                        if not check_password(current_password, stored_password):
+                            return Response({
+                                'success': False,
+                                'message': '현재 비밀번호가 올바르지 않습니다.'
+                            }, status=status.HTTP_400_BAD_REQUEST)
+                        
+                        # 새 비밀번호 해시화
+                        hashed_new_password = make_password(new_password)
+                        
+                        # 새 비밀번호로 업데이트
+                        cursor.execute("""
+                            UPDATE user_info 
+                            SET passwd = %s 
+                            WHERE user_id = %s
+                        """, [hashed_new_password, user_data[0]])
+                        
+                        if cursor.rowcount == 0:
+                            return Response({
+                                'success': False,
+                                'message': '비밀번호 업데이트에 실패했습니다.'
+                            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
                 return Response({
                     'success': True,
-                    'message': '비밀번호가 성공적으로 변경되었습니다.'
+                    'message': '비밀번호가 변경되었습니다.'
                 }, status=status.HTTP_200_OK)
 
             except Exception as e:
