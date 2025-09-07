@@ -1,7 +1,7 @@
 // Chat.jsx
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
 import TypingEffect from "./TypingEffect";
 import CustomModal from "./CustomModal"
@@ -15,6 +15,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
   const [reportText, setReportText] = useState("");
   const [selectedReportType, setSelectedReportType] = useState(null);
   const [validationError, setValidationError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const messageEndRef = useRef(null);
   const sessionStartAtRef = useRef(Date.now());
@@ -48,31 +49,43 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
     }
   };
 
-  const handleConfirmReport = async () => {
+  const handleConfirmReport = useCallback(async () => {
+  if (isSubmitting) {
+    console.log("🚫 이미 신고 처리 중입니다.");
+    return;
+  }
+
   if (!selectedReportType) {
     setValidationError("신고 유형 선택은 필수입니다.");
     return;
   }
   setValidationError("");
 
+  setIsSubmitting(true);
+  console.log("🚀 신고 처리 시작");
+
   try {
     const data = await reportChat(reportMessageId, selectedReportType, reportText);
+    console.log("✅ 신고 처리 완료");
     alert("신고가 접수되었습니다.");
     setModalOpen(false);
     setReportText("");
     setSelectedReportType(null);
     setReportMessageId(null);
   } catch (err) {
+    console.error("❌ 신고 처리 실패:", err);
     alert("신고 처리 중 오류가 발생했습니다: " + err);
+  } finally {
+    setIsSubmitting(false);
   }
-};
+}, [selectedReportType, reportMessageId, reportText, isSubmitting]);
 
   // 신고 버튼 클릭 시 모달 열기
-  const handleOpenReportModal = (messageId) => {
+  const handleOpenReportModal = useCallback((messageId) => {
     setReportMessageId(messageId);
     setSelectedReportType(reportTypes[0]); // 첫 번째 옵션을 기본 선택
     setModalOpen(true);
-  };
+  }, []);
 
   const reportTypes = [
     "hallucination",
@@ -170,6 +183,7 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
                 {/* 신고하기 버튼 */}
                 {message.sender_type === "ai" && !message.isLoading && (
                   <button
+                    key={`report-${message.id}`}
                     className="ml-2 self-end text-xs text-gray-500 underline"
                     onClick={() => handleOpenReportModal(message.id)}
                   >
@@ -225,6 +239,8 @@ function Chat({ chat, onSendMessage, isLoading = false }) {
           setReportText("");
           setValidationError("");
         }}
+        disabled={isSubmitting}
+
       >
         <div className="mb-4">
           <div className="mb-2 font-semibold">신고 유형 선택</div>

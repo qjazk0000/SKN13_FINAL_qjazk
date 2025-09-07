@@ -223,8 +223,19 @@ function ChatReportsPage() {
       if (response.data.success) {
         alert("피드백이 성공적으로 저장되었습니다.");
         setIsFeedbackModalOpen(false);
-        // 테이블 데이터 새로고침
-        fetchChatReports(currentPage);
+        
+        // 해당 카드의 데이터만 업데이트
+        setChatData(prevData => 
+          prevData.map(report => 
+            report.chat_id === selectedChatId 
+              ? {
+                  ...report,
+                  error_type: adminErrorType,
+                  remark: feedbackContent.trim()
+                }
+              : report
+          )
+        );
       } else {
         alert("피드백 저장에 실패했습니다.");
       }
@@ -232,6 +243,15 @@ function ChatReportsPage() {
       console.error("피드백 저장 실패:", error);
       alert("피드백 저장 중 오류가 발생했습니다.");
     }
+  };
+
+  const handleEditFeedback = () => {
+    setFeedbackContent(currentFeedback);
+    setFeedbackMode("write");
+  };
+
+  const handleEditErrorType = () => {
+    setFeedbackMode("write");
   };
   
   // 피드백 모달 달기
@@ -415,7 +435,7 @@ function ChatReportsPage() {
             
             {/* 카드 그리드 렌더링 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {chatData.map((report) => {
+              {chatData.map((report, index) => {
                 const errorTypeMap = {
                   'hallucination': '환각',
                   'fact_error': '사실 오류',
@@ -433,7 +453,7 @@ function ChatReportsPage() {
 
                 return (
                   <div
-                    key={`${report.report_id || report.chat_id || Math.random()}`}
+                    key={`${report.report_id || report.chat_id || 'unknown'}-${index}-${report.reported_at || Date.now()}`}
                     className="cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow hover:shadow-md transition"
                     onClick={() => openReportDetail(report)}
                   >
@@ -453,12 +473,12 @@ function ChatReportsPage() {
                         <span className="font-medium">{report?.dept || '정보 없음'}</span>
                       </div>
                       <div className="text-sm">
-                        <span className="text-gray-500">이름: </span>
-                        <span className="font-medium">{report?.name || '정보 없음'}</span>
-                      </div>
-                      <div className="text-sm">
                         <span className="text-gray-500">직급: </span>
                         <span className="font-medium">{report?.rank || '정보 없음'}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-gray-500">이름: </span>
+                        <span className="font-medium">{report?.name || '정보 없음'}</span>
                       </div>
                       <div className="text-sm">
                         <span className="text-gray-500">신고 사유: </span>
@@ -505,32 +525,60 @@ function ChatReportsPage() {
                     <div className="font-medium">{selectedReport?.dept || '정보 없음'}</div>
                   </div>
                   <div className="rounded-lg border p-4">
-                    <div className="text-sm text-gray-500">이름</div>
-                    <div className="font-medium">{selectedReport?.name || '정보 없음'}</div>
-                  </div>
-                  <div className="rounded-lg border p-4">
                     <div className="text-sm text-gray-500">직급</div>
                     <div className="font-medium">{selectedReport?.rank || '정보 없음'}</div>
                   </div>
                   <div className="rounded-lg border p-4">
-                    <div className="text-sm text-gray-500">신고 유형</div>
+                    <div className="text-sm text-gray-500">이름</div>
+                    <div className="font-medium">{selectedReport?.name || '정보 없음'}</div>
+                  </div>
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-gray-500">신고 일시</div>
                     <div className="font-medium">
+                      {selectedReport?.reported_at ? new Date(selectedReport.reported_at).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '정보 없음'}
+                    </div>
+                  </div>
+                  
+                  {/* 신고 유형 비교 섹션 */}
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-gray-500 mb-2">사용자 신고 유형</div>
+                    <div className="font-medium text-gray-800">
                       {(() => {
                         const map = { hallucination: '환각', fact_error: '사실 오류', irrelevant: '관련 없음', incomplete: '불완전', other: '기타' };
                         return map[selectedReport?.error_type] || selectedReport?.error_type || '정보 없음';
                       })()}
                     </div>
                   </div>
-                  <div className="rounded-lg border p-4 md:col-span-2">
-                    <div className="text-sm text-gray-500">신고 사유</div>
-                    <div className="font-medium whitespace-pre-wrap">{selectedReport?.reason || '정보 없음'}</div>
-                      </div>
-                  <div className="rounded-lg border p-4 md:col-span-2">
-                    <div className="text-sm text-gray-500">신고 일시</div>
-                    <div className="font-medium">
-                      {selectedReport?.reported_at ? new Date(selectedReport.reported_at).toLocaleString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '정보 없음'}
+                  <div className="rounded-lg border p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="text-sm text-gray-500">관리자 판단 신고 유형</div>
+                      {feedbackMode === "view" && selectedReport?.remark && (
+                        <button
+                          onClick={handleEditErrorType}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        >
+                          수정
+                        </button>
+                      )}
+                    </div>
+                    <div className="font-medium text-blue-600">
+                      {(() => {
+                        const map = { hallucination: '환각', fact_error: '사실 오류', irrelevant: '관련 없음', incomplete: '불완전', other: '기타' };
+                        return map[selectedReport?.error_type] || selectedReport?.error_type || '정보 없음';
+                      })()}
                     </div>
                   </div>
+                  
+                  <div className="rounded-lg border p-4 md:col-span-2">
+                    <div className="text-sm text-gray-500">사용자 신고 사유</div>
+                    <div className="font-medium whitespace-pre-wrap">{selectedReport?.reason || '정보 없음'}</div>
+                  </div>
+                  {selectedReport?.remark && (
+                    <div className="rounded-lg border p-4 md:col-span-2">
+                      <div className="text-sm text-gray-500">관리자 판단 사유</div>
+                      <div className="font-medium text-blue-600 whitespace-pre-wrap">{selectedReport?.remark || '정보 없음'}</div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 본문: 사용자 입력 / LLM 응답 */}
@@ -573,7 +621,15 @@ function ChatReportsPage() {
                   <div className="rounded-lg border p-4">
                     {currentFeedback ? (
                       <>
-                        <div className="text-sm font-semibold text-gray-700 mb-2">피드백</div>
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="text-sm font-semibold text-gray-700">피드백</div>
+                          <button
+                            onClick={handleEditFeedback}
+                            className="text-sm text-blue-600 hover:text-blue-800 underline"
+                          >
+                            수정
+                          </button>
+                        </div>
                         <div className="bg-gray-50 p-4 rounded-lg border whitespace-pre-wrap">{currentFeedback}</div>
                       </>
                     ) : (
