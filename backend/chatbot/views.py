@@ -28,40 +28,27 @@ class ConversationListView(generics.ListAPIView):
         auth_header = self.request.headers.get('Authorization')
         user_id = None
         
-        print(f"DEBUG: ConversationListView - Authorization 헤더: {auth_header}")
-        
         if auth_header:
             try:
                 token_type, token = auth_header.split(' ')
-                print(f"DEBUG: ConversationListView - 토큰 타입: {token_type}, 토큰: {token[:20]}...")
                 
                 if token_type.lower() == 'bearer':
                     from authapp.utils import verify_token
                     payload = verify_token(token)
-                    print(f"DEBUG: ConversationListView - 토큰 검증 결과: {payload}")
                     
                     if payload:
                         user_id = payload.get('user_id')
-                        print(f"DEBUG: ConversationListView - JWT에서 추출한 user_id: {user_id}")
-                    else:
-                        print(f"DEBUG: ConversationListView - 토큰 검증 실패")
-                else:
-                    print(f"DEBUG: ConversationListView - 잘못된 토큰 타입: {token_type}")
             except Exception as e:
-                print(f"DEBUG: ConversationListView - JWT 파싱 실패: {str(e)}")
-                import traceback
-                print(f"DEBUG: ConversationListView - 상세 오류: {traceback.format_exc()}")
+                pass
         else:
-            print(f"DEBUG: ConversationListView - Authorization 헤더가 없음")
+            pass
         
         if user_id:
             # user_id로 필터링된 대화방만 반환
             queryset = Conversation.objects.filter(user_id=user_id).order_by('-updated_at')
-            print(f"DEBUG: ConversationListView - user_id {user_id}로 필터링된 대화방 수: {queryset.count()}")
             return queryset
         else:
             # user_id가 없으면 빈 쿼리셋 반환
-            print(f"DEBUG: ConversationListView - user_id가 없어 빈 결과 반환")
             return Conversation.objects.none()
 
 class ConversationCreateView(generics.CreateAPIView):
