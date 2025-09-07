@@ -185,6 +185,20 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Password hashers 설정 - Argon2 사용
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    'django.contrib.auth.hashers.ScryptPasswordHasher',
+]
+
+# Argon2 설정
+ARGON2_DEFAULT_MEMORY_COST = 102400  # 100MB
+ARGON2_DEFAULT_TIME_COST = 2         # 2 iterations
+ARGON2_DEFAULT_PARALLELISM = 8       # 8 threads
+
 # Internationalization
 LANGUAGE_CODE = 'ko-kr'
 TIME_ZONE = 'Asia/Seoul'
