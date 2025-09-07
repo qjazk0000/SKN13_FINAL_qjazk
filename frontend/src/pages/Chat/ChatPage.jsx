@@ -56,7 +56,6 @@ function ChatPage() {
   useEffect(() => {
     const loadUserInfo = () => {
       const currentUser = authService.getCurrentUser();
-      console.log("현재 사용자 정보:", currentUser);
 
       if (currentUser && (currentUser.name || currentUser.username)) {
         setUserName(currentUser.name || currentUser.username);
@@ -64,8 +63,6 @@ function ChatPage() {
         const adminStatus = authService.isAdmin();
         setIsAdmin(adminStatus);
       } else {
-        console.log("사용자 정보가 없습니다.");
-        console.log("localStorage user:", localStorage.getItem("user"));
         alert("로그인이 필요합니다.");
         navigate("/login");
       }
@@ -319,11 +316,10 @@ function ChatPage() {
       }
 
       try {
-
         let chatIdToUse = selectedChat.id;
 
         // 임시 채팅이면 DB에 먼저 저장
-        if (selectedChat.isNew) {
+        if (selectedChat.isNew || selectedChat.id.startsWith('new-')) {
           const raw = localStorage.getItem("user");
           const user = raw ? JSON.parse(raw) : null;
           const userId = user?.user_id;
@@ -333,6 +329,7 @@ function ChatPage() {
             title: message.slice(0, 50),
             user_id: userId,
           });
+          
           const newChatFromDB = normalizeChat(createRes.data.data);
 
           // 임시 채팅을 DB 채팅으로 교체
@@ -357,6 +354,7 @@ function ChatPage() {
         const response = await api.post(`/chat/${chatIdToUse}/query/`, {
           message: message,
         });
+        
         const aiResponseText = response.data.response;
         const aiMessageId = response.data.message_id;
         const conversationTitle = response.data.conversation_title;
@@ -370,40 +368,46 @@ function ChatPage() {
                 : chat
             )
           );
-          console.log("DEBUG: 채팅 제목 업데이트:", conversationTitle);
         }
 
         // AI 답변 완료 시 isNew: true로 설정 (TypingEffect 활성화)
-        setChats((prevChats) =>
-          prevChats.map((chat) =>
-            chat.id === selectedChat.id
-              ? {
-                  ...chat,
-                  messages: Array.isArray(chat.messages)
-                    ? chat.messages.map((msg) =>
-                        msg.id === aiLoadingMessage.id
-                          ? {
-                              ...msg,
-                              id: aiMessageId,
-                              content: aiResponseText,
-                              isLoading: false,
-                              isNew: true, // TypingEffect 활성화
-                            }
-                          : msg
-                      )
-                    : [
-                        {
-                          ...aiLoadingMessage,
-                          id: aiMessageId,
-                          content: aiResponseText,
-                          isLoading: false,
-                          isNew: true, // TypingEffect 활성화
-                        },
-                      ],
-                }
-              : chat
-          )
-        );
+        setChats((prevChats) => {
+          const updatedChats = prevChats.map((chat) => {
+            // Fix: chatIdToUse를 사용하여 매칭
+            if (chat.id === chatIdToUse) {
+              const updatedMessages = Array.isArray(chat.messages)
+                ? chat.messages.map((msg) => {
+                    if (msg.id === aiLoadingMessage.id) {
+                      return {
+                        ...msg,
+                        id: aiMessageId,
+                        content: aiResponseText,
+                        isLoading: false,
+                        isNew: true, // TypingEffect 활성화
+                      };
+                    }
+                    return msg;
+                  })
+                : [
+                    {
+                      id: aiMessageId,
+                      sender_type: 'ai',
+                      content: aiResponseText,
+                      isLoading: false,
+                      isNew: true,
+                    },
+                  ];
+              
+              return {
+                ...chat,
+                messages: updatedMessages,
+              };
+            }
+            return chat;
+          });
+          
+          return updatedChats;
+        });
 
         // TypingEffect 완료 후 isNew: false로 변경 (setTimeout 사용)
         setTimeout(() => {
@@ -475,7 +479,7 @@ function ChatPage() {
 
       // 백엔드 응답 확인
       if (response && response.success) {
-        console.log("백엔드 로그아웃 성공:", response.message);
+        // 백엔드 로그아웃 성공
       }
     } catch (error) {
       console.error("백엔드 로그아웃 실패:", error);
@@ -485,7 +489,6 @@ function ChatPage() {
       localStorage.clear();
 
       // 명시적으로 루트 페이지로만 이동 (로그인 화면)
-      console.log("로그아웃 완료, 루트 페이지(/)로 이동");
       window.location.href = "/"; // 강제로 루트 페이지로 이동
     }
   }, []);
@@ -558,7 +561,6 @@ function ChatPage() {
         );
       }
       setLockedChatId((prev) => (prev === deletedChatId ? null : prev));
-      console.log("ChatPage: 채팅 삭제 완료");
     },
     [selectedChatId]
   );
