@@ -41,11 +41,53 @@ export default function MarkdownRenderer({ content = "" }) {
           forceBlock: true,
           overrides: {
             a: {
-              component: (props) => (
-                <a {...props} target="_blank" rel="noopener noreferrer">
-                  {props.children || props.href}
-                </a>
-              ),
+              component: (props) => {
+                // 다운로드 링크인지 확인 (S3 퍼블릭 URL 또는 form/download 경로 포함)
+                const isDownloadLink = props.href && (
+                  props.href.includes('/api/chat/form/download/') || 
+                  props.href.includes('.s3.ap-northeast-2.amazonaws.com/')
+                );
+                
+                if (isDownloadLink) {
+                  // URL에서 파일명 추출
+                  let filename = '서식 파일';
+                  
+                  if (props.href.includes('/api/chat/form/download/')) {
+                    // API 다운로드 링크인 경우
+                    const urlParams = new URLSearchParams(props.href.split('?')[1]);
+                    const s3Key = urlParams.get('s3_key');
+                    filename = s3Key ? s3Key.split('/').pop() : '서식 파일';
+                  } else if (props.href.includes('.s3.ap-northeast-2.amazonaws.com/')) {
+                    // S3 퍼블릭 URL인 경우
+                    const urlParts = props.href.split('/');
+                    filename = urlParts[urlParts.length - 1] || '서식 파일';
+                  }
+                  
+                  // React JSX 문법으로 <a> 태그 작성
+                  return (
+                    <a 
+                      href={props.href}
+                      download={filename}
+                      title={filename}
+                      style={{ 
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                        color: '#3b82f6',
+                        display: 'inline-block'
+                      }}
+                    >
+                      📄 [ 다운로드 &gt;. ]
+                    </a>
+                  );
+                }
+                
+                // 일반 링크는 새 탭에서 열기
+                return (
+                  <a {...props} target="_blank" rel="noopener noreferrer">
+                    {props.children || props.href}
+                  </a>
+                );
+              },
             },
             code: {
               component: ({ className, children }) => {

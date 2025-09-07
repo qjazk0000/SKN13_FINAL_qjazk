@@ -530,7 +530,16 @@ def _generate_form_response(query: str, form_results: List[Dict[str, Any]]) -> s
         
         # S3 파일 링크가 있으면 추가
         if form_file_uri:
-            form_list.append(f"   📄 다운로드: {form_file_uri}")
+            # S3 키 추출 (s3://bucket/key 형식에서 key 부분만)
+            s3_key = form_file_uri.replace('s3://companypolicy/', '')
+            # S3 퍼블릭 URL 직접 생성
+            bucket_name = 'companypolicy'
+            region = 'ap-northeast-2'
+            download_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
+            # 파일명 추출 (S3 키에서 마지막 부분)
+            filename = s3_key.split('/')[-1]
+            # 클릭 가능한 마크다운 링크 형식으로 변경
+            form_list.append(f"   📄 [ 다운로드 >. ]({download_url})")
     
     # 응답 구성
     response_parts.append("요청하신 서식을 찾았습니다:")
