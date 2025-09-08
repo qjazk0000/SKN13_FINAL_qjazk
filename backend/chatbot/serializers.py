@@ -66,6 +66,18 @@ class ChatReportSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        
+        # 스택 트레이스 정보 추가
+        stack_trace = traceback.format_stack()
+        caller_info = stack_trace[-3] if len(stack_trace) > 3 else "Unknown"
+        
+        logger.info(f"🔍 ChatReport 생성 시작 - chat_id: {validated_data.get('chat')}")
+        logger.info(f"📞 호출자 정보: {caller_info.strip()}")
+        logger.info(f"📋 요청 데이터: {validated_data}")
+        
         # UserInfo 기반 reported_by 설정
         request = self.context.get('request')
         
@@ -78,21 +90,36 @@ class ChatReportSerializer(serializers.ModelSerializer):
         try:
             user_info = UserInfo.objects.get(user_id=user_uuid)
             validated_data['reported_by'] = user_info
+            logger.info(f"👤 사용자 정보 설정 - user_id: {user_uuid}")
         except UserInfo.DoesNotExist:
             raise serializers.ValidationError("사용자를 찾을 수 없음")
 
         # chat 확인
         chat = validated_data.get('chat')
         if chat:
-            print("✅ chat.id:", chat.id)
+            logger.info(f"✅ chat.id: {chat.id}")
+
+        # 신고 사유가 비어있으면 기본값 설정
+        if not validated_data.get('reason') or not validated_data.get('reason').strip():
+            validated_data['reason'] = f"사용자가 {validated_data.get('error_type', 'unknown')} 유형으로 신고함"
+            logger.info(f"📝 기본 신고 사유 설정: {validated_data['reason']}")
 
         # ChatReport 저장
+        logger.info(f"🔧 super().create(validated_data) 호출 시작")
+        logger.info(f"📋 저장할 데이터: {validated_data}")
         chat_report = super().create(validated_data)
+        logger.info(f"💾 ChatReport 생성 완료 - report_id: {chat_report.report_id}")
+        logger.info(f"📅 생성 시간: {chat_report.created_at}")
+        logger.info(f"👤 신고자: {chat_report.reported_by}")
+        logger.info(f"💬 신고 사유: {chat_report.reason}")
+        logger.info(f"🏷️ 신고 유형: {chat_report.error_type}")
 
         # ChatMessage.report = 'Y' 업데이트
         if chat:
+            logger.info(f"📝 chat.report = 'Y' 업데이트 시작")
             chat.report = "Y"
             chat.save(update_fields=['report'])
+            logger.info(f"✅ chat.report 업데이트 완료")
 
         return chat_report
 

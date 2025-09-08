@@ -855,6 +855,7 @@ class ConversationReportView(APIView):
                     JOIN chat_history ch ON cr.chat_id = ch.chat_id
                     JOIN user_info u ON cr.reported_by = u.user_id
                     WHERE 1=1
+                    ORDER BY cr.created_at DESC
                 """
                 count_query = """
                     SELECT COUNT(*)
@@ -957,7 +958,7 @@ class ConversationReportView(APIView):
                 
                 # 페이지네이션 적용
                 offset = (page - 1) * page_size
-                base_query += " ORDER BY cr.created_at DESC LIMIT %s OFFSET %s"
+                base_query += " LIMIT %s OFFSET %s"
                 params.extend([page_size, offset])
                 
                 # 실제 데이터 조회
@@ -994,6 +995,20 @@ class ConversationReportView(APIView):
                 
                 total_pages = (total_count + page_size - 1) // page_size
                 
+                # 디버깅: 특정 chat_id의 모든 신고 조회
+                debug_chat_id = request.GET.get('debug_chat_id')
+                if debug_chat_id:
+                    cursor.execute("""
+                        SELECT report_id, chat_id, reason, error_type, created_at, remark
+                        FROM chat_report 
+                        WHERE chat_id = %s 
+                        ORDER BY created_at DESC
+                    """, [debug_chat_id])
+                    debug_reports = cursor.fetchall()
+                    logger.info(f"🔍 디버그 조회 - chat_id: {debug_chat_id}, 신고 개수: {len(debug_reports)}")
+                    for i, report in enumerate(debug_reports):
+                        logger.info(f"🔍 디버그 신고 {i+1}: {report}")
+
                 return Response({
                     'success': True,
                     'message': '신고 대화 목록을 성공적으로 조회했습니다.',
@@ -1672,13 +1687,22 @@ class ChatReportFeedbackView(APIView):
                         'error': 'ADMIN_REQUIRED'
                     }, status=status.HTTP_403_FORBIDDEN)
             
-            # 피드백 내용 추출
+            # 피드백 내용과 관리자 신고 유형 추출
             remark = request.data.get('remark')
+            admin_error_type = request.data.get('admin_error_type')
+            
             if not remark or not remark.strip():
                 return Response({
                     'success': False,
                     'message': '피드백 내용을 입력해주세요.',
                     'error': 'EMPTY_FEEDBACK'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if not admin_error_type:
+                return Response({
+                    'success': False,
+                    'message': '관리자 판단 신고 유형을 선택해주세요.',
+                    'error': 'EMPTY_ADMIN_ERROR_TYPE'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # chat_report 테이블에서 해당 chat_id의 레코드 찾기
@@ -1698,13 +1722,14 @@ class ChatReportFeedbackView(APIView):
                 
                 report_id = report_data[0]
                 
-                # remark 컬럼 업데이트
+                # remark와 error_type 컬럼 업데이트 (관리자 판단으로 변경)
                 cursor.execute("""
                     UPDATE chat_report 
                     SET remark = %s, 
+                        error_type = %s,
                         created_at = CURRENT_TIMESTAMP
                     WHERE report_id = %s
-                """, [remark.strip(), report_id])
+                """, [remark.strip(), admin_error_type, report_id])
                 
                 if cursor.rowcount == 0:
                     return Response({
@@ -1719,7 +1744,8 @@ class ChatReportFeedbackView(APIView):
                     'data': {
                         'report_id': str(report_id),
                         'chat_id': str(chat_id),
-                        'remark': remark.strip()
+                        'remark': remark.strip(),
+                        'error_type': admin_error_type
                     }
                 }, status=status.HTTP_200_OK)
                 

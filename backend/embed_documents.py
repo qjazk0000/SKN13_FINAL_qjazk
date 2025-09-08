@@ -45,6 +45,7 @@ from qdrant_client.models import VectorParams, Distance, PointStruct
 # -------------------- 환경 --------------------
 load_dotenv()
 PDF_DIR = os.getenv("PDF_DIR", "/app/documents/kisa_pdf")
+FORMS_DIR = os.getenv("FORMS_DIR", "/app/documents/kisa_pdf/forms_extracted_v6")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "regulations_final")
@@ -57,6 +58,70 @@ EMBED_BACKEND = "hf"
 EMBED_DIM = 1024
 
 KST = timezone(timedelta(hours=9))
+
+# -------------------- 서식 관련 상수 --------------------
+# 서식 시작 패턴 (pdf_form_extractor_v6.py에서 가져옴)
+FORM_START_PATTERNS = [
+    re.compile(r'^\s*\[별지\s*제\d+호\s*서식\]'),
+    re.compile(r'^\s*\[별표\s*\d*\]'),
+    re.compile(r'^\s*\[부록\s*\d*\]'),
+    re.compile(r'^\s*\[첨부서식\s*\d*\]'),
+    re.compile(r'^\s*\[첨부양식\s*\d*\]'),
+]
+
+# 서식 제목 패턴 (pdf_form_extractor_v6.py에서 가져옴)
+FORM_TITLE_PATTERNS = [
+    # 신청/제출 관련
+    r'신청서', r'제출서', r'청구서', r'요청서', r'요구서', r'사유서', r'취소신청서', r'재발급신청서', r'인증연장신청서',
+    # 보고/평가 관련
+    r'보고서', r'평가서', r'평가표', r'점검표', r'체크리스트', r'확인서', r'요약서', r'결과표', r'검토서', r'결과확인서', r'완료확인서',
+    # 서약/계약 관련
+    r'서약서', r'계약서', r'협약서', r'각서', r'조서', r'확약서', r'윤리서약서', r'보안서약서', r'직무윤리서약서',
+    # 승인/통지 관련
+    r'승인서', r'통지서', r'통보서', r'발주서', r'입찰서', r'고지', r'처분서',
+    # 등록/변경 관련
+    r'등록서', r'변경서', r'폐지서', r'정지서', r'회복서', r'작업중지',
+    # 관리/운영 관련
+    r'관리서', r'운영서', r'처리서', r'관리방침', r'전결규정', r'처리내역', r'관리대장', r'출입관리대장',
+    # 대장/접수 관련
+    r'대장', r'접수증', r'접수대장', r'위촉장', r'일지', r'점검일지', r'이력카드', r'키관리대장', r'문서관리대장',
+    # 인사 관련
+    r'자격기준', r'지급기준', r'전형단계', r'사직원', r'휴직원', r'복직원', r'추천서', r'인적사항', r'추천사유', r'심사', r'성과평가표',
+    # 급여 관련
+    r'급여', r'산정기준액', r'수당', r'명예퇴직금', r'직무급', r'자격수당지급신청서',
+    # 안전보건 관련
+    r'안전보건관리체계', r'산업안전보건위원회',
+    # 조직/직무 관련
+    r'조직도', r'직무분장표', r'분류표', r'직호', r'직무명', r'직무구분',
+    # 인증/시험 관련
+    r'인증서', r'시험신청서', r'시험계약서', r'시험결과서', r'인증마크', r'확인마크',
+    # 기타
+    r'명세서', r'내역서', r'현황', r'프로파일', r'동의서', r'요약서', r'결과서', r'의견서', r'통지서', r'처리서', r'관리서', r'운영서', r'처리내역', r'관리방침', r'전결규정', r'처리내역', r'동의서', r'요청서', r'사유서', r'처분서', r'조서', r'일지', r'현황', r'명세서', r'내역서', r'완료확인서', r'취소신청서'
+]
+
+# 동의어 사전 (도메인별)
+SYNONYM_DICT = {
+    '퇴직': ['퇴사', '사직', '퇴직원', '사직원'],
+    '휴직': ['휴가', '휴직원'],
+    '복직': ['복귀', '복직원'],
+    '급여': ['봉급', '임금', '급료'],
+    '채용': ['임용', '고용', '채용원'],
+    '교육': ['훈련', '연수', '교육훈련'],
+    '보안': ['정보보호', '정보보안', '보안관리'],
+    '개인정보': ['개인정보보호', '개인정보관리'],
+    '민원': ['신고', '민원처리'],
+    '회계': ['회계관리', '장부관리'],
+    '감사': ['감사관리', '감사인'],
+    '계약': ['계약관리', '계약사무'],
+    '자산': ['자산관리', '비유동자산'],
+    '정보화': ['정보시스템', '정보화관리'],
+    '전자서명': ['인증', '전자서명관리'],
+    '문서': ['문서관리', '자료관리'],
+    '기록': ['기록물', '기록관리'],
+    '성과': ['성과평가', '성과관리'],
+    '내부통제': ['통제', '내부통제관리'],
+    '조직': ['조직관리', '직제관리']
+}
 
 # -------------------- 유틸 --------------------
 def now_year_kst() -> int:
@@ -178,6 +243,135 @@ def infer_doc_level(filename: str) -> str:
 def stable_doc_id(file_name: str) -> str:
     return str(uuid5(NAMESPACE_URL, f"doc::{file_name}"))
 
+# -------------------- 서식 관련 함수 --------------------
+
+def is_form_page(text: str) -> bool:
+    """페이지가 서식 페이지인지 확인"""
+    if not text:
+        return False
+    
+    lines = text.split('\n')
+    for line in lines[:5]:  # 처음 5줄만 확인
+        line = line.strip()
+        for pattern in FORM_START_PATTERNS:
+            if pattern.match(line):
+                return True
+    return False
+
+def extract_form_title(text: str) -> str:
+    """서식 페이지에서 제목을 추출"""
+    if not text:
+        return None
+    
+    lines = text.split('\n')
+    
+    # 서식 제목 찾기 (보통 2-5번째 라인에 있음)
+    form_title = None
+    anchor_raw = None
+    
+    # 첫 번째 라인에서 앵커 확인
+    if lines:
+        first_line = lines[0].strip()
+        for pattern in FORM_START_PATTERNS:
+            if pattern.match(first_line):
+                anchor_raw = first_line
+                break
+    
+    # 서식 제목 패턴이 포함된 라인 찾기
+    for i in range(1, min(6, len(lines))):
+        line = lines[i].strip()
+        if line and len(line) > 2:
+            for pattern in FORM_TITLE_PATTERNS:
+                if re.search(pattern, line):
+                    form_title = line
+                    break
+            if form_title:
+                break
+    
+    # 제목이 없으면 첫 번째 라인에서 서식 번호 제외하고 추출
+    if not form_title and lines:
+        first_line = lines[0].strip()
+        # [별지 제1호 서식] 패턴에서 제목 부분만 추출
+        match = re.search(r'\[별지\s*제\d+호\s*서식\]\s*(.+)', first_line)
+        if match and match.group(1).strip():
+            form_title = match.group(1).strip()
+        else:
+            # [별표 1] 제목 패턴에서 제목 부분만 추출
+            match = re.search(r'\[별표\s*\d*\]\s*(.+)', first_line)
+            if match and match.group(1).strip():
+                form_title = match.group(1).strip()
+            else:
+                form_title = first_line
+    
+    # 파일명으로 사용할 수 있도록 정리
+    if form_title:
+        # 특수문자 제거 및 공백 처리
+        form_title = re.sub(r'[^\w\s가-힣]', '', form_title)
+        form_title = re.sub(r'\s+', '_', form_title.strip())
+        # 연속된 언더스코어 제거
+        form_title = re.sub(r'_+', '_', form_title)
+        # 앞뒤 언더스코어 제거
+        form_title = form_title.strip('_')
+        form_title = form_title[:50]  # 길이 제한
+    
+    return form_title, anchor_raw
+
+def generate_form_topics_and_synonyms(form_title: str, domain_primary: str) -> Tuple[List[str], List[str]]:
+    """서식 제목과 도메인을 기반으로 토픽과 동의어 생성"""
+    topics = []
+    synonyms = []
+    
+    if not form_title:
+        return topics, synonyms
+    
+    # 서식 제목에서 키워드 추출
+    form_title_lower = form_title.lower()
+    
+    # 동의어 사전에서 매칭되는 키워드 찾기
+    for keyword, synonym_list in SYNONYM_DICT.items():
+        if keyword in form_title_lower:
+            topics.append(keyword)
+            synonyms.extend(synonym_list)
+    
+    # 서식 제목 자체를 토픽에 추가
+    topics.append(form_title)
+    
+    # 도메인별 기본 토픽 추가
+    if domain_primary in SYNONYM_DICT:
+        topics.append(domain_primary)
+        synonyms.extend(SYNONYM_DICT[domain_primary])
+    
+    # 중복 제거
+    topics = list(set(topics))
+    synonyms = list(set(synonyms))
+    
+    return topics, synonyms
+
+def find_form_file_uri(file_name: str, form_title: str) -> str:
+    """분리된 서식 PDF 파일의 URI 찾기"""
+    if not form_title:
+        return None
+    
+    forms_dir = Path(FORMS_DIR)
+    if not forms_dir.exists():
+        return None
+    
+    # 파일명 패턴: 원본파일명_서식제목.pdf
+    base_name = file_name.replace('.pdf', '')
+    search_pattern = f"{base_name}_{form_title}.pdf"
+    
+    # 정확한 매칭 시도
+    form_file = forms_dir / search_pattern
+    if form_file.exists():
+        return f"s3://company_policy/{search_pattern}"
+    
+    # 부분 매칭 시도
+    for form_file in forms_dir.glob(f"{base_name}_*.pdf"):
+        if form_title in form_file.name:
+            return f"s3://company_policy/{form_file.name}"
+    
+    return None
+
 # -------------------- Qdrant --------------------
 
 def ensure_collection(client: QdrantClient, force_reset: bool = False):
@@ -205,6 +399,10 @@ def ensure_collection(client: QdrantClient, force_reset: bool = False):
             ("page","integer"), ("chunk_index","integer"),
             ("register_date_iso","datetime"), ("doc_title","keyword"),
             ("doc_type","keyword"),
+            # 서식 관련 인덱스 추가
+            ("form_title","keyword"), ("form_page","integer"),
+            ("topics","keyword"), ("synonyms","keyword"),
+            ("form_file_uri","keyword"), ("anchor_refs","keyword"),
         ]:
             try:
                 client.create_payload_index(COLLECTION_NAME, field_name=field, field_schema=schema)
@@ -254,7 +452,7 @@ def main():
         print("✅ 기존 데이터를 유지하고 새로 추가합니다.")
     
     embedder = SentenceTransformer(EMBED_MODEL)
-    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, prefer_grpc=True)
+    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, grpc_port=6334, prefer_grpc=True)
     ensure_collection(client, force_reset=args.reset)
 
     pdf_dir = Path(PDF_DIR)
@@ -316,7 +514,54 @@ def main():
                     "embed_dim": EMBED_DIM,
                 }
 
+                # 서식 페이지 확인
+                is_form = is_form_page(raw_text)
+                form_title = None
+                form_anchor_raw = None
+                form_file_uri = None
+                topics = []
+                synonyms = []
+                
+                if is_form:
+                    form_title, form_anchor_raw = extract_form_title(raw_text)
+                    if form_title:
+                        form_file_uri = find_form_file_uri(file, form_title)
+                        topics, synonyms = generate_form_topics_and_synonyms(form_title, domain_primary)
+
                 total_chunks = len(chunks)
+                
+                # 서식 포인트 추가 (서식 페이지인 경우, 페이지당 한 번만)
+                if is_form and form_title:
+                    # 서식 제목을 헤드노트로 활용하여 임베딩 생성
+                    headnote_text = f"[서식] {form_title}"
+                    if form_anchor_raw:
+                        headnote_text = f"{form_anchor_raw} {form_title}"
+                    
+                    # 서식 포인트용 임베딩 생성
+                    form_vec = embedder.encode([headnote_text], batch_size=1, show_progress_bar=False)[0]
+                    
+                    # 서식 포인트 payload
+                    form_payload = {
+                        **payload_common,
+                        "text": headnote_text,
+                        "page": page_no,
+                        "chunk_index": 0,  # 서식은 단일 포인트
+                        "total_chunks": 1,
+                        "chunk_char_len": len(headnote_text),
+                        "doc_type": "form",
+                        "form_title": form_title,
+                        "form_page": page_no,
+                        "form_file_uri": form_file_uri,
+                        "form_anchor_raw": form_anchor_raw,
+                        "topics": topics,
+                        "synonyms": synonyms,
+                        "anchor_refs": [f"{doc_id}#제{page_no}조"] if page_no > 0 else [],
+                    }
+                    
+                    form_point_id = str(uuid5(NAMESPACE_URL, f"{doc_id}:{page_no}:f:0"))
+                    batch.append(PointStruct(id=form_point_id, vector=form_vec.tolist() if hasattr(form_vec, 'tolist') else form_vec, payload=form_payload))
+
+                # 규정 청크 포인트들 (기존 로직)
                 for idx, (chunk, vec) in enumerate(zip(chunks, vecs)):
                     payload = {
                         **payload_common,

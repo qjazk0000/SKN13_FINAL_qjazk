@@ -9,6 +9,7 @@ function CustomModal({
   onConfirm,
   onCancel,
   children,
+  disabled = false,
 }) {
   if (!open) return null;
 
@@ -31,10 +32,11 @@ function CustomModal({
           )}
           {confirmText && (
             <button
-              className="px-4 py-2 bg-orange-400 text-white rounded hover:bg-orange-500 transition"
+              className="px-4 py-2 bg-orange-400 text-white rounded hover:bg-orange-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={onConfirm}
+              disabled={disabled}
             >
-              {confirmText}
+              {disabled ? "처리 중..." : confirmText}
             </button>
           )}
         </div>
