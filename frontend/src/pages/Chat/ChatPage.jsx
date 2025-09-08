@@ -56,7 +56,6 @@ function ChatPage() {
   useEffect(() => {
     const loadUserInfo = () => {
       const currentUser = authService.getCurrentUser();
-      console.log("현재 사용자 정보:", currentUser);
 
       if (currentUser && (currentUser.name || currentUser.username)) {
         setUserName(currentUser.name || currentUser.username);
@@ -64,8 +63,6 @@ function ChatPage() {
         const adminStatus = authService.isAdmin();
         setIsAdmin(adminStatus);
       } else {
-        console.log("사용자 정보가 없습니다.");
-        console.log("localStorage user:", localStorage.getItem("user"));
         alert("로그인이 필요합니다.");
         navigate("/login");
       }
@@ -376,7 +373,6 @@ function ChatPage() {
                 : chat
             )
           );
-          console.log("DEBUG: 채팅 제목 업데이트:", conversationTitle);
         }
 
         // AI 답변 완료 시 isNew: true로 설정 (TypingEffect 활성화)
@@ -491,7 +487,6 @@ function ChatPage() {
       localStorage.clear();
 
       // 명시적으로 루트 페이지로만 이동 (로그인 화면)
-      console.log("로그아웃 완료, 루트 페이지(/)로 이동");
       window.location.href = "/"; // 강제로 루트 페이지로 이동
     }
   }, []);
@@ -564,7 +559,6 @@ function ChatPage() {
         );
       }
       setLockedChatId((prev) => (prev === deletedChatId ? null : prev));
-      console.log("ChatPage: 채팅 삭제 완료");
     },
     [selectedChatId]
   );
