@@ -55,3 +55,6 @@ langchain-upstage==0.7.3
 
 # excel
 openpyxl
+
+# image process
+opencv-python-headless==4.12.0.88

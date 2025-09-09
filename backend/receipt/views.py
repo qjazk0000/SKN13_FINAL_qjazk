@@ -510,29 +510,36 @@ def normalize_date(date_str):
     if not date_str or not isinstance(date_str, str):
         return None
 
-    date_str = date_str.strip()
-
-    # 1) 괄호 안의 요일(한글/영문) 제거: (월), (Tue), (수)
-    date_str = re.sub(r'\([^)]*\)', '', date_str).strip()
-
-    # 시도할 포맷들
-    formats = [
-        "%Y-%m-%d %H:%M:%S",  # 2024-02-13 08:23:13
-        "%Y-%m-%d %H:%M",     # 2024-02-13 08:23
-        "%Y-%m-%d",           # 2024-02-13
-        "%Y/%m/%d",           # 2024/01/24
-        "%Y.%m.%d",           # 2024.01.24
-        "%Y%m%d",             # 20240213
-        "%Y-%m%d",            # 2024-0213
-        "%Y%m-%d",            # 202402-13
+    # 먼저 일반적인 날짜 패턴을 찾기
+    # YY-MM-DD 또는 YYYY-MM-DD 형식 먼저 찾기
+    date_patterns = [
+        r'(\d{4})-(\d{2})-(\d{2})',  # YYYY-MM-DD
+        r'(\d{2})-(\d{2})-(\d{2})',  # YY-MM-DD
+        r'(\d{4})\.(\d{2})\.(\d{2})',  # YYYY.MM.DD
+        r'(\d{2})\.(\d{2})\.(\d{2})',  # YY.MM.DD
+        r'(\d{4})/(\d{2})/(\d{2})',   # YYYY/MM/DD
+        r'(\d{2})/(\d{2})/(\d{2})',   # YY/MM/DD
+        r'(\d{4})(\d{2})(\d{2})',     # YYYYMMDD
+        r'(\d{2})(\d{2})(\d{2})',     # YYMMDD
     ]
-
-    for fmt in formats:
-        try:
-            dt = datetime.strptime(date_str, fmt)
-            return dt.strftime("%Y-%m-%d")  # 최종 출력: YYYY-MM-DD
-        except ValueError:
-            continue
-
-    # 어떤 포맷에도 맞지 않으면 None 반환
+    
+    for pattern in date_patterns:
+        match = re.search(pattern, date_str)
+        if match:
+            groups = match.groups()
+            if len(groups[0]) == 4:  # YYYY 형식
+                year = int(groups[0])
+                month = int(groups[1])
+                day = int(groups[2])
+            else:  # YY 형식
+                year = int('20' + groups[0])  # 20XX로 변환
+                month = int(groups[1])
+                day = int(groups[2])
+            
+            try:
+                dt = datetime(year, month, day)
+                return dt.strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+    
     return None
