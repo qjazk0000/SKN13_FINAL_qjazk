@@ -179,7 +179,6 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
 
       if (response.data.success) {
         setReceiptInfo(response.data.data);
-        console.log("영수증 처리 내역:", response.data.data);
       } else {
         alert(response.data.message || "텍스트 추출 실패");
       }
@@ -275,7 +274,6 @@ function Receipt({ selectedReceipt, receiptDetails, onSaveSuccess }) {
           ];
 
       const payload = { receipts: receiptsPayload };
-      console.log(payload);
       const response = await api.post("/receipt/save/", payload);
       if (response.data.success) {
         alert("영수증이 성공적으로 저장되었습니다.");
