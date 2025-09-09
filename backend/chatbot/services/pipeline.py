@@ -539,7 +539,7 @@ def _generate_form_response(query: str, form_results: List[Dict[str, Any]]) -> s
             # 파일명 추출 (S3 키에서 마지막 부분)
             filename = s3_key.split('/')[-1]
             # 클릭 가능한 마크다운 링크 형식으로 변경
-            form_list.append(f"   📄 [ 다운로드 >. ]({download_url})")
+            form_list.append(f"  ({download_url})")
     
     # 응답 구성
     response_parts.append("요청하신 서식을 찾았습니다:")
