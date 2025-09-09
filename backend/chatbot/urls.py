@@ -6,7 +6,8 @@ from .views import (
     ConversationDeleteView,
     ChatQueryView,
     ChatStatusView,
-    ChatReportView
+    ChatReportView,
+    FormDownloadView
 )
 
 urlpatterns = [
@@ -16,4 +17,5 @@ urlpatterns = [
     path('<uuid:conversation_id>/query/', ChatQueryView.as_view(), name='chat-query'),
     path('<uuid:conversation_id>/status/', ChatStatusView.as_view(), name='chat-status'),
     path('<uuid:chat_id>/report/', ChatReportView.as_view(), name='chat-report'),
+    path('form/download/', FormDownloadView.as_view(), name='form-download'),
 ]

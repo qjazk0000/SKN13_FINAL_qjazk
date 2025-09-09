@@ -37,7 +37,7 @@ class ReceiptListView(generics.ListAPIView):
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
-                    SELECT receipt_id, file_id, created_at, store_name, amount
+                    SELECT receipt_id, file_id, status, created_at, store_name, amount
                     FROM receipt_info
                     WHERE user_id = %s
                     ORDER BY created_at DESC
@@ -54,9 +54,10 @@ class ReceiptListView(generics.ListAPIView):
                 {
                     "receipt_id": row[0],
                     "file_id": row[1],
-                    "created_at": row[2],
-                    "store_name": row[3],
-                    "amount": row[4],
+                    "status": row[2],
+                    "created_at": row[3],
+                    "store_name": row[4],
+                    "amount": row[5],
                 }
                 for row in rows
             ]
