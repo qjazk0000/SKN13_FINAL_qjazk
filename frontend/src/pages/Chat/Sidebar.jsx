@@ -90,6 +90,11 @@ function Sidebar({
       // 삭제 중 상태로 설정
       setIsDeleting(true);
 
+      // 새 채팅방 생성 후 아무 메시지도 입력하지 않아 DB에 저장되지 않은 경우 프론트에서만 제거
+      if (chatId.startsWith("new-")) {
+        onDeleteChat(chatId);
+        return;
+      }
       // API 호출하여 채팅 삭제
       const response = await api.delete(`/chat/${chatId}/delete/`);
 
