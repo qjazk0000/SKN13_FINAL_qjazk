@@ -2,7 +2,7 @@ import axios from "axios";
 
 const baseURL =
   process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://43.200.226.184:8000"; // 임시로 하드코딩
+  "http://43.200.226.184:8000";
 
 // 디버깅용 로그 (환경변수 확인)
 console.log("REACT_APP_API_BASE_URL:", process.env.REACT_APP_API_BASE_URL);
