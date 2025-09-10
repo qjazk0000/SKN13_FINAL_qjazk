@@ -855,7 +855,6 @@ class ConversationReportView(APIView):
                     JOIN chat_history ch ON cr.chat_id = ch.chat_id
                     JOIN user_info u ON cr.reported_by = u.user_id
                     WHERE 1=1
-                    ORDER BY cr.created_at DESC
                 """
                 count_query = """
                     SELECT COUNT(*)
@@ -950,11 +949,14 @@ class ConversationReportView(APIView):
                 
                 if remark:
                     base_query += " AND cr.remark ILIKE %s"
+                    count_query += " AND cr.remark ILIKE %s"
                     params.append(f'%{remark}%')
                 
                 # 전체 개수 조회
                 cursor.execute(count_query, params)
                 total_count = cursor.fetchone()[0]
+
+                base_query += " ORDER BY cr.created_at DESC"
                 
                 # 페이지네이션 적용
                 offset = (page - 1) * page_size

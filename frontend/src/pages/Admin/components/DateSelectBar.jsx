@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 
-export default function DateSelectBar({ onDateChange, startDate, endDate, onClearDateFilter }) {
+export default function DateSelectBar({
+  onDateChange,
+  startDate,
+  endDate,
+  onClearDateFilter,
+}) {
   const [start_date, setStartDate] = useState(startDate || "");
   const [end_date, setEndDate] = useState(endDate || "");
 
-
   const today = new Date().toISOString().split("T")[0];
-
 
   // props가 변경될 때 내부 상태 업데이트
   useEffect(() => {
@@ -42,13 +45,19 @@ export default function DateSelectBar({ onDateChange, startDate, endDate, onClea
     }
   };
 
+  const handleClear = () => {
+    setStartDate("");
+    setEndDate("");
+    onClearDateFilter();
+  };
+
   return (
     <div className="flex space-x-2 items-center">
       <label className="font-medium text-gray-700">기간 선택:</label>
       <input
         type="date"
         value={start_date}
-        max={end_date || today}   // 종료일보다 크지 않게 제한
+        max={end_date || today} // 종료일보다 크지 않게 제한
         onChange={handleStartDateChange}
         className="border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
@@ -56,13 +65,13 @@ export default function DateSelectBar({ onDateChange, startDate, endDate, onClea
       <input
         type="date"
         value={end_date}
-        min={start_date || undefined}   // 시작일보다 작지 않게 제한
+        min={start_date || undefined} // 시작일보다 작지 않게 제한
         max={today}
         onChange={handleEndDateChange}
         className="border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <button
-        onClick={onClearDateFilter}
+        onClick={handleClear}
         className="ml-2 px-2 py-1 text-xs text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50"
       >
         초기화
