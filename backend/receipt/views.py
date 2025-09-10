@@ -117,6 +117,9 @@ class ReceiptUploadView(APIView):
                             out_img.write(img_file.read())
                         # OCR 처리
                         extracted_data = extract_receipt_info(tmp_img_path)
+                        processed_path = extracted_data.get("_processed_path", tmp_img_path)
+                        scan_path = extracted_data.get("_scan_path", tmp_img_path)
+
                         store_name = extracted_data.get('storeName', '')
                         payment_date = normalize_date(extracted_data.get('transactionDate', ""))
                         amount = extracted_data.get('transactionAmount', 0)
@@ -143,8 +146,8 @@ class ReceiptUploadView(APIView):
                         }
 
                         # S3에 임시 파일 업로드
-                        with open(tmp_img_path, 'rb') as tmp_file:
-                            s3_upload_result = s3_receipt_service.upload_receipt_file(tmp_file, request.user_id)
+                        with open(scan_path, 'rb') as scan_file:
+                            s3_upload_result = s3_receipt_service.upload_receipt_file(scan_file, request.user_id)
                         
                         if not s3_upload_result['success']:
                             logger.error(f"S3 업로드 실패: {s3_upload_result['error']}")
@@ -219,6 +222,10 @@ class ReceiptUploadView(APIView):
 
                 # OCR 처리
                 extracted_data = extract_receipt_info(tmp_path)
+                
+                # 'utils.py'에서 반환된 _scan_path를 사용하여 S3에 업로드
+                scan_path = extracted_data.get("_scan_path", tmp_path) 
+                
                 store_name = extracted_data.get('storeName', '')
                 payment_date = normalize_date(extracted_data.get('transactionDate', ""))
                 amount = extracted_data.get('transactionAmount', 0)
@@ -244,9 +251,9 @@ class ReceiptUploadView(APIView):
                     "품목": converted_items
                 }
 
-                # S3에 임시 파일 업로드
-                with open(tmp_path, 'rb') as tmp_file:
-                    s3_upload_result = s3_receipt_service.upload_receipt_file(tmp_file, request.user_id)
+                # S3에 스캔된 파일 업로드 
+                with open(scan_path, 'rb') as scan_file:
+                    s3_upload_result = s3_receipt_service.upload_receipt_file(scan_file, request.user_id)
                 
                 if not s3_upload_result['success']:
                     logger.error(f"S3 업로드 실패: {s3_upload_result['error']}")
@@ -294,6 +301,8 @@ class ReceiptUploadView(APIView):
                 # 임시 파일 삭제
                 try:
                     os.unlink(tmp_path)
+                    if scan_path != tmp_path:
+                        os.unlink(scan_path)
                 except Exception as e:
                     logger.warning(f"임시 파일 삭제 실패: {e}")
 

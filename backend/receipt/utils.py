@@ -15,7 +15,7 @@ client = OpenAI(api_key=UPSTAGE_API_KEY,
 
 
 # --------------------------
-# 1) 공통 유틸
+# 공통 유틸
 # --------------------------
 def _to_base64(img_path: str) -> str:
     with open(img_path, "rb") as f:
@@ -30,12 +30,73 @@ def _safe_out_path(image_path: str, suffix: str = "_proc", ext_fallback: str = "
 
 
 # --------------------------
-# 2) 분류 기준 (edge_density)
+# 1) Auto Scan (배경 제거 + 수평 맞춤)
+# --------------------------
+def auto_scan(image_path: str) -> str:
+    image = cv2.imread(image_path)
+    if image is None:
+        raise FileNotFoundError(image_path)
+
+    ratio = image.shape[0] / 500.0
+    orig = image.copy()
+    image = cv2.resize(image, (int(image.shape[1] * 500 / image.shape[0]), 500))
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    edged = cv2.Canny(gray, 25, 200)
+
+    # 외곽선 검출
+    cnts, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
+
+    screenCnt = None
+    for c in cnts:
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+        if len(approx) == 4:
+            screenCnt = approx
+            break
+
+    if screenCnt is not None:
+        rect = np.zeros((4, 2), dtype="float32")
+        pts = screenCnt.reshape(4, 2) * ratio
+        s = pts.sum(axis=1)
+        rect[0] = pts[np.argmin(s)]
+        rect[2] = pts[np.argmax(s)]
+        diff = np.diff(pts, axis=1)
+        rect[1] = pts[np.argmin(diff)]
+        rect[3] = pts[np.argmax(diff)]
+
+        (tl, tr, br, bl) = rect
+        widthA = np.linalg.norm(br - bl)
+        widthB = np.linalg.norm(tr - tl)
+        maxWidth = max(int(widthA), int(widthB))
+        heightA = np.linalg.norm(tr - br)
+        heightB = np.linalg.norm(tl - bl)
+        maxHeight = max(int(heightA), int(heightB))
+
+        dst = np.array([
+            [0, 0],
+            [maxWidth - 1, 0],
+            [maxWidth - 1, maxHeight - 1],
+            [0, maxHeight - 1]], dtype="float32")
+
+        M = cv2.getPerspectiveTransform(rect, dst)
+        warped = cv2.warpPerspective(orig, M, (maxWidth, maxHeight))
+    else:
+        warped = orig
+
+    out_path = _safe_out_path(image_path, suffix="_scan")
+    cv2.imwrite(out_path, warped)
+    return out_path
+
+
+# --------------------------
+# 2) Photo / Scan 분류
 # --------------------------
 def _edge_density(gray: np.ndarray) -> float:
     edges = cv2.Canny(gray, 60, 180)
-    return float(np.mean(edges > 0) * 100.0)  # % 단위
-
+    return float(np.mean(edges > 0) * 100.0)
 
 def classify_receipt(gray: np.ndarray) -> tuple[str, float]:
     """
@@ -48,13 +109,13 @@ def classify_receipt(gray: np.ndarray) -> tuple[str, float]:
 
 
 # --------------------------
-# 3) 타입별 전처리
+# 3) Photo 전처리
 # --------------------------
 def _preprocess_photo(
     gray,
     alpha: float = 1.65,
     beta: int = 8,
-    blockSize: int = 31,   # 홀수! 21~41 구간에서 미세 튜닝
+    blockSize: int = 31,
     C: int = 7,
     do_median: bool = True,
     ksize_median: int = 3,
@@ -83,30 +144,36 @@ def _preprocess_photo(
 
     return bin_img
 
-def preprocess_receipt(image_path: str) -> tuple[str, str, float]:
+
+# --------------------------
+# 4) Preprocess 전체
+# --------------------------
+def preprocess_receipt(image_path: str) -> tuple[str, str, float, str]:
     """
-    원본 이미지 로드 → 분류(photo/scan) → 전처리 → 저장 경로 반환
+    1) Auto scan
+    2) gray 변환
+    3) classify (photo/scan)
+    4) photo → _preprocess_photo
     """
-    bgr = cv2.imread(image_path)
+    scan_path = auto_scan(image_path)
+    bgr = cv2.imread(scan_path)
     if bgr is None:
-        raise FileNotFoundError(image_path)
+        raise FileNotFoundError(scan_path)
 
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     mode, ed = classify_receipt(gray)
 
     if mode == "photo":
         out = _preprocess_photo(gray)
+        out_path = _safe_out_path(scan_path, suffix=f"_proc_{mode}")
+        cv2.imwrite(out_path, out)
+        return out_path, mode, ed, scan_path
     else:
-        return image_path, mode, ed
-
-    out_path = _safe_out_path(image_path, suffix=f"_proc_{mode}")
-    cv2.imwrite(out_path, out)
-
-    return out_path, mode, ed
+        return image_path, mode, ed, image_path
 
 
 # --------------------------
-# 4) Upstage 정보 추출 호출
+# 5) Upstage API 호출
 # --------------------------
 def _call_information_extraction(base64_data: str) -> dict:
     response = client.chat.completions.create(
@@ -152,13 +219,15 @@ def _call_information_extraction(base64_data: str) -> dict:
     return json.loads(response.choices[0].message.content)
 
 
+# --------------------------
+# 6) 메인 엔트리
+# --------------------------
 def extract_receipt_info(image_path: str) -> dict:
     """
-    메인 엔드포인트:
-    - edge_density 기준으로 scan/photo 분류
-    - 전처리 후 Upstage Information Extraction 호출
+    - auto scan → classify → 전처리(photo/scan)
+    - OCR API 호출
     """
-    proc_path, mode, ed = preprocess_receipt(image_path)
+    proc_path, mode, ed, scan_path = preprocess_receipt(image_path)
     base64_data = _to_base64(proc_path)
 
     try:
@@ -170,5 +239,7 @@ def extract_receipt_info(image_path: str) -> dict:
     if isinstance(result, dict):
         result.setdefault("_preprocess_mode", mode)
         result.setdefault("_edge_density", ed)
+        result.setdefault("_processed_path", proc_path)  # OCR용
+        result.setdefault("_scan_path", scan_path)        # S3 업로드용
 
     return result
