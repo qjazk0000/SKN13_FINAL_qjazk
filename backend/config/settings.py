@@ -52,7 +52,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # API용으로 임시 비활성화
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -225,9 +225,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',  # 개발 단계에서는 AllowAny
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
-    # 'DEFAULT_AUTHENTICATION_CLASSES': []
 }
 
 
@@ -301,12 +300,14 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',  # React 개발 서버 (IP)
     'http://localhost:8000',  # Django 개발 서버
     'http://127.0.0.1:8000',  # Django 개발 서버 (IP)
+    'https://*.vercel.app',   # Vercel 배포 도메인
+    'https://skn13-final-6team.vercel.app',  # 실제 Vercel 도메인 (예시)
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
-# 개발 환경에서 CORS 설정 완화
-CORS_ALLOW_ALL_ORIGINS = True  # 개발 중에만 사용 (프로덕션에서는 제거)
+# 개발 환경에서 CORS 설정 완화 (프로덕션에서는 False로 변경)
+CORS_ALLOW_ALL_ORIGINS = True  # 임시로 True 유지, 프로덕션에서는 제거 필요
 
 # AWS S3 설정
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
