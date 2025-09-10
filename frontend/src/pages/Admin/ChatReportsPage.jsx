@@ -179,6 +179,18 @@ function ChatReportsPage() {
     [startDate, endDate, searchTerm, searchType]
   );
 
+  useEffect(() => {
+    // 검색 조건이 모두 초기화된 경우에만 fetch 수행
+    if (
+      searchTerm === "" &&
+      startDate === "" &&
+      endDate === "" &&
+      currentPage === 1
+    ) {
+      fetchChatReports(1);
+    }
+  }, [searchTerm, startDate, endDate, currentPage, fetchChatReports]);
+
   // 테이블 컬럼은 카드 UI로 대체
 
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -321,15 +333,15 @@ function ChatReportsPage() {
     setStartDate("");
     setEndDate("");
     setCurrentPage(1);
-    fetchChatReports(1);
+    // fetchChatReports(1);
   };
 
   // 날짜 필터만 초기화
-  const handleClearDateFilter = () => {
+  const handleClearDateFilter = async () => {
     setStartDate("");
     setEndDate("");
     setCurrentPage(1);
-    fetchChatReports(1);
+    // fetchChatReports(1);
     console.log("날짜 필터가 초기화되었습니다.", startDate, endDate);
   };
 

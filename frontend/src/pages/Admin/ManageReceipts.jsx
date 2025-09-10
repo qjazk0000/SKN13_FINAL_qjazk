@@ -348,6 +348,18 @@ function ManageReceipts() {
     },
   ];
 
+  useEffect(() => {
+    // 검색 조건이 모두 초기화된 경우에만 fetch 수행
+    if (
+      searchTerm === "" &&
+      startDate === "" &&
+      endDate === "" &&
+      currentPage === 1
+    ) {
+      fetchReceipts(1);
+    }
+  }, [searchTerm, startDate, endDate, currentPage, fetchReceipts]);
+
   // 검색 옵션 정의
   const searchOptions = [
     { value: "name", label: "이름" },
@@ -369,7 +381,7 @@ function ManageReceipts() {
     setStartDate("");
     setEndDate("");
     setCurrentPage(1);
-    fetchReceipts(1);
+    // fetchReceipts(1);
   };
 
   // 페이지 변경 처리 함수
@@ -397,7 +409,7 @@ function ManageReceipts() {
     setStartDate("");
     setEndDate("");
     setCurrentPage(1);
-    fetchReceipts(1);
+    // fetchReceipts(1);
   };
 
   // 사용자명 클릭 핸들러
