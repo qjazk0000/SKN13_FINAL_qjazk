@@ -55,3 +55,6 @@ langchain-upstage==0.7.3
 
 # excel
 openpyxl
+
+# Password Hashing
+argon2-cffi

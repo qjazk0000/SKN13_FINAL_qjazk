@@ -92,15 +92,18 @@ def is_simple_greeting(query: str, openai_api_key: str = None) -> bool:
 - 감사합니다, 고마워요, 땡큐
 - 네, 예, 응, 오케이
 - 짧은 감정 표현 (ㅎㅎ, ㅋㅋ, 우와 등)
+- 자기소개 + 인사말 (나는 ○○팀의 ○○야, 안녕 / 저는 ○○입니다, 안녕하세요)
+- 직책/부서 소개 + 인사말 (회계팀에서 일해요, 안녕 / 개발팀 김○○입니다)
 
 복잡한 업무 질문 예시:
 - 휴가 신청 방법은?
 - 급여 규정이 어떻게 되나요?
 - 회의실 예약은 어떻게 하나요?
 - 프로젝트 관련 문의
+- 구체적인 업무 절차나 정책 문의
 
 답변은 반드시 'YES' 또는 'NO'로만 해주세요.
-- YES: 간단한 인사말/대화
+- YES: 간단한 인사말/대화 (자기소개 포함)
 - NO: 복잡한 업무 질문"""
 
         user_prompt = f"다음 질문을 분석해주세요: '{query}'"
@@ -126,14 +129,15 @@ def is_simple_greeting(query: str, openai_api_key: str = None) -> bool:
         # 오류 시 복잡한 질문으로 처리 (안전한 기본값)
         return False
 
-def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = None) -> Dict[str, Any]:
+def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = None, conversation_history: List[Dict] = None) -> Dict[str, Any]:
     """
-    질문에 대한 완전한 RAG 답변 생성
+    질문에 대한 완전한 RAG 답변 생성 (멀티턴 대화 지원)
     
     Args:
         query: 사용자 질문
         openai_api_key: OpenAI API 키 (선택사항)
         explicit_domain: 명시적 도메인 (선택사항)
+        conversation_history: 대화 히스토리 (선택사항)
     
     Returns:
         답변, 메타데이터, 참고문서를 포함한 딕셔너리
@@ -144,8 +148,15 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
         logger.info(f"RAG 파이프라인 시작 - 질문: {query}")
         print(f"DEBUG: RAG 파이프라인 시작 - 질문: {query}")
         
-        # 🚀 간단한 질문 감지 (간단한 인사말은 빠른 처리)
+        # 🚀 간단한 질문 감지 (간단한 인사말은 대화 히스토리와 관계없이 빠른 처리)
         is_simple_query = is_simple_greeting(query, openai_api_key)
+        
+        if conversation_history and len(conversation_history) > 0:
+            logger.info(f"💬 대화 히스토리 감지 ({len(conversation_history)}개 메시지), 멀티턴 대화로 처리")
+            print(f"DEBUG: 대화 히스토리 감지, 멀티턴 대화로 처리")
+            if not is_simple_query:
+                logger.info("복잡한 질문으로 분류되어 RAG 파이프라인 실행")
+                print(f"DEBUG: 복잡한 질문으로 분류되어 RAG 파이프라인 실행")
         
         if is_simple_query:
             logger.info(f"⚡ 간단한 질문 감지, LLM으로 직접 응답 생성: {query}")
@@ -160,27 +171,36 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
                 else:
                     client = openai.OpenAI(api_key=api_key)
                     
-                    simple_response_prompt = f"""사용자가 간단한 인사말이나 짧은 대화를 했습니다: "{query}"
-
-다음 역할을 수행해주세요:
-- 한국인터넷진흥원(KISA)의 업무 가이드 챗봇으로서 친근하고 전문적으로 응답
-- 사용자의 톤에 맞춰 자연스럽게 인사
-- 업무 관련 도움을 제공할 준비가 되어 있음을 알림
-- 2-3문장으로 간결하게 작성
-
-예시:
-- "안녕" → "안녕하세요! 업무 관련 궁금한 사항이 있으시면 언제든 문의해 주세요."
-- "좋은 아침" → "좋은 아침입니다! 오늘도 업무에 도움이 되는 정보를 제공해드리겠습니다."
-- "고마워" → "천만에요! 다른 궁금한 사항이 있으시면 언제든 말씀해 주세요."
-"""
+                    # 대화 히스토리를 고려한 간단한 응답 생성
+                    messages = []
+                    
+                    # 시스템 프롬프트 추가
+                    system_prompt = """당신은 한국인터넷진흥원(KISA)의 업무 가이드 챗봇입니다.
+사용자의 간단한 인사말이나 짧은 대화에 친근하고 전문적으로 응답하세요.
+자기소개가 포함된 경우 해당 정보를 인정하고 반응하세요.
+업무 관련 도움을 제공할 준비가 되어 있음을 알려주세요.
+2-3문장으로 간결하게 작성하세요."""
+                    
+                    messages.append({"role": "system", "content": system_prompt})
+                    
+                    # 대화 히스토리가 있으면 추가
+                    if conversation_history and len(conversation_history) > 0:
+                        for msg in conversation_history:
+                            if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                                role = msg.get("role", "user")
+                                if role in ["user", "assistant"]:
+                                    content = str(msg.get("content", ""))[:1000]  # 길이 제한
+                                    if content.strip():
+                                        messages.append({"role": role, "content": content})
+                    
+                    # 현재 사용자 입력 추가
+                    messages.append({"role": "user", "content": query})
                     
                     response_result = client.chat.completions.create(
                         model="gpt-4o-mini",
-                        messages=[
-                            {"role": "user", "content": simple_response_prompt}
-                        ],
+                        messages=messages,
                         temperature=0.7,
-                        max_tokens=100
+                        max_tokens=150
                     )
                     
                     response = response_result.choices[0].message.content.strip()
@@ -327,7 +347,8 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
                     answer = make_answer(
                         query=query,
                         contexts=search_results[:5],  # 전체 결과 객체 전달
-                        api_key=None  # 환경변수에서 자동으로 가져옴
+                        api_key=None,  # 환경변수에서 자동으로 가져옴
+                        conversation_history=conversation_history # 대화 히스토리 전달
                     )
                 
                 # 답변 품질 검증
@@ -530,7 +551,16 @@ def _generate_form_response(query: str, form_results: List[Dict[str, Any]]) -> s
         
         # S3 파일 링크가 있으면 추가
         if form_file_uri:
-            form_list.append(f"   📄 다운로드: {form_file_uri}")
+            # S3 키 추출 (s3://bucket/key 형식에서 key 부분만)
+            s3_key = form_file_uri.replace('s3://companypolicy/', '')
+            # S3 퍼블릭 URL 직접 생성
+            bucket_name = 'companypolicy'
+            region = 'ap-northeast-2'
+            download_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
+            # 파일명 추출 (S3 키에서 마지막 부분)
+            filename = s3_key.split('/')[-1]
+            # 클릭 가능한 마크다운 링크 형식으로 변경
+            form_list.append(f"  ({download_url})")
     
     # 응답 구성
     response_parts.append("요청하신 서식을 찾았습니다:")
@@ -702,19 +732,20 @@ def health_check() -> Dict[str, Any]:
             'timestamp': datetime.datetime.now().isoformat()
         }
 
-def rag_answer_enhanced(user_query: str) -> Dict[str, Any]:
+def rag_answer_enhanced(user_query: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
     """
-    향상된 RAG 답변 생성 (기존 rag_answer와 호환)
+    향상된 RAG 답변 생성 (멀티턴 대화 지원)
     
     Args:
         user_query: 사용자 질문
+        conversation_history: 대화 히스토리 (선택사항)
     
     Returns:
         답변과 메타데이터를 포함한 결과
     """
     try:
         # OpenAI API 키는 환경변수에서 자동으로 가져옴
-        result = answer_query(user_query)
+        result = answer_query(user_query, conversation_history=conversation_history)
         
         # answer_query는 항상 answer를 반환하므로 success 체크 불필요
         search_strategy = result.get('search_strategy', '')
@@ -729,7 +760,8 @@ def rag_answer_enhanced(user_query: str) -> Dict[str, Any]:
                 'keywords': result.get('keywords', []),
                 'total_time': result.get('total_time', 0),
                 'search_time': result.get('search_time', 0),
-                'answer_time': result.get('answer_time', 0)
+                'answer_time': result.get('answer_time', 0),
+                'conversation_history_used': bool(conversation_history)
             }
         }
             

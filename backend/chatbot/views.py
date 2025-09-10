@@ -9,7 +9,10 @@ from .models import Conversation, ChatMessage, ChatReport
 from .serializers import ConversationSerializer, ChatMessageSerializer, ChatQuerySerializer, ChatReportSerializer
 from .services.rag_service import rag_answer
 from .services.pipeline import rag_answer_enhanced
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+import boto3
+import os
+from botocore.exceptions import ClientError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,27 +31,40 @@ class ConversationListView(generics.ListAPIView):
         auth_header = self.request.headers.get('Authorization')
         user_id = None
         
+        print(f"DEBUG: ConversationListView - Authorization 헤더: {auth_header}")
+        
         if auth_header:
             try:
                 token_type, token = auth_header.split(' ')
+                print(f"DEBUG: ConversationListView - 토큰 타입: {token_type}, 토큰: {token[:20]}...")
                 
                 if token_type.lower() == 'bearer':
                     from authapp.utils import verify_token
                     payload = verify_token(token)
+                    print(f"DEBUG: ConversationListView - 토큰 검증 결과: {payload}")
                     
                     if payload:
                         user_id = payload.get('user_id')
+                        print(f"DEBUG: ConversationListView - JWT에서 추출한 user_id: {user_id}")
+                    else:
+                        print(f"DEBUG: ConversationListView - 토큰 검증 실패")
+                else:
+                    print(f"DEBUG: ConversationListView - 잘못된 토큰 타입: {token_type}")
             except Exception as e:
-                pass
+                print(f"DEBUG: ConversationListView - JWT 파싱 실패: {str(e)}")
+                import traceback
+                print(f"DEBUG: ConversationListView - 상세 오류: {traceback.format_exc()}")
         else:
-            pass
+            print(f"DEBUG: ConversationListView - Authorization 헤더가 없음")
         
         if user_id:
             # user_id로 필터링된 대화방만 반환
             queryset = Conversation.objects.filter(user_id=user_id).order_by('-updated_at')
+            print(f"DEBUG: ConversationListView - user_id {user_id}로 필터링된 대화방 수: {queryset.count()}")
             return queryset
         else:
             # user_id가 없으면 빈 쿼리셋 반환
+            print(f"DEBUG: ConversationListView - user_id가 없어 빈 결과 반환")
             return Conversation.objects.none()
 
 class ConversationCreateView(generics.CreateAPIView):
@@ -282,8 +298,21 @@ class ChatQueryView(generics.CreateAPIView):
 
         try:
             print(f"DEBUG: 향상된 RAG 시스템 시작 - 질문: {user_message}")
-            # 향상된 RAG 시스템을 통한 답변 생성
-            rag_result = rag_answer_enhanced(user_message)
+            
+            # 대화 히스토리 조회 (최근 10개 메시지)
+            recent_messages = conversation.messages.all().order_by('-created_at')[:10]
+            conversation_history = []
+            
+            for msg in reversed(recent_messages):  # 시간순으로 정렬
+                conversation_history.append({
+                    'role': 'user' if msg.sender_type == 'user' else 'assistant',
+                    'content': msg.content
+                })
+            
+            print(f"DEBUG: 대화 히스토리 ({len(conversation_history)}개 메시지): {conversation_history}")
+            
+            # 향상된 RAG 시스템을 통한 답변 생성 (대화 히스토리 포함)
+            rag_result = rag_answer_enhanced(user_message, conversation_history=conversation_history)
             
             if rag_result.get("rag_used", False):
                 ai_response = rag_result["answer"]
@@ -352,6 +381,66 @@ class ChatStatusView(generics.RetrieveAPIView):
             )
 
 
+class ChatHistoryView(generics.RetrieveAPIView):
+    """
+    대화 히스토리 조회
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    serializer_class = ChatMessageSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        conversation_id = kwargs.get('conversation_id')
+        
+        # JWT 토큰에서 사용자 정보 추출
+        auth_header = request.headers.get('Authorization')
+        user_id = None
+        
+        if auth_header:
+            try:
+                token_type, token = auth_header.split(' ')
+                if token_type.lower() == 'bearer':
+                    payload = verify_token(token)
+                    if payload:
+                        user_id = payload.get('user_id')
+            except:
+                pass
+        
+        try:
+            # 보안 검증: user_id와 conversation_id를 모두 확인
+            if user_id:
+                conversation = Conversation.objects.get(
+                    id=conversation_id,
+                    user_id=user_id
+                )
+            else:
+                # 개발 단계에서는 conversation_id만으로 조회
+                conversation = Conversation.objects.get(id=conversation_id)
+            
+            # 대화 히스토리 조회 (최근 20개 메시지)
+            messages = conversation.messages.all().order_by('created_at')[:20]
+            serializer = self.get_serializer(messages, many=True)
+            
+            return Response({
+                'success': True,
+                'conversation_id': str(conversation.id),
+                'conversation_title': conversation.title,
+                'messages': serializer.data,
+                'total_count': conversation.messages.count()
+            })
+            
+        except Conversation.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': '대화방을 찾을 수 없습니다'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'대화 히스토리 조회 중 오류가 발생했습니다: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 class ChatReportView(generics.CreateAPIView):
     serializer_class = ChatReportSerializer
     authentication_classes = []  # 커스텀 JWT 인증을 사용하므로 DRF 인증 비활성화
@@ -359,10 +448,6 @@ class ChatReportView(generics.CreateAPIView):
 
     @require_auth
     def create(self, request, *args, **kwargs):
-        import time
-        request_id = int(time.time() * 1000) + hash(str(request.data))
-        logger.info(f"🚀 ChatReportView.create 시작 [{request_id}] - chat_id: {kwargs.get('chat_id')}")
-        
         chat_id = kwargs.get("chat_id")
         logger.info(f"chat_id: kwargs.get 실행 결과: {chat_id}")
         if not chat_id:
@@ -371,21 +456,89 @@ class ChatReportView(generics.CreateAPIView):
         try:
             # 신고 대상 메시지 가져오기
             message = ChatMessage.objects.get(id=chat_id)
-            logger.info(f"📝 message from DB: {message}, id: {message.id}, type: {type(message.id)}")
+            print(f"message from DB: {message}, id: {message.id}, type: {type(message.id)}")
         except ChatMessage.DoesNotExist:
             return Response({"error": "메시지 없음"}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
             return Response({"error": "chat_id 형식 오류"}, status=status.HTTP_400_BAD_REQUEST)
 
-        logger.info(f"🔍 request.data: {request.data}")
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        logger.info(f"✅ serializer validation 완료")
 
         # create 호출 시 chat 객체를 kwargs로 넘김
-        logger.info(f"💾 serializer.save(chat=message) 호출 시작")
-        chat_report = serializer.save(chat=message)
-        logger.info(f"✅ serializer.save 완료 [{request_id}] - report_id: {chat_report.report_id}")
+        serializer.save(chat=message)
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class FormDownloadView(generics.GenericAPIView):
+    """
+    서식 파일 다운로드 API
+    """
+    authentication_classes = []  # 인증 클래스 제외
+    permission_classes = [AllowAny]  # 개발 단계에서는 인증 우회
+    
+    def get(self, request, *args, **kwargs):
+        """
+        S3에서 서식 파일을 다운로드하여 반환
+        """
+        s3_key = request.query_params.get('s3_key')
+        
+        if not s3_key:
+            return Response({
+                'success': False,
+                'message': 'S3 키가 제공되지 않았습니다.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # S3 클라이언트 초기화
+            s3_client = boto3.client(
+                's3',
+                region_name=os.getenv('AWS_REGION', 'ap-northeast-2'),
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+            )
+            
+            bucket_name = os.getenv('AWS_S3_BUCKET_NAME', 'companypolicy')
+            
+            # S3에서 파일 다운로드
+            response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+            file_content = response['Body'].read()
+            
+            # 파일명 추출 (S3 키에서 마지막 부분)
+            filename = s3_key.split('/')[-1]
+            
+            # 파일 확장자에 따른 Content-Type 설정
+            if filename.lower().endswith('.pdf'):
+                content_type = 'application/pdf'
+            elif filename.lower().endswith('.doc'):
+                content_type = 'application/msword'
+            elif filename.lower().endswith('.docx'):
+                content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            elif filename.lower().endswith('.xls'):
+                content_type = 'application/vnd.ms-excel'
+            elif filename.lower().endswith('.xlsx'):
+                content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            else:
+                content_type = 'application/octet-stream'
+            
+            # HTTP 응답 생성
+            http_response = HttpResponse(file_content, content_type=content_type)
+            http_response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            http_response['Content-Length'] = len(file_content)
+            
+            return http_response
+            
+        except ClientError as e:
+            logger.error(f"S3 파일 다운로드 실패: {e}")
+            return Response({
+                'success': False,
+                'message': '파일을 찾을 수 없거나 다운로드할 수 없습니다.'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+        except Exception as e:
+            logger.error(f"파일 다운로드 중 오류: {e}")
+            return Response({
+                'success': False,
+                'message': '파일 다운로드 중 오류가 발생했습니다.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
