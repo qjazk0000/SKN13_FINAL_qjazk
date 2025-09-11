@@ -70,12 +70,12 @@ export default function DateSelectBar({
         onChange={handleEndDateChange}
         className="border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
-      <button
+      {/* <button
         onClick={handleClear}
         className="ml-2 px-2 py-1 text-xs text-red-600 hover:text-red-800 border border-red-300 rounded hover:bg-red-50"
       >
         초기화
-      </button>
+      </button> */}
     </div>
   );
 }

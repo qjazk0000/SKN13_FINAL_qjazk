@@ -1,15 +1,24 @@
 import axios from "axios";
 
-const baseURL =
-  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://43.200.226.184:8000";
+// 환경별 API URL 설정
+const baseURL = process.env.REACT_APP_API_BASE_URL || 
+  (process.env.NODE_ENV === 'production' 
+    ? 'https://43.200.226.184' // Vercel에서 EC2 HTTPS 연결 (포트 443)
+    : 'http://localhost:8000'); // 로컬 개발용
 
-// 디버깅용 로그 (환경변수 확인)
-console.log("REACT_APP_API_BASE_URL:", process.env.REACT_APP_API_BASE_URL);
-console.log("Final baseURL:", baseURL);
+// Vercel 환경에서는 강제로 EC2 URL 사용
+const isVercel = window.location.hostname.includes('vercel.app');
+const finalBaseURL = isVercel ? 'https://43.200.226.184' : baseURL;
+
+// 디버깅용 로그
+console.log("Environment:", process.env.NODE_ENV);
+console.log("Base URL:", baseURL);
+console.log("Is Vercel:", isVercel);
+console.log("Final Base URL:", finalBaseURL);
+console.log("Final API URL:", `${finalBaseURL}/api`);
 
 const api = axios.create({
-  baseURL: `${baseURL}/api`,
+  baseURL: `${finalBaseURL}/api`,
   withCredentials: true,
   timeout: 120000,
 });
