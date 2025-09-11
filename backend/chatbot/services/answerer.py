@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 import os
 from django.conf import settings
 
-def make_answer(query: str, contexts: List[Dict[str, Any]], api_key: Optional[str] = None, conversation_history: List[Dict] = None) -> str:
+def make_answer(query: str, contexts: List[Dict[str, Any]], api_key: Optional[str] = None, conversation_history: List[Dict] = None, user_info: Dict[str, str] = None) -> str:
     """
     컨텍스트를 기반으로 질문에 대한 답변 생성 (멀티턴 대화 지원)
     
@@ -61,6 +61,27 @@ def make_answer(query: str, contexts: List[Dict[str, Any]], api_key: Optional[st
         system_prompt = "당신은 한국인터넷진흥원 규정/지침/규칙 RAG 보조자입니다."
         print("WARNING: system_prompt.md not found, using default prompt")
     
+    # 사용자 정보 추가 (시스템 프롬프트에 추가)
+    if user_info and any(user_info.values()):
+        user_info_text = ""
+        if user_info.get('name'):
+            user_info_text += f"- 사용자 이름: {user_info['name']}\n"
+        if user_info.get('department'):
+            user_info_text += f"- 사용자 부서: {user_info['department']}\n"
+        if user_info.get('position'):
+            user_info_text += f"- 사용자 직급: {user_info['position']}\n"
+        
+        if user_info_text:
+            user_context_addition = f"""
+
+[사용자 정보]
+{user_info_text}
+- 사용자의 부서와 직급을 고려하여 맞춤형 답변을 제공하세요.
+- 사용자 부서와 관련된 업무를 우선적으로 안내하세요.
+- 사용자 직급에 맞는 적절한 어조로 답변하세요.
+"""
+            system_prompt += user_context_addition
+
     # 대화 히스토리 보안 강화 (시스템 프롬프트에 추가)
     if conversation_history and len(conversation_history) > 0:
         security_addition = """

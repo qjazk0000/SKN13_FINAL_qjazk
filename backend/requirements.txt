@@ -1,62 +1,51 @@
-# Django & REST Framework
+# Django & REST Framework (필수)
 Django>=4.2,<5.0
 djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
 django-storages>=1.14.0
 
-# Database & ORM
+# Database (필수)
 psycopg2-binary
 
-# Vector Database
+# Vector Database (필수)
 qdrant-client>=1.9.0
 
-# AI & Machine Learning
+# AI & Machine Learning (필수 - 실제 사용됨)
 sentence-transformers>=2.7.0
-transformers>=4.43
-torch>=2.2.2
 openai>=1.35.0
 
-# Document Processing
+# Document Processing (필수)
 pypdf>=4.2.0
 PyPDF2==3.0.1
 
-# Text Processing & Utilities
+# Text Processing & Utilities (필수)
 regex>=2024.5.15
 tqdm>=4.66.4
 numpy>=2.2.0,<2.3.0
 
-# LangChain (for advanced RAG features)
+# LangChain (필수 - qdrant/services.py에서 사용)
 langchain>=0.3.8,<0.4.0
 langchain-core>=0.3.68,<0.4.0
 langchain-community>=0.3.8,<0.4.0
 langchain-openai>=0.1.9
 
-# Authentication & Security
+# Authentication & Security (필수)
 PyJWT
 python-dotenv
 
-# HTTP & API
+# HTTP & API (필수)
 requests
 uvicorn
 
-# AWS & Cloud Storage
+# AWS & Cloud Storage (필수)
 boto3>=1.34.0
 botocore>=1.34.0
 
-# Computer Vision (for receipt processing)
-opencv-python==4.12.0.88
-opencv-python-headless==4.12.0.88
-
-# Legacy Support (if needed)
-langchain-google-genai==2.1.8
-langchain-huggingface>=0.0.5
-langchain-upstage==0.7.3
-
-# excel
+# Excel Processing (필수 - adminapp에서 사용)
 openpyxl
 
-# Password Hashing
+# Password Hashing (필수)
 argon2-cffi
 
 

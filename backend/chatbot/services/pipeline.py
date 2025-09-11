@@ -62,9 +62,113 @@ def _init_prompts():
     
     return _SYSTEM_PROMPT, _USER_PROMPT
 
+def analyze_user_input(query: str, openai_api_key: str = None) -> Dict[str, Any]:
+    """
+    사용자 입력을 종합적으로 분석하여 모든 정보를 한 번에 추출
+    
+    Args:
+        query: 사용자 질문
+        openai_api_key: OpenAI API 키
+    
+    Returns:
+        {
+            'is_simple_greeting': bool,
+            'is_department_intro': bool,
+            'department': str or None,
+            'user_info': {'department': str, 'position': str, 'name': str} or None
+        }
+    """
+    try:
+        # OpenAI 클라이언트 설정
+        api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            return {
+                'is_simple_greeting': True,
+                'is_department_intro': False,
+                'department': None,
+                'user_info': None
+            }
+        
+        client = openai.OpenAI(api_key=api_key)
+        
+        # 종합 분석 프롬프트
+        system_prompt = """당신은 사용자의 입력을 종합적으로 분석하는 전문가입니다. 다음을 모두 분석해주세요:
+
+1. 간단한 인사말/대화인지 판단:
+- 간단한 인사말: "안녕하세요", "안녕", "Hi", "좋은 아침", "감사합니다" 등
+- 자기소개 포함 인사말: "안녕, 나는 김철수야", "개발팀에서 일해요, 안녕" 등
+
+2. 부서/팀 소개인지 판단:
+- "나는 개발팀이야", "개발팀에서 일해요", "개발팀 김○○입니다"
+- "인사팀에서 일해요", "IT팀입니다", "개발부서에서 근무합니다" 등
+
+3. 사용자 정보 추출:
+- 부서/팀: 개발팀, 인사팀, 회계팀, 전산팀, IT팀, 기획팀, 마케팅팀 등
+- 직급: 사원, 대리, 과장, 차장, 부장, 이사, 상무, 전무, 사장 등  
+- 이름: 성명 (한글, 영문 모두 가능)
+
+답변 형식 (JSON):
+{
+  "is_simple_greeting": true/false,
+  "is_department_intro": true/false,
+  "department": "부서명 또는 null",
+  "user_info": {
+    "department": "부서명 또는 null",
+    "position": "직급 또는 null",
+    "name": "이름 또는 null"
+  }
+}
+
+예시:
+- "안녕하세요" → {"is_simple_greeting": true, "is_department_intro": false, "department": null, "user_info": null}
+- "안녕, 나는 김철수야" → {"is_simple_greeting": true, "is_department_intro": false, "department": null, "user_info": {"department": null, "position": null, "name": "김철수"}}
+- "개발팀에서 일해요" → {"is_simple_greeting": true, "is_department_intro": true, "department": "개발팀", "user_info": {"department": "개발팀", "position": null, "name": null}}
+- "안녕, 나는 김철수, 개발팀이야" → {"is_simple_greeting": true, "is_department_intro": true, "department": "개발팀", "user_info": {"department": "개발팀", "position": null, "name": "김철수"}}"""
+
+        user_prompt = f"다음 입력을 종합적으로 분석해주세요: '{query}'"
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.0,
+            max_tokens=200
+        )
+        
+        result = response.choices[0].message.content.strip()
+        
+        # JSON 파싱 시도
+        import json
+        try:
+            analysis = json.loads(result)
+            # 빈 문자열을 None으로 변환
+            if analysis.get('user_info'):
+                for key in analysis['user_info']:
+                    if analysis['user_info'][key] == "" or analysis['user_info'][key] == "null":
+                        analysis['user_info'][key] = None
+            return analysis
+        except json.JSONDecodeError:
+            return {
+                'is_simple_greeting': True,
+                'is_department_intro': False,
+                'department': None,
+                'user_info': None
+            }
+        
+    except Exception as e:
+        logger.error(f"사용자 입력 분석 중 오류: {e}")
+        return {
+            'is_simple_greeting': True,
+            'is_department_intro': False,
+            'department': None,
+            'user_info': None
+        }
+
 def is_simple_greeting(query: str, openai_api_key: str = None) -> bool:
     """
-    LLM을 사용하여 간단한 인사말/질문인지 판단
+    통합된 사용자 입력 분석 함수를 사용하여 간단한 인사말인지 판단
     
     Args:
         query: 사용자 질문
@@ -73,61 +177,292 @@ def is_simple_greeting(query: str, openai_api_key: str = None) -> bool:
     Returns:
         True if simple greeting, False if complex question
     """
+    analysis = analyze_user_input(query, openai_api_key)
+    return analysis.get('is_simple_greeting', True)
+
+def update_user_context(conversation_history: List[Dict], user_info: Dict[str, str]) -> List[Dict]:
+    """
+    대화 히스토리에 사용자 정보를 업데이트
+    
+    Args:
+        conversation_history: 기존 대화 히스토리
+        user_info: 추출된 사용자 정보
+    
+    Returns:
+        업데이트된 대화 히스토리
+    """
+    if not conversation_history:
+        conversation_history = []
+    
+    # 기존 사용자 정보 찾기
+    user_context = None
+    for msg in conversation_history:
+        if isinstance(msg, dict) and msg.get("role") == "system" and "user_context" in msg.get("content", ""):
+            user_context = msg
+            break
+    
+    # 새로운 사용자 정보 생성
+    context_content = f"user_context: {user_info}"
+    
+    if user_context:
+        # 기존 사용자 정보 업데이트
+        user_context["content"] = context_content
+    else:
+        # 새로운 사용자 정보 추가
+        conversation_history.insert(0, {
+            "role": "system",
+            "content": context_content
+        })
+    
+    return conversation_history
+
+def prioritize_results_by_department(search_results: List[Dict], user_department: str, openai_api_key: str = None) -> List[Dict]:
+    """
+    사용자 부서에 맞게 검색 결과 우선순위 조정 (LLM 기반 동적 처리)
+    
+    Args:
+        search_results: 검색 결과 리스트
+        user_department: 사용자 부서
+        openai_api_key: OpenAI API 키
+    
+    Returns:
+        우선순위가 조정된 검색 결과 리스트
+    """
+    if not user_department or not search_results:
+        return search_results
+    
     try:
-        # OpenAI 클라이언트 설정
+        # LLM을 사용하여 부서별 관련 카테고리 동적 추출
+        api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+        if api_key:
+            client = openai.OpenAI(api_key=api_key)
+            
+            # 검색 결과에서 카테고리 정보 추출
+            categories = list(set([result.get('category', '') for result in search_results if result.get('category')]))
+            
+            system_prompt = f"""당신은 한국인터넷진흥원(KISA)의 업무 가이드 전문가입니다.
+사용자가 "{user_department}"에서 근무할 때, 다음 카테고리 중에서 가장 관련성이 높은 카테고리들을 우선순위 순으로 선택해주세요.
+
+사용 가능한 카테고리:
+{', '.join(categories)}
+
+답변 형식: 관련성이 높은 순서대로 카테고리명을 쉼표로 구분하여 나열하세요.
+예시: "인사 규정, 복리후생 규정, 인사팀 업무 가이드"
+
+{user_department}와 가장 관련성이 높은 상위 3-5개 카테고리만 선택하세요."""
+
+            user_prompt = f"{user_department}에서 근무하는 사용자에게 가장 관련성이 높은 카테고리를 선택해주세요."
+            
+            response_result = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,
+                max_tokens=100
+            )
+            
+            priority_categories_text = response_result.choices[0].message.content.strip()
+            priority_categories = [cat.strip() for cat in priority_categories_text.split(',')]
+            
+        else:
+            # API 키가 없는 경우 기본 우선순위 사용
+            priority_categories = []
+    
+    except Exception as e:
+        logger.error(f"부서별 우선순위 추출 실패: {e}")
+        priority_categories = []
+    
+    # 우선순위별로 결과 분류
+    high_priority = []
+    medium_priority = []
+    low_priority = []
+    
+    for result in search_results:
+        category = result.get('category', '')
+        is_high_priority = any(priority in category for priority in priority_categories)
+        
+        if is_high_priority:
+            high_priority.append(result)
+        elif category:
+            medium_priority.append(result)
+        else:
+            low_priority.append(result)
+    
+    # 우선순위 순으로 재정렬
+    prioritized_results = high_priority + medium_priority + low_priority
+    
+    logger.info(f"부서별 우선순위 조정: {user_department} - 고우선순위: {len(high_priority)}, 중우선순위: {len(medium_priority)}, 저우선순위: {len(low_priority)}")
+    
+    return prioritized_results
+
+def analyze_question_level(query: str, openai_api_key: str = None) -> Dict[str, Any]:
+    """
+    질문의 수준과 예상 후속 질문을 분석
+    
+    Args:
+        query: 사용자 질문
+        openai_api_key: OpenAI API 키
+    
+    Returns:
+        {'level': '기초/중급/고급', 'follow_up_questions': ['질문1', '질문2', ...]}
+    """
+    try:
         api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
         if not api_key:
-            logger.warning("OpenAI API 키가 없어 간단한 질문 판단 불가, 복잡한 질문으로 처리")
-            return False
+            return {'level': '중급', 'follow_up_questions': []}
         
         client = openai.OpenAI(api_key=api_key)
         
-        # 간단한 질문 판단용 프롬프트
-        system_prompt = """당신은 질문의 복잡도를 판단하는 전문가입니다.
-사용자의 질문이 '간단한 인사말이나 짧은 대화'인지, '구체적인 업무 관련 질문'인지 판단해주세요.
+        system_prompt = """당신은 질문 분석 전문가입니다. 사용자의 질문을 분석하여 다음을 판단하세요:
 
-간단한 인사말/대화 예시:
-- 안녕, 안녕하세요, Hi, Hello
-- 좋은 아침, 좋은 저녁, 잘 가
-- 감사합니다, 고마워요, 땡큐
-- 네, 예, 응, 오케이
-- 짧은 감정 표현 (ㅎㅎ, ㅋㅋ, 우와 등)
-- 자기소개 + 인사말 (나는 ○○팀의 ○○야, 안녕 / 저는 ○○입니다, 안녕하세요)
-- 직책/부서 소개 + 인사말 (회계팀에서 일해요, 안녕 / 개발팀 김○○입니다)
+1. 질문 수준 분류:
+- 기초: 기본적인 개념이나 절차에 대한 질문 (예: "휴가 신청이 뭐야?", "급여는 언제 받나요?")
+- 중급: 구체적인 업무 절차나 정책에 대한 질문 (예: "휴가 신청 절차는?", "연차 사용 규정은?")
+- 고급: 복잡한 업무나 정책 해석에 대한 질문 (예: "특별휴가와 연차의 차이점은?", "급여 계산 방식은?")
 
-복잡한 업무 질문 예시:
-- 휴가 신청 방법은?
-- 급여 규정이 어떻게 되나요?
-- 회의실 예약은 어떻게 하나요?
-- 프로젝트 관련 문의
-- 구체적인 업무 절차나 정책 문의
+2. 예상 후속 질문 생성:
+질문 수준에 따라 사용자가 다음에 궁금해할 수 있는 내용을 유도형 질문으로 2-3개 생성하세요.
 
-답변은 반드시 'YES' 또는 'NO'로만 해주세요.
-- YES: 간단한 인사말/대화 (자기소개 포함)
-- NO: 복잡한 업무 질문"""
+답변 형식 (JSON):
+{
+  "level": "기초/중급/고급",
+  "follow_up_questions": ["혹시 ~에 대해 궁금하신가요?", "~에 대한 정보도 필요하실까요?", "~에 대해서도 알고 싶으시다면 말씀해 주세요."]
+}"""
 
         user_prompt = f"다음 질문을 분석해주세요: '{query}'"
         
-        response = client.chat.completions.create(
+        response_result = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0,
-            max_tokens=10
+            temperature=0.3,
+            max_tokens=200
         )
         
-        result = response.choices[0].message.content.strip().upper()
-        is_simple = result == "YES"
+        result = response_result.choices[0].message.content.strip()
         
-        logger.info(f"간단한 질문 판단 결과: {query} -> {result} ({'간단' if is_simple else '복잡'})")
-        return is_simple
+        # JSON 파싱 시도
+        import json
+        try:
+            analysis = json.loads(result)
+            return analysis
+        except json.JSONDecodeError:
+            return {'level': '중급', 'follow_up_questions': []}
         
     except Exception as e:
-        logger.error(f"간단한 질문 판단 실패: {e}")
-        # 오류 시 복잡한 질문으로 처리 (안전한 기본값)
-        return False
+        logger.error(f"질문 수준 분석 실패: {e}")
+        return {'level': '중급', 'follow_up_questions': []}
+
+def _enhance_answer_with_follow_ups(original_answer: str, follow_up_questions: List[str], 
+                                   search_results: List[Dict], user_info: Dict[str, str], 
+                                   openai_api_key: str = None) -> str:
+    """
+    기초 질문에 대해 예상 후속 질문들을 미리 답변하여 답변을 보강
+    
+    Args:
+        original_answer: 원본 답변
+        follow_up_questions: 예상 후속 질문 리스트
+        search_results: 검색 결과
+        user_info: 사용자 정보
+        openai_api_key: OpenAI API 키
+    
+    Returns:
+        보강된 답변
+    """
+    try:
+        api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+        if not api_key or not follow_up_questions:
+            return original_answer
+        
+        client = openai.OpenAI(api_key=api_key)
+        
+        # 검색 결과에서 관련 컨텍스트 추출
+        context_text = ""
+        for i, result in enumerate(search_results[:3], 1):
+            text = result.get('text', '')
+            if len(text) > 300:
+                text = text[:300] + "..."
+            context_text += f"[{i}] {text}\n\n"
+        
+        # 사용자 정보 반영
+        user_context = ""
+        if user_info.get('department'):
+            user_context += f"사용자 부서: {user_info['department']}\n"
+        if user_info.get('position'):
+            user_context += f"사용자 직급: {user_info['position']}\n"
+        
+        system_prompt = f"""당신은 한국인터넷진흥원(KISA)의 업무 가이드 전문가입니다.
+사용자가 기초적인 질문을 했을 때, 관련된 추가 정보를 자연스럽게 제공하고 유도형 질문으로 더 도움이 되는 응답을 제공하세요.
+
+사용자 정보:
+{user_context}
+
+참고 컨텍스트:
+{context_text}
+
+답변 형식:
+1. 질문에 대한 답변을 자연스럽게 제공
+2. 관련된 추가 정보나 팁을 자연스럽게 포함
+3. 유도형 질문으로 사용자의 관심을 끌어 추가 질문을 유도
+4. 전체적으로 자연스럽고 유용한 정보 제공
+
+한국어로 작성하고, 사용자 부서와 직급을 고려하여 적절한 어조로 답변하세요.
+"원본 답변", "추가로 궁금할 수 있는 내용" 같은 키워드는 사용하지 말고 자연스럽게 작성하세요."""
+
+        user_prompt = f"""현재 답변: {original_answer}
+
+사용자가 추가로 궁금해할 수 있는 내용들:
+{chr(10).join([f"- {q}" for q in follow_up_questions])}
+
+위 내용들을 자연스럽게 포함하여 더 도움이 되는 답변으로 보강해주세요.
+유도형 질문을 사용하여 사용자가 추가로 질문할 수 있도록 유도하세요."""
+
+        response_result = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.5,
+            max_tokens=800
+        )
+        
+        enhanced_answer = response_result.choices[0].message.content.strip()
+        return enhanced_answer
+        
+    except Exception as e:
+        logger.error(f"후속 질문 답변 보강 실패: {e}")
+        return original_answer
+
+def get_user_context(conversation_history: List[Dict]) -> Dict[str, str]:
+    """
+    대화 히스토리에서 사용자 정보 추출
+    
+    Args:
+        conversation_history: 대화 히스토리
+    
+    Returns:
+        사용자 정보 딕셔너리
+    """
+    if not conversation_history:
+        return {}
+    
+    for msg in conversation_history:
+        if isinstance(msg, dict) and msg.get("role") == "system":
+            content = msg.get("content", "")
+            if "user_context:" in content:
+                try:
+                    import json
+                    context_str = content.split("user_context:")[1].strip()
+                    return json.loads(context_str)
+                except:
+                    return {}
+    
+    return {}
 
 def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = None, conversation_history: List[Dict] = None) -> Dict[str, Any]:
     """
@@ -148,8 +483,25 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
         logger.info(f"RAG 파이프라인 시작 - 질문: {query}")
         print(f"DEBUG: RAG 파이프라인 시작 - 질문: {query}")
         
-        # 🚀 간단한 질문 감지 (간단한 인사말은 대화 히스토리와 관계없이 빠른 처리)
-        is_simple_query = is_simple_greeting(query, openai_api_key)
+        # 👤 사용자 입력 종합 분석 (한 번의 LLM 호출로 모든 정보 추출)
+        input_analysis = analyze_user_input(query, openai_api_key)
+        logger.info(f"👤 사용자 입력 분석: {input_analysis}")
+        print(f"DEBUG: 👤 사용자 입력 분석: {input_analysis}")
+        
+        # 사용자 정보가 있으면 대화 컨텍스트에 저장
+        user_info = input_analysis.get('user_info')
+        if user_info and any(user_info.values()):
+            conversation_history = update_user_context(conversation_history, user_info)
+        
+        # 기존 사용자 정보 가져오기
+        existing_user_info = get_user_context(conversation_history)
+        logger.info(f"👤 기존 사용자 정보: {existing_user_info}")
+        print(f"DEBUG: 👤 기존 사용자 정보: {existing_user_info}")
+        
+        # 부서 소개는 자동으로 하지 않고, 질문이 있을 때만 답변
+        
+        # 🚀 간단한 질문 감지 (이미 분석된 결과 사용)
+        is_simple_query = input_analysis.get('is_simple_greeting', True)
         
         if conversation_history and len(conversation_history) > 0:
             logger.info(f"💬 대화 히스토리 감지 ({len(conversation_history)}개 메시지), 멀티턴 대화로 처리")
@@ -306,6 +658,13 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
                     top_k=10
                 )
             
+            # 사용자 부서에 맞게 검색 결과 우선순위 조정
+            user_department = existing_user_info.get('department', '')
+            if user_department:
+                search_results = prioritize_results_by_department(search_results, user_department, openai_api_key)
+                logger.info(f"부서별 우선순위 조정 적용: {user_department}")
+                print(f"DEBUG: 부서별 우선순위 조정 적용: {user_department}")
+            
             logger.info(f"검색 완료 (소요시간: {time.time() - search_start:.2f}초, 결과 수: {len(search_results)})")
             print(f"DEBUG: 검색 결과 수: {len(search_results)}")
             
@@ -348,7 +707,8 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
                         query=query,
                         contexts=search_results[:5],  # 전체 결과 객체 전달
                         api_key=None,  # 환경변수에서 자동으로 가져옴
-                        conversation_history=conversation_history # 대화 히스토리 전달
+                        conversation_history=conversation_history, # 대화 히스토리 전달
+                        user_info=existing_user_info  # 사용자 정보 전달
                     )
                 
                 # 답변 품질 검증
@@ -356,6 +716,30 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
                     logger.warning("답변 품질이 낮습니다. 기본 메시지로 대체합니다.")
                     print("WARNING: 답변 품질이 낮습니다. 기본 메시지로 대체합니다.")
                     answer = "죄송합니다. 질문에 대한 적절한 답변을 생성하지 못했습니다. 다른 방식으로 질문해 주시거나, 관련 도메인을 명시해 주세요."
+                
+                # 질문 수준 분석 및 예상 후속 질문 미리 답변
+                try:
+                    question_analysis = analyze_question_level(query, openai_api_key)
+                    question_level = question_analysis.get('level', '중급')
+                    follow_up_questions = question_analysis.get('follow_up_questions', [])
+                    
+                    logger.info(f"질문 수준 분석: {question_level}, 예상 후속 질문: {len(follow_up_questions)}개")
+                    print(f"DEBUG: 질문 수준 분석: {question_level}, 예상 후속 질문: {len(follow_up_questions)}개")
+                    
+                    # 기초 수준 질문의 경우 예상 후속 질문들을 미리 답변
+                    if question_level == '기초' and follow_up_questions:
+                        enhanced_answer = _enhance_answer_with_follow_ups(
+                            answer, follow_up_questions, search_results[:3], 
+                            existing_user_info, openai_api_key
+                        )
+                        if enhanced_answer:
+                            answer = enhanced_answer
+                            logger.info("기초 질문에 대한 예상 후속 질문 답변 추가")
+                            print("DEBUG: 기초 질문에 대한 예상 후속 질문 답변 추가")
+                    
+                except Exception as e:
+                    logger.error(f"질문 수준 분석 실패: {e}")
+                    print(f"WARNING: 질문 수준 분석 실패: {e}")
                 
                 # 참고 문서 정보 생성 (새로운 메타데이터 활용)
                 if search_strategy['type'] == 'form_specific':
