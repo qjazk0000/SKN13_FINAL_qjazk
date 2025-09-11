@@ -37,15 +37,20 @@ def auto_scan(image_path: str) -> str:
     if image is None:
         raise FileNotFoundError(image_path)
 
-    ratio = image.shape[0] / 500.0
     orig = image.copy()
-    image = cv2.resize(image, (int(image.shape[1] * 500 / image.shape[0]), 500))
+    # ↓ 리사이즈 제거
+    # ratio = image.shape[0] / 500.0
+    # image = cv2.resize(image, (int(image.shape[1] * 500 / image.shape[0]), 500))
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # ↓ contour 검출은 원본 크기에서 하면 느릴 수 있으니, 임시로만 축소본 사용
+    preview_height = 500
+    ratio = image.shape[0] / preview_height
+    preview = cv2.resize(image, (int(image.shape[1] * preview_height / image.shape[0]), preview_height))
+
+    gray = cv2.cvtColor(preview, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
     edged = cv2.Canny(gray, 25, 200)
 
-    # 외곽선 검출
     cnts, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
 
@@ -57,7 +62,9 @@ def auto_scan(image_path: str) -> str:
             screenCnt = approx
             break
 
+    found_contour = screenCnt is not None
     if screenCnt is not None:
+        # contour 좌표를 원본 크기로 복원
         rect = np.zeros((4, 2), dtype="float32")
         pts = screenCnt.reshape(4, 2) * ratio
         s = pts.sum(axis=1)
@@ -88,7 +95,7 @@ def auto_scan(image_path: str) -> str:
 
     out_path = _safe_out_path(image_path, suffix="_scan")
     cv2.imwrite(out_path, warped)
-    return out_path
+    return out_path, found_contour
 
 
 # --------------------------
@@ -100,10 +107,10 @@ def _edge_density(gray: np.ndarray) -> float:
 
 def classify_receipt(gray: np.ndarray) -> tuple[str, float]:
     """
-    edge_density >= 10 → scan, 아니면 photo
+    edge_density >= 13 → scan, 아니면 photo
     """
     ed = _edge_density(gray)
-    if ed >= 10:
+    if ed >= 13:
         return "scan", ed
     return "photo", ed
 
@@ -113,14 +120,14 @@ def classify_receipt(gray: np.ndarray) -> tuple[str, float]:
 # --------------------------
 def _preprocess_photo(
     gray,
-    alpha: float = 1.65,
-    beta: int = 8,
-    blockSize: int = 31,
-    C: int = 7,
+    alpha: float = 1.45,
+    beta: int = 2,
+    blockSize: int = 21,
+    C: int = 8,
     do_median: bool = True,
     ksize_median: int = 3,
     do_close: bool = True,
-    close_kernel: tuple = (2, 2),
+    close_kernel: tuple = (2, 1),
 ):
     # 1) 대비/밝기
     adj = cv2.convertScaleAbs(gray, alpha=alpha, beta=beta)
@@ -150,12 +157,11 @@ def _preprocess_photo(
 # --------------------------
 def preprocess_receipt(image_path: str) -> tuple[str, str, float, str]:
     """
-    1) Auto scan
-    2) gray 변환
-    3) classify (photo/scan)
-    4) photo → _preprocess_photo
+    1) classify (photo/scan)
+    2) photo → _preprocess_photo
+    3) scan -> 그대로
     """
-    scan_path = auto_scan(image_path)
+    scan_path, found_contour = auto_scan(image_path)
     bgr = cv2.imread(scan_path)
     if bgr is None:
         raise FileNotFoundError(scan_path)
@@ -164,10 +170,13 @@ def preprocess_receipt(image_path: str) -> tuple[str, str, float, str]:
     mode, ed = classify_receipt(gray)
 
     if mode == "photo":
-        out = _preprocess_photo(gray)
-        out_path = _safe_out_path(scan_path, suffix=f"_proc_{mode}")
-        cv2.imwrite(out_path, out)
-        return out_path, mode, ed, scan_path
+        if found_contour:  # contour 성공했으면 전처리 진행
+            out = _preprocess_photo(gray)
+            out_path = _safe_out_path(scan_path, suffix=f"_proc_{mode}")
+            cv2.imwrite(out_path, out)
+            return out_path, mode, ed, scan_path
+        else:  # contour 실패 → 원본 그대로 사용
+            return image_path, mode, ed, image_path
     else:
         return image_path, mode, ed, image_path
 
