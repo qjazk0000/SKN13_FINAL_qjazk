@@ -381,3 +381,8 @@ LOGGING = {
         },
     },
 }
+
+# HTTPS 설정
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # Nginx에서 처리하므로 False
+USE_TLS = True
