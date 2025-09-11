@@ -1,18 +1,23 @@
 import axios from "axios";
 
-const baseURL =
-  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") ||
-  "https://43.200.226.184:8000";
 // 환경별 API URL 설정
-//const baseURL = process.env.NODE_ENV === 'production' 
-//  ? '' // Vercel에서 같은 도메인 사용 (Serverless Function)
-//  : 'http://localhost:8000'; // 로컬 개발용
+const baseURL = process.env.NODE_ENV === 'production' 
+  ? '' // Vercel에서 같은 도메인 사용 (Serverless Function)
+  : 'http://localhost:8000'; // 로컬 개발용
+
+// Vercel 배포 환경에서는 항상 Serverless Function 사용
+const isVercelDeployment = window.location.hostname.includes('vercel.app');
+const finalBaseURL = isVercelDeployment ? '' : baseURL;
+
 // 디버깅용 로그
 console.log("Environment:", process.env.NODE_ENV);
 console.log("Base URL:", baseURL);
+console.log("Is Vercel Deployment:", isVercelDeployment);
+console.log("Final Base URL:", finalBaseURL);
+console.log("Final API URL:", finalBaseURL ? `${finalBaseURL}/api` : '/api');
 
 const api = axios.create({
-  baseURL: baseURL ? `${baseURL}/api` : '/api', // Vercel에서는 상대 경로 사용
+  baseURL: finalBaseURL ? `${finalBaseURL}/api` : '/api', // Vercel에서는 상대 경로 사용
   withCredentials: true,
   timeout: 120000,
 });
@@ -20,6 +25,10 @@ const api = axios.create({
 // 요청 인터셉터
 api.interceptors.request.use(
   (config) => {
+    // 디버깅용 로그
+    console.log("API 요청:", config.method?.toUpperCase(), config.url);
+    console.log("Full URL:", config.baseURL + config.url);
+    
     // JWT 토큰이 있으면 헤더에 추가
     const token = localStorage.getItem("access_token");
 
