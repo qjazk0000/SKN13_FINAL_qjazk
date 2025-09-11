@@ -23,7 +23,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS','localhost,127.0.0.1,43.200.226.184,ec2-43-200-226-184.ap-northeast-2.compute.amazonaws.com').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -301,12 +301,14 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:3000',  # React 개발 서버 (IP)
     'http://localhost:8000',  # Django 개발 서버
     'http://127.0.0.1:8000',  # Django 개발 서버 (IP)
+    'https://*.vercel.app',   # Vercel 배포 도메인
+    'https://skn13-final-6team.vercel.app',  # 실제 Vercel 도메인 (예시)
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
-# 개발 환경에서 CORS 설정 완화
-CORS_ALLOW_ALL_ORIGINS = True  # 개발 중에만 사용 (프로덕션에서는 제거)
+# 개발 환경에서 CORS 설정 완화 (프로덕션에서는 False로 변경)
+CORS_ALLOW_ALL_ORIGINS = True  # 임시로 True 유지, 프로덕션에서는 제거 필요
 
 # AWS S3 설정
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')

@@ -115,14 +115,6 @@ function ChatPage() {
         setChats(chatsWithMessageFlags);
         setReceipts(receiptsData);
 
-        // if (selectedCategory === "업무 가이드" && chatsData.length > 0) {
-        //   setSelectedChatId(chatsData[0].id);
-        // } else if (
-        //   selectedCategory === "영수증 처리" &&
-        //   receiptsData.length > 0
-        // ) {
-        //   setSelectedReceiptId(receiptsData[0].receipt_id);
-        // }
       } catch (error) {
         console.error("데이터 로드 실패:", error);
         // 실패해도 UI는 동작 가능하게 빈 배열 유지
@@ -142,14 +134,14 @@ function ChatPage() {
     sessionStorage.removeItem("selectedChatId");
     sessionStorage.removeItem("selectedReceiptId");
 
-    // 이미 새 채팅이 있으면 그걸 선택
-    const existingNewChat = chats.find((c) => c.isNew);
-    if (existingNewChat) {
-      setSelectedChatId(existingNewChat.id);
-      setSelectedCategory("업무 가이드");
-      setLockedChatId(existingNewChat.id);
-      return;
-    }
+    // // 이미 새 채팅이 있으면 그걸 선택
+    // const existingNewChat = chats.find((c) => c.isNew);
+    // if (existingNewChat) {
+    //   setSelectedChatId(existingNewChat.id);
+    //   setSelectedCategory("업무 가이드");
+    //   setLockedChatId(existingNewChat.id);
+    //   return;
+    // }
 
     // 프론트에서 임의 id로 새 채팅 생성
     const newChat = {
@@ -163,6 +155,7 @@ function ChatPage() {
     setSelectedChatId(newChat.id);
     setSelectedCategory("업무 가이드");
     setLockedChatId(newChat.id);
+    sessionStorage.setItem("selectedChatId", newChat.id);
   }, [chats]);
 
   // 새 영수증 생성 핸들러
@@ -190,6 +183,7 @@ function ChatPage() {
     setSelectedReceiptId(newReceipt.id);
     setSelectedCategory("영수증 처리");
     setReceiptDetails(null);
+    sessionStorage.setItem("selectedReceiptId", newReceipt.id);
   }, [receipts]);
 
   const handleReceiptSaveSuccess = useCallback(async () => {
@@ -346,6 +340,7 @@ function ChatPage() {
           );
           setSelectedChatId(newChatFromDB.id);
           setLockedChatId(newChatFromDB.id);
+          sessionStorage.setItem("selectedChatId", newChatFromDB.id);
 
           chatIdToUse = newChatFromDB.id;
         }
@@ -466,6 +461,7 @@ function ChatPage() {
         );
       } finally {
         setIsLoading(false);
+        setLockedChatId(null);
       }
     },
     [selectedChat, isLoading, lockedChatId]
@@ -510,6 +506,7 @@ function ChatPage() {
       setSelectedReceiptId(null);
       sessionStorage.removeItem("selectedReceiptId");
       sessionStorage.removeItem("selectedChatId");
+      setLockedChatId(null);
     }
   }, []);
 

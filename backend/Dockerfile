@@ -12,9 +12,14 @@ RUN apt-get update && apt-get install -y \
     
 WORKDIR /app
 
+# 시스템 패키지 업데이트 및 정리
+RUN apt-get update && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# pip 캐시 정리 및 최적화
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip cache purge
 
 COPY . /app
 
