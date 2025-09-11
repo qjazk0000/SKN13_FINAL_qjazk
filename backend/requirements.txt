@@ -1,4 +1,4 @@
-# Django & REST Framework (필수)
+# Django & REST Framework (필수)  
 Django>=4.2,<5.0
 djangorestframework
 djangorestframework-simplejwt
