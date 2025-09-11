@@ -23,7 +23,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS','localhost,127.0.0.1,43.200.226.184,ec2-43-200-226-184.ap-northeast-2.compute.amazonaws.com').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS',['localhost', '127.0.0.1', '43.200.226.184', 'ec2-43-200-226-184.ap-northeast-2.compute.amazonaws.com']).split(',')
 
 # Application definition
 INSTALLED_APPS = [
