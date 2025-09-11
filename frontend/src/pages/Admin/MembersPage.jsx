@@ -223,7 +223,14 @@ function MembersPage() {
   // 채팅 화면으로 이동 핸들러
   const handleChatPageClick = () => {
     navigate("/chat");
+  };
 
+  const handleClearSearch = () => {
+    setSearchTerm("");
+    setSearchType("name");
+    setCurrentPage(1);
+    // 검색 조건 초기화 시 데이터도 전체 목록으로 갱신
+    fetchMembers(1);
   };
 
   return (
@@ -251,6 +258,7 @@ function MembersPage() {
           searchType={searchType}
           setSearchType={setSearchType}
           searchOptions={searchOptions}
+          onClearSearch={handleClearSearch}
         />
         <div className="mb-4 flex justify-end">
           <button

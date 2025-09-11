@@ -26,6 +26,10 @@ function ManageReceipts() {
   const [receipts, setReceipts] = useState([]);
 
   // 날짜 필터 상태
+  // UI 선택값 
+  const [selectedStartDate, setSelectedStartDate] = useState("");
+  const [selectedEndDate, setSelectedEndDate] = useState("");
+  // 실제 검색에 적용될 값 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -115,7 +119,10 @@ function ManageReceipts() {
 
   // 영수증 목록 조회
   const fetchReceipts = useCallback(
-    async (page = 1, showLoading = true) => {
+    async (page = 1, showLoading = true, filters = {}) => {
+        const s = filters.startDate ?? startDate;
+        const e = filters.endDate ?? endDate;
+
       try {
         // 토큰 체크
         const token = localStorage.getItem("access_token");
@@ -133,12 +140,8 @@ function ManageReceipts() {
         params.append("page", page.toString());
         params.append("page_size", "7");
 
-        if (startDate) {
-          params.append("start_date", startDate);
-        }
-        if (endDate) {
-          params.append("end_date", endDate);
-        }
+        if (s) {params.append("start_date", s);}
+        if (e) {params.append("end_date", e);}
 
         // 검색 필터 적용
         if (searchTerm.trim()) {
@@ -369,9 +372,10 @@ function ManageReceipts() {
 
   // 검색 처리 함수
   const handleSearch = () => {
-    console.log(`검색 유형: ${searchType}, 검색어: ${searchTerm}`);
+    setStartDate(selectedStartDate);
+    setEndDate(selectedEndDate);  
     setCurrentPage(1);
-    fetchReceipts(1);
+    fetchReceipts(1, true, {startDate:selectedStartDate, endDate:selectedEndDate});
   };
 
   // 검색 조건 초기화
@@ -380,8 +384,11 @@ function ManageReceipts() {
     setSearchType("name");
     setStartDate("");
     setEndDate("");
+    setSelectedStartDate("");
+    setSelectedEndDate("");
     setCurrentPage(1);
-    // fetchReceipts(1);
+    // 검색 조건 초기화 시 데이터도 전체 영수증 목록으로 갱신
+    fetchReceipts(1, true, { startDate: "", endDate: "" }); 
   };
 
   // 페이지 변경 처리 함수
@@ -398,19 +405,23 @@ function ManageReceipts() {
       return;
     }
 
-    setStartDate(start);
-    setEndDate(end);
+    // UI에서 날짜 변경 시 SelectedStartDate, SelectedEndDate 변경
+    // 기존: startDate 변경 -> 수정: selectedStartDate 변경
+    setSelectedStartDate(start);
+    setSelectedEndDate(end);
+    // setStartDate(start);
+    // setEndDate(end);
     setCurrentPage(1);
     // fetchReceipts(1);
   };
 
-  // 날짜 필터만 초기화
-  const handleClearDateFilter = () => {
-    setStartDate("");
-    setEndDate("");
-    setCurrentPage(1);
-    // fetchReceipts(1);
-  };
+  // // 날짜 필터만 초기화
+  // const handleClearDateFilter = () => {
+  //   setStartDate("");
+  //   setEndDate("");
+  //   setCurrentPage(1);
+  //   // fetchReceipts(1);
+  // };
 
   // 사용자명 클릭 핸들러
   const handleUserNameClick = () => {
@@ -498,21 +509,37 @@ function ManageReceipts() {
       // 필터 정보로 파일명 생성
       let filename = "영수증목록";
       const parts = [];
-      if (startDate || endDate) {
-        const startStr = startDate
-          ? new Date(startDate)
-              .toLocaleDateString("ko-KR")
-              .replace(/\./g, "")
-              .replace(/ /g, "")
-          : "";
-        const endStr = endDate
-          ? new Date(endDate)
-              .toLocaleDateString("ko-KR")
-              .replace(/\./g, "")
-              .replace(/ /g, "")
-          : "";
-        if (startStr || endStr) parts.push(`${startStr}~${endStr}`);
-      }
+
+      const formatDate = (dateStr) => {
+        if (!dateStr) return "";
+        const d = new Date(dateStr);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0"); // 월은 0부터 시작하므로 +1
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}${m}${day}`;
+      };
+
+      const startStr = formatDate(startDate); 
+      const endStr = formatDate(endDate);  
+
+      if (startStr || endStr) parts.push(`${startStr}~${endStr}`);
+
+
+      // if (startDate || endDate) {
+      //   const startStr = startDate
+      //     ? new Date(startDate)
+      //         .toLocaleDateString("ko-KR")
+      //         .replace(/\./g, "")
+      //         .replace(/ /g, "")
+      //     : "";
+      //   const endStr = endDate
+      //     ? new Date(endDate)
+      //         .toLocaleDateString("ko-KR")
+      //         .replace(/\./g, "")
+      //         .replace(/ /g, "")
+      //     : "";
+      //   if (startStr || endStr) parts.push(`${startStr}~${endStr}`);
+      // }
       if (searchType === "dept" && searchTerm.trim()) {
         parts.push(`${searchTerm.trim()}팀`);
       }
@@ -561,9 +588,9 @@ function ManageReceipts() {
         <div className="mb-2">
           <DateSelectBar
             onDateChange={handleDateChange}
-            startDate={startDate}
-            endDate={endDate}
-            onClearDateFilter={handleClearDateFilter}
+            startDate={selectedStartDate}
+            endDate={selectedEndDate}
+            // onClearDateFilter={handleClearDateFilter}
           />
         </div>
 
@@ -586,30 +613,6 @@ function ManageReceipts() {
           >
             엑셀 다운로드
           </button>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          {/* 날짜 필터 정보 및 초기화 버튼 */}
-          {(startDate || endDate) && (
-            <>
-              <span className="text-sm text-gray-600">
-                기간:{" "}
-                {startDate
-                  ? new Date(startDate).toLocaleDateString("ko-KR")
-                  : "시작일"}{" "}
-                ~{" "}
-                {endDate
-                  ? new Date(endDate).toLocaleDateString("ko-KR")
-                  : "종료일"}
-              </span>
-              <button
-                onClick={handleClearDateFilter}
-                className="text-xs text-red-600 hover:text-red-800 underline"
-              >
-                날짜 필터 초기화
-              </button>
-            </>
-          )}
         </div>
 
         {/* 로딩 상태 */}
