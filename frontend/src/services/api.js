@@ -1,15 +1,16 @@
 import axios from "axios";
 
-const baseURL =
-  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://43.200.226.184:8000";
+// Vercel Serverless Function 사용 (HTTPS → HTTP 프록시)
+const baseURL = process.env.NODE_ENV === 'production' 
+  ? '' // Vercel에서 같은 도메인 사용
+  : 'http://localhost:8000'; // 로컬 개발용
 
-// 디버깅용 로그 (환경변수 확인)
-console.log("REACT_APP_API_BASE_URL:", process.env.REACT_APP_API_BASE_URL);
-console.log("Final baseURL:", baseURL);
+// 디버깅용 로그
+console.log("Environment:", process.env.NODE_ENV);
+console.log("Base URL:", baseURL);
 
 const api = axios.create({
-  baseURL: `${baseURL}/api`,
+  baseURL: baseURL ? `${baseURL}/api` : '/api', // Vercel에서는 상대 경로 사용
   withCredentials: true,
   timeout: 120000,
 });
