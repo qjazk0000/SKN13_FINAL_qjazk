@@ -1,10 +1,12 @@
 import axios from "axios";
 
-// Vercel Serverless Function 사용 (HTTPS → HTTP 프록시)
-const baseURL = process.env.NODE_ENV === 'production' 
-  ? '' // Vercel에서 같은 도메인 사용
-  : 'http://localhost:8000'; // 로컬 개발용
-
+const baseURL =
+  process.env.REACT_APP_API_BASE_URL?.replace(/\/$/, "") ||
+  "https://43.200.226.184:8000";
+// 환경별 API URL 설정
+//const baseURL = process.env.NODE_ENV === 'production' 
+//  ? '' // Vercel에서 같은 도메인 사용 (Serverless Function)
+//  : 'http://localhost:8000'; // 로컬 개발용
 // 디버깅용 로그
 console.log("Environment:", process.env.NODE_ENV);
 console.log("Base URL:", baseURL);
