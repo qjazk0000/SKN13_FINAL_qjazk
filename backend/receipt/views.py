@@ -117,6 +117,9 @@ class ReceiptUploadView(APIView):
                             out_img.write(img_file.read())
                         # OCR 처리
                         extracted_data = extract_receipt_info(tmp_img_path)
+                        processed_path = extracted_data.get("_processed_path", tmp_img_path)
+                        scan_path = extracted_data.get("_scan_path", tmp_img_path)
+
                         store_name = extracted_data.get('storeName', '')
                         payment_date = normalize_date(extracted_data.get('transactionDate', ""))
                         amount = extracted_data.get('transactionAmount', 0)
@@ -143,8 +146,8 @@ class ReceiptUploadView(APIView):
                         }
 
                         # S3에 임시 파일 업로드
-                        with open(tmp_img_path, 'rb') as tmp_file:
-                            s3_upload_result = s3_receipt_service.upload_receipt_file(tmp_file, request.user_id)
+                        with open(scan_path, 'rb') as scan_file:
+                            s3_upload_result = s3_receipt_service.upload_receipt_file(scan_file, request.user_id)
                         
                         if not s3_upload_result['success']:
                             logger.error(f"S3 업로드 실패: {s3_upload_result['error']}")
@@ -219,6 +222,10 @@ class ReceiptUploadView(APIView):
 
                 # OCR 처리
                 extracted_data = extract_receipt_info(tmp_path)
+                
+                # 'utils.py'에서 반환된 _scan_path를 사용하여 S3에 업로드
+                scan_path = extracted_data.get("_scan_path", tmp_path) 
+                
                 store_name = extracted_data.get('storeName', '')
                 payment_date = normalize_date(extracted_data.get('transactionDate', ""))
                 amount = extracted_data.get('transactionAmount', 0)
@@ -244,9 +251,9 @@ class ReceiptUploadView(APIView):
                     "품목": converted_items
                 }
 
-                # S3에 임시 파일 업로드
-                with open(tmp_path, 'rb') as tmp_file:
-                    s3_upload_result = s3_receipt_service.upload_receipt_file(tmp_file, request.user_id)
+                # S3에 스캔된 파일 업로드 
+                with open(scan_path, 'rb') as scan_file:
+                    s3_upload_result = s3_receipt_service.upload_receipt_file(scan_file, request.user_id)
                 
                 if not s3_upload_result['success']:
                     logger.error(f"S3 업로드 실패: {s3_upload_result['error']}")
@@ -294,6 +301,8 @@ class ReceiptUploadView(APIView):
                 # 임시 파일 삭제
                 try:
                     os.unlink(tmp_path)
+                    if scan_path != tmp_path:
+                        os.unlink(scan_path)
                 except Exception as e:
                     logger.warning(f"임시 파일 삭제 실패: {e}")
 
@@ -511,29 +520,36 @@ def normalize_date(date_str):
     if not date_str or not isinstance(date_str, str):
         return None
 
-    date_str = date_str.strip()
-
-    # 1) 괄호 안의 요일(한글/영문) 제거: (월), (Tue), (수)
-    date_str = re.sub(r'\([^)]*\)', '', date_str).strip()
-
-    # 시도할 포맷들
-    formats = [
-        "%Y-%m-%d %H:%M:%S",  # 2024-02-13 08:23:13
-        "%Y-%m-%d %H:%M",     # 2024-02-13 08:23
-        "%Y-%m-%d",           # 2024-02-13
-        "%Y/%m/%d",           # 2024/01/24
-        "%Y.%m.%d",           # 2024.01.24
-        "%Y%m%d",             # 20240213
-        "%Y-%m%d",            # 2024-0213
-        "%Y%m-%d",            # 202402-13
+    # 먼저 일반적인 날짜 패턴을 찾기
+    # YY-MM-DD 또는 YYYY-MM-DD 형식 먼저 찾기
+    date_patterns = [
+        r'(\d{4})-(\d{2})-(\d{2})',  # YYYY-MM-DD
+        r'(\d{2})-(\d{2})-(\d{2})',  # YY-MM-DD
+        r'(\d{4})\.(\d{2})\.(\d{2})',  # YYYY.MM.DD
+        r'(\d{2})\.(\d{2})\.(\d{2})',  # YY.MM.DD
+        r'(\d{4})/(\d{2})/(\d{2})',   # YYYY/MM/DD
+        r'(\d{2})/(\d{2})/(\d{2})',   # YY/MM/DD
+        r'(\d{4})(\d{2})(\d{2})',     # YYYYMMDD
+        r'(\d{2})(\d{2})(\d{2})',     # YYMMDD
     ]
-
-    for fmt in formats:
-        try:
-            dt = datetime.strptime(date_str, fmt)
-            return dt.strftime("%Y-%m-%d")  # 최종 출력: YYYY-MM-DD
-        except ValueError:
-            continue
-
-    # 어떤 포맷에도 맞지 않으면 None 반환
+    
+    for pattern in date_patterns:
+        match = re.search(pattern, date_str)
+        if match:
+            groups = match.groups()
+            if len(groups[0]) == 4:  # YYYY 형식
+                year = int(groups[0])
+                month = int(groups[1])
+                day = int(groups[2])
+            else:  # YY 형식
+                year = int('20' + groups[0])  # 20XX로 변환
+                month = int(groups[1])
+                day = int(groups[2])
+            
+            try:
+                dt = datetime(year, month, day)
+                return dt.strftime("%Y-%m-%d")
+            except ValueError:
+                continue
+    
     return None
