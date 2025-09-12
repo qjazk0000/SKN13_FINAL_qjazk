@@ -23,7 +23,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,43.200.226.184,ec2-43-200-226-184.ap-northeast-2.compute.amazonaws.com').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,43.200.226.184,ec2-43-200-226-184.ap-northeast-2.compute.amazonaws.com,growing.ai.kr,www.growing.ai.kr').split(',')
 # 빈 문자열 제거 및 공백 제거
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
 
@@ -82,10 +82,6 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Databasee
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME'),
@@ -94,7 +90,7 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST'),
         'PORT': os.getenv('DB_PORT', 5432),
         'OPTIONS': {
-            'sslmode': os.getenv('disable'),  # 기본값은 disable
+            'sslmode': os.getenv('DB_SSLMODE', 'disable'),  # 필요 시 'require'
         }
     }
 }
@@ -266,51 +262,25 @@ REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 REDIS_DB = int(os.getenv('REDIS_DB', 0))
 
-# Celery 설정 (임시로 주석 처리)
-# CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
-# CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}')
-
-# Celery 추가 설정 (임시로 주석 처리)
-# CELERY_ACCEPT_CONTENT = ['json']
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_RESULT_SERIALIZER = 'json'
-# CELERY_TIMEZONE = 'Asia/Seoul'
-# CELERY_ENABLE_UTC = False
-
-# Celery Beat 설정 (정기 작업 스케줄링) (임시로 주석 처리)
-# CELERY_BEAT_SCHEDULE = {
-#     # 예시: 매일 자정에 실행되는 작업
-#     # 'daily-cleanup': {
-#     #     'task': 'receipt.tasks.cleanup_old_jobs',
-#     #     'schedule': crontab(hour=0, minute=0),
-#     # },
-# }
-
-# Celery Worker 설정 (임시로 주석 처리)
-# CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-# CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
-# CELERY_TASK_ACKS_LATE = True
-# CELERY_WORKER_DISABLE_RATE_LIMITS = False
-
-# Celery 모니터링 설정 (임시로 주석 처리)
-# CELERY_WORKER_SEND_TASK_EVENTS = True
-# CELERY_TASK_SEND_SENT_EVENT = True
-
-# corsheaders는 이미 INSTALLED_APPS와 MIDDLEWARE에 포함되어 있음
-CORS_ALLOWED_ORIGINS = [
-    os.getenv('FRONTEND_ORIGIN', 'http://localhost'),
-    'http://localhost:3000',  # React 개발 서버
-    'http://127.0.0.1:3000',  # React 개발 서버 (IP)
-    'http://localhost:8000',  # Django 개발 서버
-    'http://127.0.0.1:8000',  # Django 개발 서버 (IP)
-    'https://*.vercel.app',   # Vercel 배포 도메인
-    'https://skn13-final-6team.vercel.app',  # 실제 Vercel 도메인 (예시)
+# CSRF: https 스킴 포함 도메인
+CSRF_TRUSTED_ORIGINS = [
+    'https://growing.ai.kr',
+    'https://www.growing.ai.kr',
+    'https://skn13-final-6team.vercel.app',
 ]
-
+# CORS (운영 권장)
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    'https://growing.ai.kr',
+    'https://www.growing.ai.kr',
+    'https://skn13-final-6team.vercel.app',
+    'http://localhost',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
 CORS_ALLOW_CREDENTIALS = True
-
-# 개발 환경에서 CORS 설정 완화 (프로덕션에서는 False로 변경)
-CORS_ALLOW_ALL_ORIGINS = True  # 임시로 True 유지, 프로덕션에서는 제거 필요
 
 # AWS S3 설정
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
@@ -382,7 +352,13 @@ LOGGING = {
     },
 }
 
-# HTTPS 설정
+# 추가
+USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = False  # Nginx에서 처리하므로 False
-USE_TLS = True
+
+# 리다이렉트는 ALB에서 처리
+SECURE_SSL_REDIRECT = False
+
+# 운영 시 권장(HTTPS 쿠키)
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
