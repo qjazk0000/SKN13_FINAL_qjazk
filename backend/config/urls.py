@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -11,8 +12,24 @@ from rest_framework_simplejwt.views import (
 )
 from authapp.views import PasswordChangeView
 
+def api_info(request):
+    """API 정보를 반환하는 뷰"""
+    return JsonResponse({
+        'message': 'KISA Chatbot API Server',
+        'version': '1.0.0',
+        'endpoints': {
+            'auth': '/api/auth/',
+            'chat': '/api/chat/',
+            'receipt': '/api/receipt/',
+            'admin': '/api/admin/',
+            'qdrant': '/api/qdrant/',
+        },
+        'status': 'running'
+    })
+
 # API 엔드포인트 정의
 urlpatterns = [
+    path('', api_info, name='api_info'),  # 루트 경로
     path('admin/', admin.site.urls),
     path('api/chat/', include('chatbot.urls')),
     path('api/qdrant/', include('qdrant.urls')),
