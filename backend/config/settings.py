@@ -18,12 +18,16 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
 # 운영 기본값은 안전하게 False
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-# ALLOWED_HOSTS 파싱 및 정리
-ALLOWED_HOSTS = os.getenv(
-    'ALLOWED_HOSTS',
-    'localhost,127.0.0.1,43.200.226.184,ec2-43-200-226-184.ap-northeast-2.compute.amazonaws.com,growing.ai.kr,api.growing.ai.kr,www.growing.ai.kr'
-).split(',')
-ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
+# --- ALLOWED_HOSTS 보강 ---
+env_allowed = os.getenv('ALLOWED_HOSTS', '')
+if env_allowed:
+    ALLOWED_HOSTS = [h.strip() for h in env_allowed.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = []
+# 필수 도메인 보강
+for host in ['api.growing.ai.kr', 'growing.ai.kr', 'www.growing.ai.kr']:
+    if host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
 
 # Application definition
 INSTALLED_APPS = [
@@ -35,7 +39,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    'corsheaders',
     'storages',  # S3 파일 스토리지
     'chatbot',
     'receipt',
@@ -47,18 +50,32 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    # CORS는 가능한 위쪽(권장)
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# --- CORS (prod에서는 비활성, dev에서만 활성) ---
+# 개발일 때만 corsheaders 사용
+if DEBUG:
+    if 'corsheaders' not in INSTALLED_APPS:
+        INSTALLED_APPS += ['corsheaders']
+    if 'corsheaders.middleware.CorsMiddleware' not in MIDDLEWARE:
+        MIDDLEWARE = ['corsheaders.middleware.CorsMiddleware'] + MIDDLEWARE
+
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOW_HEADERS = ['authorization', 'content-type', 'x-requested-with', 'accept', 'origin']
+    CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+else:
+    # 운영에서는 Django가 CORS 헤더를 내보내지 않게 함
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = []
+    CORS_ALLOW_CREDENTIALS = False
 
 ROOT_URLCONF = 'config.urls'
 
@@ -192,35 +209,13 @@ REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
 REDIS_DB = int(os.getenv('REDIS_DB', 0))
 
-# CSRF/CORS (운영 권장: 정확한 오리진만 허용)
+# --- CSRF_TRUSTED_ORIGINS 보강 (https 스킴 누락 방지) ---
 CSRF_TRUSTED_ORIGINS = [
     'https://growing.ai.kr',
     'https://www.growing.ai.kr',
     'https://api.growing.ai.kr',
     'https://skn13-final-6team.vercel.app',
 ]
-
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    'https://growing.ai.kr',
-    'https://www.growing.ai.kr',
-    'https://skn13-final-6team.vercel.app',
-    'http://localhost',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-]
-# JWT 헤더 인증만 쓴다면 False도 가능(세션/쿠키면 True 유지 + 프론트 withCredentials 필수)
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_HEADERS = [
-    'authorization',
-    'content-type',
-    'x-requested-with',
-    'accept',
-    'origin',
-]
-CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 
 # 로깅 (중복 제거하여 한 번만 정의)
 LOGGING = {
