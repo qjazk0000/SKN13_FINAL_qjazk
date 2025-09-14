@@ -27,6 +27,10 @@ function ChatReportsPage() {
   const [error, setError] = useState("");
 
   // 날짜 필터 상태
+  // UI 선택값 
+  const [selectedStartDate, setSelectedStartDate] = useState("");
+  const [selectedEndDate, setSelectedEndDate] = useState("");
+  // 실제 검색에 적용될 값 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -112,14 +116,16 @@ function ChatReportsPage() {
   };
 
   const fetchChatReports = useCallback(
-    async (page = 1, showLoading = true) => {
+    async (page = 1, showLoading = true, filters = {}) => {
+        const s = filters.startDate ?? startDate;
+        const e = filters.endDate ?? endDate;
       try {
         // 토큰 체크
-        // const token = localStorage.getItem("access_token");
-        // if (!token) {
-        //   console.log("토큰이 없어 API 호출을 건너뜁니다.");
-        //   return;
-        // }
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          console.log("토큰이 없어 API 호출을 건너뜁니다.");
+          return;
+        }
 
         if (showLoading) {
           setIsLoading(true);
@@ -130,12 +136,8 @@ function ChatReportsPage() {
         params.append("page", page.toString());
         params.append("page_size", "8");
 
-        if (startDate) {
-          params.append("start_date", startDate);
-        }
-        if (endDate) {
-          params.append("end_date", endDate);
-        }
+        if (s) {params.append("start_date", s);}
+        if (e) {params.append("end_date", e);}
 
         // 검색 조건 처리
         const trimmedSearchTerm = searchTerm.trim();
@@ -309,8 +311,8 @@ function ChatReportsPage() {
       return;
     }
 
-    setStartDate(start);
-    setEndDate(end);
+    setSelectedStartDate(start);
+    setSelectedEndDate(end);
     // 날짜 변경 시 1페이지부터 검색 시작
     setCurrentPage(1);
     // fetchChatReports(1);
@@ -318,13 +320,14 @@ function ChatReportsPage() {
 
   const handleSearch = () => {
     // 검색어가 없어도 날짜 필터가 있으면 검색 가능
-    if (!searchTerm.trim() && !startDate && !endDate) {
-      alert("검색어 또는 날짜를 입력해주세요.");
-      return;
-    }
-
+    // if (!searchTerm.trim() && !startDate && !endDate) {
+    //   alert("검색어 또는 날짜를 입력해주세요.");
+    //   return;
+    // }
+    setStartDate(selectedStartDate);
+    setEndDate(selectedEndDate); 
     setCurrentPage(1);
-    fetchChatReports(1);
+    fetchChatReports(1, true, {startDate:selectedStartDate, endDate:selectedEndDate});
   };
 
   const handleClearSearch = () => {
@@ -332,18 +335,21 @@ function ChatReportsPage() {
     setSearchType("dept");
     setStartDate("");
     setEndDate("");
+    setSelectedStartDate("");
+    setSelectedEndDate("");
     setCurrentPage(1);
-    // fetchChatReports(1);
+    // 검색 조건 초기화 시 데이터도 전체 목록으로 갱신
+    fetchChatReports(1, true, { startDate: "", endDate: "" });
   };
 
   // 날짜 필터만 초기화
-  const handleClearDateFilter = async () => {
-    setStartDate("");
-    setEndDate("");
-    setCurrentPage(1);
-    // fetchChatReports(1);
-    console.log("날짜 필터가 초기화되었습니다.", startDate, endDate);
-  };
+  // const handleClearDateFilter = async () => {
+  //   setStartDate("");
+  //   setEndDate("");
+  //   setCurrentPage(1);
+  //   // fetchChatReports(1);
+  //   console.log("날짜 필터가 초기화되었습니다.", startDate, endDate);
+  // };
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -386,13 +392,13 @@ function ChatReportsPage() {
         />
       </div>
       <div className="flex-1 overflow-y-auto p-6 bg-white">
-        <h1 className="text-2xl font-bold mb-6">대화 신고 내역</h1>
+        <h1 className="text-2xl font-bold mb-6">채팅 신고 내역</h1>
         <div className="mb-2">
           <DateSelectBar
-            startDate={startDate}
-            endDate={endDate}
+            startDate={selectedStartDate}
+            endDate={selectedEndDate}
             onDateChange={handleDateChange}
-            onClearDateFilter={handleClearDateFilter}
+            // onClearDateFilter={handleClearDateFilter}
           />
         </div>
 
@@ -451,7 +457,7 @@ function ChatReportsPage() {
                 </p>
                 {(startDate || endDate) && (
                   <button
-                    onClick={handleClearDateFilter}
+                    // onClick={handleClearDateFilter}
                     className="text-xs text-green-600 hover:text-green-800 underline"
                   >
                     날짜 필터 초기화
