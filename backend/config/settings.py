@@ -21,7 +21,7 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 # ALLOWED_HOSTS 파싱 및 정리
 ALLOWED_HOSTS = os.getenv(
     'ALLOWED_HOSTS',
-    'localhost,127.0.0.1,43.200.226.184,ec2-43-200-226-184.ap-northeast-2.compute.amazonaws.com,growing.ai.kr,api.growing.ai.kr'
+    'localhost,127.0.0.1,43.200.226.184,ec2-43-200-226-184.ap-northeast-2.compute.amazonaws.com,growing.ai.kr,api.growing.ai.kr,www.growing.ai.kr'
 ).split(',')
 ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS if host.strip()]
 
