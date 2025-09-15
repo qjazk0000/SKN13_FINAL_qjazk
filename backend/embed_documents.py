@@ -465,7 +465,9 @@ def main():
         print("❌ PDF 없음")
         return
 
-    print(f"📚 총 {len(pdf_files)}개의 PDF 파일을 처리합니다.")
+    # 테스트용으로 처음 10개 파일만 처리
+    pdf_files = pdf_files[:20]
+    print(f"📚 테스트용으로 {len(pdf_files)}개의 PDF 파일을 처리합니다.")
 
     batch: List[PointStruct] = []
 
