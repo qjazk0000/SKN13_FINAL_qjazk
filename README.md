@@ -119,15 +119,25 @@ SKN13-FINAL-6TEAM/
 
 ---
 
+## 시스템 아키텍처
+<img src="images\시스템 아키텍처.png" width="500" >
+
+---
+
+## DB 구조와 역할
+<img src="images\DB 구조와 역할.png" width="500" >
+
+---
+
 ## 서비스 구현 화면
 
-1. 업무 가이드 챗봇
+#### 1. 업무 가이드 챗봇
 ![readme용 시연영상](https://github.com/user-attachments/assets/d7efef5e-a4bb-48df-b47a-0c65f9730340)
 
-2. 영수증 이미지 처리
+#### 2. 영수증 이미지 처리
 ![readme용 영수증처리 영상](https://github.com/user-attachments/assets/2ac17db3-7ebc-452f-8026-392ec6ae28de)
 
-3. 관리자 페이지
+#### 3. 관리자 페이지
 <img width="1919" height="903" alt="스크린샷 2025-09-15 102432" src="https://github.com/user-attachments/assets/c4607c08-99e9-4f94-9351-ea2f2e0ceba3" />
 <img width="1918" height="903" alt="스크린샷 2025-09-15 102726" src="https://github.com/user-attachments/assets/4b3edac0-056a-4889-8727-4925a233d355" />
 
