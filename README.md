@@ -120,12 +120,12 @@ SKN13-FINAL-6TEAM/
 ---
 
 ## 시스템 아키텍처
-<img src="images\시스템 아키텍처.png" width="500" >
+<img src="images\시스템 아키텍처.png" width="1000" >
 
 ---
 
 ## DB 구조와 역할
-<img src="images\DB 구조와 역할.png" width="500" >
+<img src="images\DB 구조와 역할.png" width="1000" >
 
 ---
 
