@@ -161,7 +161,8 @@ def make_answer(query: str, contexts: List[Dict[str, Any]], api_key: Optional[st
         
         # 대화 히스토리가 있으면 추가 (안전성 검증 포함)
         if conversation_history and isinstance(conversation_history, list):
-            for msg in conversation_history:
+            print(f"DEBUG: 대화 히스토리 처리 시작 - {len(conversation_history)}개 메시지")
+            for i, msg in enumerate(conversation_history):
                 if isinstance(msg, dict) and "role" in msg and "content" in msg:
                     # 역할 검증 (user 또는 assistant만 허용)
                     role = msg.get("role", "user")
@@ -186,6 +187,10 @@ def make_answer(query: str, contexts: List[Dict[str, Any]], api_key: Optional[st
                                 "role": role,
                                 "content": content
                             })
+                            print(f"DEBUG: 대화 히스토리 메시지 {i+1} 추가: {role} - {content[:50]}...")
+                        else:
+                            print(f"DEBUG: 대화 히스토리 메시지 {i+1} 제외됨 (악성 패턴 또는 빈 내용)")
+            print(f"DEBUG: 대화 히스토리 처리 완료 - 총 {len(messages)-1}개 메시지 추가됨")
         
         # 현재 사용자 질문 추가 (마지막에 추가하여 우선순위 보장)
         messages.append({"role": "user", "content": user_prompt})
