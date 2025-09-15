@@ -1259,7 +1259,8 @@ def rag_answer_enhanced(user_query: str, conversation_history: List[Dict] = None
                 'total_time': result.get('total_time', 0),
                 'search_time': result.get('search_time', 0),
                 'answer_time': result.get('answer_time', 0),
-                'conversation_history_used': bool(conversation_history)
+                'conversation_history_used': bool(conversation_history),
+                'user_info': result.get('metadata', {}).get('user_info')  # 사용자 정보 포함
             }
         }
             
