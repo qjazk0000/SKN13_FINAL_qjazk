@@ -202,26 +202,35 @@ def update_user_context(conversation_history: List[Dict], user_info: Dict[str, s
     if not conversation_history:
         conversation_history = []
     
+    print(f"DEBUG: 사용자 정보 저장 시작 - user_info: {user_info}")
+    print(f"DEBUG: 기존 대화 히스토리 길이: {len(conversation_history)}")
+    
     # 기존 사용자 정보 찾기
     user_context = None
-    for msg in conversation_history:
+    for i, msg in enumerate(conversation_history):
         if isinstance(msg, dict) and msg.get("role") == "system" and "user_context" in msg.get("content", ""):
             user_context = msg
+            print(f"DEBUG: 기존 사용자 정보 발견 (인덱스 {i}): {msg.get('content', '')}")
             break
     
     # 새로운 사용자 정보 생성
-    context_content = f"user_context: {user_info}"
+    import json
+    context_content = f"user_context: {json.dumps(user_info, ensure_ascii=False)}"
+    print(f"DEBUG: 생성된 컨텍스트 내용: {context_content}")
     
     if user_context:
         # 기존 사용자 정보 업데이트
         user_context["content"] = context_content
+        print(f"DEBUG: 기존 사용자 정보 업데이트 완료")
     else:
         # 새로운 사용자 정보 추가
         conversation_history.insert(0, {
             "role": "system",
             "content": context_content
         })
+        print(f"DEBUG: 새로운 사용자 정보 추가 완료")
     
+    print(f"DEBUG: 업데이트된 대화 히스토리 길이: {len(conversation_history)}")
     return conversation_history
 
 def prioritize_results_by_department(search_results: List[Dict], user_department: str, openai_api_key: str = None) -> List[Dict]:
@@ -466,10 +475,14 @@ def get_user_context(conversation_history: List[Dict]) -> Dict[str, str]:
                 try:
                     import json
                     context_str = content.split("user_context:")[1].strip()
-                    return json.loads(context_str)
-                except:
+                    user_info = json.loads(context_str)
+                    print(f"DEBUG: 사용자 정보 추출 성공: {user_info}")
+                    return user_info
+                except Exception as e:
+                    print(f"DEBUG: 사용자 정보 추출 실패: {e}")
                     return {}
     
+    print(f"DEBUG: 대화 히스토리에서 사용자 정보를 찾을 수 없음. 히스토리 길이: {len(conversation_history)}")
     return {}
 
 def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = None, conversation_history: List[Dict] = None) -> Dict[str, Any]:
