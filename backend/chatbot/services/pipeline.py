@@ -44,7 +44,7 @@ def _init_prompts():
     
     if _SYSTEM_PROMPT is None:
         try:
-            system_prompt_path = '/app/prompts/system_prompt.md'
+            system_prompt_path = '/app/config/system_prompt.md'
             _SYSTEM_PROMPT = load_prompt(system_prompt_path,
                                          default="당신은 업무 가이드를 제공하는 전문가입니다.")
         except FileNotFoundError:
@@ -53,7 +53,7 @@ def _init_prompts():
     
     if _USER_PROMPT is None:
         try:
-            user_prompt_path = '/app/prompts/user_prompt.md'
+            user_prompt_path = '/app/config/user_prompt.md'
             _USER_PROMPT = load_prompt(user_prompt_path,
                                        default="위 문서들을 바탕으로 질문에 대한 정확한 답변을 제공해주세요.")
         except FileNotFoundError:
@@ -523,6 +523,16 @@ def answer_query(query: str, openai_api_key: str = None, explicit_domain: str = 
                 is_department_intro = True
                 logger.info(f"🏢 기존 사용자 정보에서 부서 추출: {department}")
                 print(f"DEBUG: 🏢 기존 사용자 정보에서 부서 추출: {department}")
+        
+        # 멀티턴 대화에서 "내가 해야 할 일" 같은 질문 처리
+        if not is_department_intro and not department and existing_department:
+            # 기존 대화에서 부서 정보가 있고, 현재 질문이 업무 관련이면 부서 소개로 처리
+            work_related_keywords = ['해야할', '해야 할', '업무', '일', '뭘', '무슨', '어떤', '해야돼', '해야 돼']
+            if any(keyword in query for keyword in work_related_keywords):
+                department = existing_department
+                is_department_intro = True
+                logger.info(f"🏢 멀티턴 대화에서 부서 정보 활용: {department}")
+                print(f"DEBUG: 🏢 멀티턴 대화에서 부서 정보 활용: {department}")
         
         if is_department_intro and department:
             logger.info(f"🏢 부서 소개 질문 감지: {department}")
