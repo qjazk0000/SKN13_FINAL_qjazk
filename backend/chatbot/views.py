@@ -304,15 +304,41 @@ class ChatQueryView(generics.CreateAPIView):
             conversation_history = []
             
             for msg in reversed(recent_messages):  # 시간순으로 정렬
-                conversation_history.append({
-                    'role': 'user' if msg.sender_type == 'user' else 'assistant',
-                    'content': msg.content
-                })
+                # [SYSTEM] 메시지는 system 역할로 변환
+                if msg.content.startswith('[SYSTEM]'):
+                    conversation_history.append({
+                        'role': 'system',
+                        'content': msg.content[8:]  # '[SYSTEM]' 제거
+                    })
+                else:
+                    conversation_history.append({
+                        'role': 'user' if msg.sender_type == 'user' else 'assistant',
+                        'content': msg.content
+                    })
             
             print(f"DEBUG: 대화 히스토리 ({len(conversation_history)}개 메시지): {conversation_history}")
             
             # 향상된 RAG 시스템을 통한 답변 생성 (대화 히스토리 포함)
             rag_result = rag_answer_enhanced(user_message, conversation_history=conversation_history)
+            
+            # 사용자 정보가 있으면 데이터베이스에 저장
+            if rag_result.get('metadata', {}).get('user_info'):
+                user_info = rag_result['metadata']['user_info']
+                # 이미 저장된 사용자 정보가 있는지 확인
+                existing_system_msg = conversation.messages.filter(
+                    content__startswith='[SYSTEM] user_context:'
+                ).first()
+                
+                if not existing_system_msg:
+                    # 사용자 정보를 데이터베이스에 저장
+                    import json
+                    context_content = f"user_context: {json.dumps(user_info, ensure_ascii=False)}"
+                    ChatMessage.objects.create(
+                        conversation=conversation,
+                        sender_type='ai',
+                        content=f"[SYSTEM] {context_content}"
+                    )
+                    print(f"DEBUG: 사용자 정보를 데이터베이스에 저장 완료: {user_info}")
             
             if rag_result.get("rag_used", False):
                 ai_response = rag_result["answer"]
