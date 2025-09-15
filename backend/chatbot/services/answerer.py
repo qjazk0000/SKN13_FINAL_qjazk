@@ -164,23 +164,28 @@ def make_answer(query: str, contexts: List[Dict[str, Any]], api_key: Optional[st
             print(f"DEBUG: 대화 히스토리 처리 시작 - {len(conversation_history)}개 메시지")
             for i, msg in enumerate(conversation_history):
                 if isinstance(msg, dict) and "role" in msg and "content" in msg:
-                    # 역할 검증 (user 또는 assistant만 허용)
+                    # 역할 검증 (user, assistant, system 허용)
                     role = msg.get("role", "user")
-                    if role in ["user", "assistant"]:
+                    if role in ["user", "assistant", "system"]:
                         # 내용 길이 제한 및 악성 패턴 검사 (프롬프트 인젝션 방어)
                         content = str(msg.get("content", ""))[:2000]  # 최대 2000자
                         
                         # 악성 패턴 검사 (프롬프트 인젝션 시도 차단)
-                        malicious_patterns = [
-                            "system", "assistant", "role", "prompt", "instruction",
-                            "ignore", "forget", "reset", "clear", "override",
-                            "you are now", "act as", "pretend to be",
-                            "show me", "tell me", "reveal", "output", "print",
-                            "base64", "hex", "morse", "rot13", "encode", "decode"
-                        ]
-                        
-                        content_lower = content.lower()
-                        is_malicious = any(pattern in content_lower for pattern in malicious_patterns)
+                        # system 메시지의 경우 user_context는 허용
+                        if role == "system" and "user_context:" in content:
+                            # 사용자 컨텍스트는 항상 허용
+                            is_malicious = False
+                        else:
+                            malicious_patterns = [
+                                "assistant", "role", "prompt", "instruction",
+                                "ignore", "forget", "reset", "clear", "override",
+                                "you are now", "act as", "pretend to be",
+                                "show me", "tell me", "reveal", "output", "print",
+                                "base64", "hex", "morse", "rot13", "encode", "decode"
+                            ]
+                            
+                            content_lower = content.lower()
+                            is_malicious = any(pattern in content_lower for pattern in malicious_patterns)
                         
                         if content.strip() and not is_malicious:  # 빈 내용과 악성 패턴 제외
                             messages.append({
